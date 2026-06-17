@@ -33,13 +33,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. In a real screen-share self-test, the overlay is fully absent (not a black rectangle), and content protection is re-applied after every show.
   4. All of behaviors 1-3 are verified on the target Windows 11 machine against the pinned Electron 35.x patch version, and that version is recorded in the repo.
   5. The contextIsolation/sandbox/typed-preload boundary and `safeStorage` are wired so no secret can reach the renderer, logs, or committed files — verified by a placeholder round-trip.
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 01-01: Scaffold electron-vite + TypeScript + React main/preload/renderer split
-- [ ] 01-02: WindowManager — transparent/frameless/always-on-top/focusable:false overlay with showInactive + content-protection re-apply wrapper
-- [ ] 01-03: Secret/IPC boundary — contextIsolation, sandbox, typed contextBridge, safeStorage placeholder round-trip
-- [ ] 01-04: On-machine verification of focus discipline + content protection; pin and document Electron 35.x; packaged transparency smoke test
+- [ ] 01-01-PLAN.md — Scaffold electron-vite + TS + React (main/preload/renderer), ESM, exact-pin electron@35.7.5 + lockfile, contextIsolation/sandbox/typed-preload boundary, IDEXX lint/format
+- [ ] 01-02-PLAN.md — Overlay WindowManager (transparent/frameless/always-on-top/focusable:false) + showOverlay() content-protection re-apply wrapper + read-only status channel + toggleable debug HUD (OVL-01/02/04)
+- [ ] 01-03-PLAN.md — Main-only safeStorage placeholder round-trip + `npm run verify:secret` PASS/FAIL; no renderer/IPC secret channel (SET-03)
+- [ ] 01-04-PLAN.md — GO/NO-GO gate: on-machine focus + screen-share content-protection verification, committed VERIFICATION.md with exact pinned Electron patch, minimal packaged .exe transparency smoke (OVL-06)
 
 **Notes**: GO/NO-GO GATE. "Verified on this machine" is the acceptance criterion, not an optional check (research flag: Phase 1 empirical). Start with the latest 35.x patch, verify BOTH content protection (no black box) AND that focus is never stolen, then pin and record the exact version; 35.0.1 is known-broken for content protection and the 40.x line for loopback. This phase also runs one early packaged smoke test purely to de-risk transparency rendering — the full PKG-01 packaging requirement is owned by Phase 7.
 
