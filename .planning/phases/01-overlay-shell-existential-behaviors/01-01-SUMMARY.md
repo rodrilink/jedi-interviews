@@ -159,6 +159,10 @@ None - no external service configuration required in this plan.
 - Ready for 01-02 (overlay WindowManager + debug HUD) to replace the scaffold window and extend `window.jedi` with a read-only status channel.
 - Open item carried to 01-04: confirm `electron@35.7.5` content-protection + non-focus-stealing behaviors on the target Windows 11 machine (10.0.26200) and record the exact build in VERIFICATION.md.
 
+## Self-Check: PASSED
+
+All 17 created files exist on disk and all three commits (`f86cfe7`, `0f38301`, `fc5a0b2`) are present in git history.
+
 ---
 *Phase: 01-overlay-shell-existential-behaviors*
 *Completed: 2026-06-17*

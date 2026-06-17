@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 1 context gathered
-last_updated: "2026-06-17T03:02:20.739Z"
-last_activity: 2026-06-17 -- Phase 1 planning complete
+last_updated: "2026-06-17T03:25:21.218Z"
+last_activity: 2026-06-17
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-16)
 
 **Core value:** When the user presses a hotkey during a meeting, a grounded, relevant AI response appears on the overlay fast enough to be useful — without ever stealing keyboard/mouse focus from the meeting app.
-**Current focus:** Phase 1 — Overlay Shell + Existential Behaviors
+**Current focus:** Phase 01 — overlay-shell-existential-behaviors
 
 ## Current Position
 
-Phase: 1 of 7 (Overlay Shell + Existential Behaviors)
-Plan: 0 of 4 in current phase
+Phase: 01 (overlay-shell-existential-behaviors) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-06-17 -- Phase 1 planning complete
+Last activity: 2026-06-17
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 25%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01 P01 | 7 | 2 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,8 @@ Recent decisions affecting current work:
 - Phase 1: Secret/IPC boundary (contextIsolation, sandbox, typed preload, safeStorage) wired in the scaffold before any API call.
 - Phase 3: Built-in loopback chosen over a native WASAPI helper; WASAPI sidecar is the documented fallback if the loopback spike shows silence.
 - Phase 4: STT behind an ISttProvider seam (Deepgram v5 now, Whisper later).
+- [Phase ?]: Phase 1: Sandboxed Electron preload built as CommonJS (.cjs) — Electron does not support ESM preloads under sandbox:true.
+- [Phase ?]: Phase 1: Pinned TypeScript 5.9.3 (latest 5.x) over TS 6.x to de-risk the electron-vite React-TS scaffold.
 
 ### Pending Todos
 
@@ -84,6 +87,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-17T01:26:37.747Z
+Last session: 2026-06-17T03:24:46.736Z
 Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-overlay-shell-existential-behaviors/01-CONTEXT.md
+Resume file: None
