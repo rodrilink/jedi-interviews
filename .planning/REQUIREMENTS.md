@@ -11,14 +11,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **OVL-01**: A transparent, frameless, always-on-top overlay window displays on top of all other windows
 - [x] **OVL-02**: The overlay never takes keyboard or mouse focus from the active meeting window (`focusable:false`, shown with `showInactive`)
-- [ ] **OVL-03**: The user can adjust the overlay's opacity by keyboard
+- [x] **OVL-03**: The user can adjust the overlay's opacity by keyboard
 - [x] **OVL-04**: The overlay is hidden from screen-share/recording capture (`setContentProtection`, re-applied after every show)
-- [ ] **OVL-05**: The user can show/hide the overlay by global hotkey
+- [x] **OVL-05**: The user can show/hide the overlay by global hotkey
 - [x] **OVL-06**: The overlay confirms its non-focus-stealing and screen-share-invisible behavior on the target Windows 11 machine and pinned Electron version
 
 ### Control
 
-- [ ] **CTL-01**: The user can move the overlay around the screen using the keyboard only
+- [x] **CTL-01**: The user can move the overlay around the screen using the keyboard only
 - [x] **CTL-02**: Global hotkeys function while another application (the meeting app) holds focus
 - [x] **CTL-03**: Hotkey registration failures and conflicts are detected and surfaced (not silently dropped)
 
@@ -106,9 +106,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OVL-04 | Phase 1 | Complete |
 | OVL-06 | Phase 1 | Complete |
 | SET-03 | Phase 1 | Complete |
-| OVL-03 | Phase 2 | Pending |
-| OVL-05 | Phase 2 | Pending |
-| CTL-01 | Phase 2 | Pending |
+| OVL-03 | Phase 2 | Complete |
+| OVL-05 | Phase 2 | Complete |
+| CTL-01 | Phase 2 | Complete |
 | CTL-02 | Phase 2 | Complete |
 | CTL-03 | Phase 2 | Complete |
 | AUD-01 | Phase 3 | Pending |

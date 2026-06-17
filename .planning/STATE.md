@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 2 context gathered
-last_updated: "2026-06-17T05:57:55.587Z"
+last_updated: "2026-06-17T06:07:10.547Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
   percent: 14
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 ## Current Position
 
 Phase: 02 (global-hotkeys-window-control) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-06-17
 
-Progress: [███████░░░] 71%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [███████░░░] 71%
 | Phase 01 P02 | 6min | 2 tasks | 7 files |
 | Phase 01 P03 | 4 | 2 tasks | 7 files |
 | Phase 02 P01 | 18min | 3 tasks | 7 files |
+| Phase Phase 02 P02 P02 | 12min | 2 tasks tasks | 8 files files |
 
 ## Accumulated Context
 
@@ -77,6 +78,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 02-01: uiohook from-source rebuild fails (no MSVC) but is non-blocking — prebuilt N-API binary loads under Electron 35.7.5 (human-verified); native path stays primary
 - [Phase ?]: 02-01: hold-to-repeat (D-01) implemented via repeated uiohook keydown events (no separate keyrepeat event); globalShortcut fallback fires once per press
 - [Phase ?]: 02-01: Ctrl+Alt chords (J/arrows/[]/H/Q) are PLACEHOLDER pending 02-03 conflict testing (D-05)
+- [Phase ?]: 02-02: overlay shown-state owned in overlay-window.manager (isOverlayVisible); show/hide chord branches on getOverlayVisible() — no duplicate state in index.ts
+- [Phase ?]: 02-02: move clamps full window against the union of all display work areas (crossing monitors allowed, never off the virtual desktop); opacity 0.1 steps rounded then clamped to [0.2,1.0]
+- [Phase ?]: 02-02: HUD content visibility is a pure view of the main-owned pushed hudVisible flag (D-15); cheat-sheet chords mirror 02-01 placeholders pending 02-03
 
 ### Pending Todos
 
@@ -103,6 +107,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-17T05:56:57.131Z
+Last session: 2026-06-17T06:06:35.981Z
 Stopped at: Phase 2 context gathered
 Resume file: None

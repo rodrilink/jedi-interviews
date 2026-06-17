@@ -79,7 +79,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-02-PLAN.md — WindowControlActionsService wired through the registrar: show/hide via showOverlay, 50px clamped move across monitors, 10% opacity steps, HUD toggle, quit (OVL-03, OVL-05, CTL-01)
+- [x] 02-02-PLAN.md — WindowControlActionsService wired through the registrar: show/hide via showOverlay, 50px clamped move across monitors, 10% opacity steps, HUD toggle, quit (OVL-03, OVL-05, CTL-01)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -216,7 +216,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Overlay Shell + Existential Behaviors | 4/4 | Complete   | 2026-06-17 |
-| 2. Global Hotkeys + Window Control | 1/3 | In Progress|  |
+| 2. Global Hotkeys + Window Control | 2/3 | In Progress|  |
 | 3. Audio Loopback Spike | 0/2 | Not started | - |
 | 4. STT Pipeline + Live Transcript | 0/4 | Not started | - |
 | 5. AI Orchestration (Answer + Talking Points) | 0/3 | Not started | - |
