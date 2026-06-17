@@ -23,12 +23,15 @@
         "format:check": "prettier --check .",
         "test": "vitest run",
         "package": "electron-vite build && electron-builder --win",
-        "verify:secret": "electron-vite build --config electron.vite.verify.config.ts && electron out/verify/verify-secret.js"
+        "verify:secret": "electron-vite build --config electron.vite.verify.config.ts && electron out/verify/verify-secret.js",
+        "rebuild": "electron-rebuild -f -w uiohook-napi"
     },
     "dependencies": {
-        "electron-store": "11.0.2"
+        "electron-store": "11.0.2",
+        "uiohook-napi": "1.5.5"
     },
     "devDependencies": {
+        "@electron/rebuild": "^4.0.1",
         "@types/node": "22.10.5",
         "@types/react": "19.2.17",
         "@types/react-dom": "19.2.3",
