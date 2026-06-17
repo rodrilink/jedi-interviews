@@ -43,10 +43,12 @@ interface IHotkeyChord {
 }
 
 /**
- * The locked five-group Ctrl+Alt action set (D-05). The action set is LOCKED but these exact
- * chords are PLACEHOLDERS — 02-03 finalizes the concrete defaults after conflict testing
- * against Teams/Zoom/VS Code so a colliding chord is never shipped. Do not treat these chord
- * choices as final.
+ * The locked five-group Ctrl+Alt action set (D-05) with its finalized default chords. These
+ * chords are the conflict-tested defaults: 02-03 empirically verified every one against
+ * Microsoft Teams, Zoom, and VS Code holding focus on the target Windows 11 machine — each
+ * overlay action fired, no app swallowed the chord, and every app-own Ctrl+Alt accelerator
+ * still fired (passive uiohook non-consumption, CTL-02). No chord collided, so the suggested
+ * defaults ship unchanged. See `.planning/phases/02-global-hotkeys-window-control/02-HOTKEY-CONFLICT-TEST.md`.
  */
 const HOTKEY_CHORDS: readonly IHotkeyChord[] = [
     { label: 'show/hide', keycode: UiohookKey.J, accelerator: 'Ctrl+Alt+J', kind: 'discrete' },

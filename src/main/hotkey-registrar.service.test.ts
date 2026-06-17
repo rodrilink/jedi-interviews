@@ -22,7 +22,7 @@ const mockStart = vi.fn<() => void>();
 const mockStop = vi.fn<() => void>();
 let fakeUiohook: FakeUiohook;
 
-// uiohook keycodes used by the locked placeholder chord set (mirrors UiohookKey).
+// uiohook keycodes used by the locked, conflict-tested chord set (mirrors UiohookKey).
 const KEYCODE = {
     J: 36,
     H: 35,

@@ -17,8 +17,9 @@ interface IOverlayStatus {
 
 /**
  * The compact hotkey cheat-sheet shown in the HUD (D-13) so it doubles as an on-screen
- * reference while the user learns the chords. The chords are the 02-01 PLACEHOLDERS — 02-03
- * finalizes the concrete defaults after conflict testing, at which point this copy is updated.
+ * reference while the user learns the chords. These are the finalized default chords —
+ * 02-03 conflict-tested them against Teams/Zoom/VS Code and shipped the suggested set
+ * unchanged (no collisions). See `02-HOTKEY-CONFLICT-TEST.md`.
  */
 const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: string }> = [
     { id: 'showhide', label: 'Show / Hide', chord: 'Ctrl+Alt+J' },
