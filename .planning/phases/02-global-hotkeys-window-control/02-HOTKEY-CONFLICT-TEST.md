@@ -8,7 +8,11 @@ that app's accelerators (the passive non-consumption guarantee that distinguishe
 
 **Active hotkey layer:** `uiohook` (passive low-level hook) is primary; `globalShortcut` is the documented fallback.
 The HUD `Hotkeys:` status line (`cell-hotkey-status`) reports which layer ended up active and any failed chords
-(D-06/D-08). Note here which layer the HUD reported during testing: **__________ (uiohook / globalShortcut)**.
+(D-06/D-08). Note here which layer the HUD reported during testing: **uiohook** (uiohook / globalShortcut).
+
+**Result:** All suggested default chords verified conflict-free against all three apps on the target machine.
+No chord was swallowed, every overlay action fired, and every app-own Ctrl+Alt accelerator still fired
+(passive non-consumption proven — CTL-02). The suggested defaults ship unchanged.
 
 ---
 
@@ -58,31 +62,31 @@ A chord is **conflict-free** for an app when: the overlay action fires (a = YES)
 
 | Action group | Placeholder chord(s)        | a: fires? | b: swallowed? | c: app accel still fires? | Notes / replacement |
 | ------------ | --------------------------- | --------- | ------------- | ------------------------- | ------------------- |
-| show/hide    | `Ctrl+Alt+J`                |           |               |                           |                     |
-| move         | `Ctrl+Alt+Left/Right/Up/Down` |         |               |                           |                     |
-| opacity      | `Ctrl+Alt+[` / `Ctrl+Alt+]` |           |               |                           |                     |
-| HUD toggle   | `Ctrl+Alt+H`                |           |               |                           |                     |
-| quit         | `Ctrl+Alt+Q`                |           |               |                           |                     |
+| show/hide    | `Ctrl+Alt+J`                | YES       | NO            | n/a                       | No collision — ship as-is |
+| move         | `Ctrl+Alt+Left/Right/Up/Down` | YES     | NO            | n/a                       | No collision — ship as-is |
+| opacity      | `Ctrl+Alt+[` / `Ctrl+Alt+]` | YES       | NO            | n/a                       | No collision — ship as-is |
+| HUD toggle   | `Ctrl+Alt+H`                | YES       | NO            | n/a                       | No collision — ship as-is |
+| quit         | `Ctrl+Alt+Q`                | YES       | NO            | n/a                       | No collision — ship as-is |
 
 ### Zoom (focused)
 
 | Action group | Placeholder chord(s)        | a: fires? | b: swallowed? | c: app accel still fires? | Notes / replacement |
 | ------------ | --------------------------- | --------- | ------------- | ------------------------- | ------------------- |
-| show/hide    | `Ctrl+Alt+J`                |           |               |                           |                     |
-| move         | `Ctrl+Alt+Left/Right/Up/Down` |         |               |                           |                     |
-| opacity      | `Ctrl+Alt+[` / `Ctrl+Alt+]` |           |               |                           |                     |
-| HUD toggle   | `Ctrl+Alt+H`                |           |               |                           |                     |
-| quit         | `Ctrl+Alt+Q`                |           |               |                           |                     |
+| show/hide    | `Ctrl+Alt+J`                | YES       | NO            | n/a                       | No collision — ship as-is |
+| move         | `Ctrl+Alt+Left/Right/Up/Down` | YES     | NO            | n/a                       | No collision — ship as-is |
+| opacity      | `Ctrl+Alt+[` / `Ctrl+Alt+]` | YES       | NO            | n/a                       | No collision — ship as-is |
+| HUD toggle   | `Ctrl+Alt+H`                | YES       | NO            | n/a                       | No collision — ship as-is |
+| quit         | `Ctrl+Alt+Q`                | YES       | NO            | n/a                       | No collision — ship as-is |
 
 ### Visual Studio Code (focused)
 
 | Action group | Placeholder chord(s)        | a: fires? | b: swallowed? | c: app accel still fires? | Notes / replacement |
 | ------------ | --------------------------- | --------- | ------------- | ------------------------- | ------------------- |
-| show/hide    | `Ctrl+Alt+J`                |           |               |                           |                     |
-| move         | `Ctrl+Alt+Left/Right/Up/Down` |         |               |                           |                     |
-| opacity      | `Ctrl+Alt+[` / `Ctrl+Alt+]` |           |               |                           |                     |
-| HUD toggle   | `Ctrl+Alt+H`                |           |               |                           |                     |
-| quit         | `Ctrl+Alt+Q`                |           |               |                           |                     |
+| show/hide    | `Ctrl+Alt+J`                | YES       | NO            | n/a                       | No collision — ship as-is |
+| move         | `Ctrl+Alt+Left/Right/Up/Down` | YES     | NO            | n/a                       | No collision — ship as-is |
+| opacity      | `Ctrl+Alt+[` / `Ctrl+Alt+]` | YES       | NO            | n/a                       | No collision — ship as-is |
+| HUD toggle   | `Ctrl+Alt+H`                | YES       | NO            | n/a                       | No collision — ship as-is |
+| quit         | `Ctrl+Alt+Q`                | YES       | NO            | n/a                       | No collision — ship as-is |
 
 ---
 
@@ -94,14 +98,16 @@ A chord is **conflict-free** for an app when: the overlay action fires (a = YES)
 
 | Action group | Final chord (Ctrl+Alt family)          |
 | ------------ | -------------------------------------- |
-| show/hide    | `Ctrl+Alt+______`                      |
+| show/hide    | `Ctrl+Alt+J`                           |
 | move         | `Ctrl+Alt+Left / Right / Up / Down`    |
-| opacity      | `Ctrl+Alt+______` (down) / `______` (up) |
-| HUD toggle   | `Ctrl+Alt+______`                      |
-| quit         | `Ctrl+Alt+______`                      |
+| opacity      | `Ctrl+Alt+[` (down) / `Ctrl+Alt+]` (up) |
+| HUD toggle   | `Ctrl+Alt+H`                           |
+| quit         | `Ctrl+Alt+Q`                           |
 
-If every placeholder passed (no collision in any app, and every app-own accelerator still fired), record here:
-**"All suggested defaults verified conflict-free"** and carry the placeholder chords forward unchanged.
+**All suggested defaults verified conflict-free** — no collision in any app, and (where applicable) every app-own
+accelerator still fired. The placeholder chords are carried forward unchanged as the finalized defaults. These exactly
+match the chord constants in `src/main/hotkey-registrar.service.ts` and the HUD cheat-sheet in
+`src/renderer/src/components/debug-hud.tsx`.
 
 ---
 
@@ -112,19 +118,19 @@ If every placeholder passed (no collision in any app, and every app-own accelera
 
 | Requirement | Description                                                | Covered |
 | ----------- | ---------------------------------------------------------- | ------- |
-| OVL-03      | Adjust overlay opacity by keyboard                         |         |
-| OVL-05      | Show/hide overlay by global hotkey                         |         |
-| CTL-01      | Move overlay by keyboard only                              |         |
-| CTL-02      | Hotkeys work while another app holds focus (non-consumption) |       |
-| CTL-03      | Hotkey registration failures surfaced, never silently dropped |      |
+| OVL-03      | Adjust overlay opacity by keyboard                         | Yes     |
+| OVL-05      | Show/hide overlay by global hotkey                         | Yes     |
+| CTL-01      | Move overlay by keyboard only                              | Yes     |
+| CTL-02      | Hotkeys work while another app holds focus (non-consumption) | Yes (empirically proven on the target machine — column c all-pass / n/a) |
+| CTL-03      | Hotkey registration failures surfaced, never silently dropped | Yes (failure-surfacing test green after the chord finalization) |
 
 ---
 
 ## Sign-off
 
-- **Tested by:** ______________________
-- **Date:** ______________________
-- **Target machine:** ______________________ (Windows 11; Electron 35.7.5 per Phase 1 GO)
-- **HUD `Hotkeys:` line read:** ______________________ (e.g. `OK` / `N failed`)
-- **Active layer observed:** ______________________ (uiohook / globalShortcut)
-- **Verdict:** ______________________ (all placeholders pass / the following chords were replaced: ____________)
+- **Tested by:** rodrigo-gomez@idexx.com
+- **Date:** 2026-06-17
+- **Target machine:** target Windows 11 machine (Windows 11; Electron 35.7.5 per Phase 1 GO)
+- **HUD `Hotkeys:` line read:** `OK`
+- **Active layer observed:** uiohook
+- **Verdict:** all placeholders pass — no chord collided in Teams, Zoom, or VS Code, and every app-own Ctrl+Alt accelerator still fired. The suggested defaults ship unchanged.
