@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 2 context gathered
-last_updated: "2026-06-17T05:38:07.036Z"
-last_activity: 2026-06-17 -- Phase 02 planning complete
+last_updated: "2026-06-17T05:57:55.587Z"
+last_activity: 2026-06-17
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 5
   percent: 14
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-16)
 
 **Core value:** When the user presses a hotkey during a meeting, a grounded, relevant AI response appears on the overlay fast enough to be useful — without ever stealing keyboard/mouse focus from the meeting app.
-**Current focus:** Phase 01 — overlay-shell-existential-behaviors
+**Current focus:** Phase 02 — global-hotkeys-window-control
 
 ## Current Position
 
-Phase: 01 (overlay-shell-existential-behaviors) — COMPLETE
-Plan: 4 of 4 — GO/NO-GO gate signed GO (2026-06-17, Electron 35.7.5, machine MSI)
+Phase: 02 (global-hotkeys-window-control) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-06-17 -- Phase 02 planning complete
+Last activity: 2026-06-17
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 71%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [██████████] 100%
 | Phase 01 P01 | 7 | 2 tasks | 17 files |
 | Phase 01 P02 | 6min | 2 tasks | 7 files |
 | Phase 01 P03 | 4 | 2 tasks | 7 files |
+| Phase 02 P01 | 18min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 1: Single read-only non-secret jedi:status channel (electronVersion/contentProtection/position) is the entire Phase 1 IPC surface; HUD is a toggleable debug component surviving into later phases (D-07/D-08).
 - [Phase ?]: Phase 1: safeStorage round-trip is main-only — fake placeholder, base64 ciphertext under electron-store key secretCiphertext; verify:secret prints PASS/FAIL only (D-04/D-05/V7)
 - [Phase ?]: Phase 1: verify:secret builds via a dedicated electron.vite.verify.config.ts to out/verify so the app's out/main build is untouched
+- [Phase ?]: 02-01: uiohook from-source rebuild fails (no MSVC) but is non-blocking — prebuilt N-API binary loads under Electron 35.7.5 (human-verified); native path stays primary
+- [Phase ?]: 02-01: hold-to-repeat (D-01) implemented via repeated uiohook keydown events (no separate keyrepeat event); globalShortcut fallback fires once per press
+- [Phase ?]: 02-01: Ctrl+Alt chords (J/arrows/[]/H/Q) are PLACEHOLDER pending 02-03 conflict testing (D-05)
 
 ### Pending Todos
 
@@ -99,6 +103,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-17T05:04:21.168Z
+Last session: 2026-06-17T05:56:57.131Z
 Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-global-hotkeys-window-control/02-CONTEXT.md
+Resume file: None

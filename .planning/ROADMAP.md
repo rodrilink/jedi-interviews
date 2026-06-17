@@ -75,7 +75,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — HotkeyRegistrarService via uiohook-napi (globalShortcut fallback): native install+rebuild, register()-result checking, Hotkeys: status line in the HUD (CTL-02, CTL-03)
+- [x] 02-01-PLAN.md — HotkeyRegistrarService via uiohook-napi (globalShortcut fallback): native install+rebuild, register()-result checking, Hotkeys: status line in the HUD (CTL-02, CTL-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -216,7 +216,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Overlay Shell + Existential Behaviors | 4/4 | Complete   | 2026-06-17 |
-| 2. Global Hotkeys + Window Control | 0/3 | Not started | - |
+| 2. Global Hotkeys + Window Control | 1/3 | In Progress|  |
 | 3. Audio Loopback Spike | 0/2 | Not started | - |
 | 4. STT Pipeline + Live Transcript | 0/4 | Not started | - |
 | 5. AI Orchestration (Answer + Talking Points) | 0/3 | Not started | - |

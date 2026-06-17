@@ -19,8 +19,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Control
 
 - [ ] **CTL-01**: The user can move the overlay around the screen using the keyboard only
-- [ ] **CTL-02**: Global hotkeys function while another application (the meeting app) holds focus
-- [ ] **CTL-03**: Hotkey registration failures and conflicts are detected and surfaced (not silently dropped)
+- [x] **CTL-02**: Global hotkeys function while another application (the meeting app) holds focus
+- [x] **CTL-03**: Hotkey registration failures and conflicts are detected and surfaced (not silently dropped)
 
 ### Audio & Transcript
 
@@ -109,8 +109,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OVL-03 | Phase 2 | Pending |
 | OVL-05 | Phase 2 | Pending |
 | CTL-01 | Phase 2 | Pending |
-| CTL-02 | Phase 2 | Pending |
-| CTL-03 | Phase 2 | Pending |
+| CTL-02 | Phase 2 | Complete |
+| CTL-03 | Phase 2 | Complete |
 | AUD-01 | Phase 3 | Pending |
 | AUD-02 | Phase 3 | Pending |
 | TRN-01 | Phase 4 | Pending |
