@@ -29,6 +29,9 @@ dev-config.local.json
 # Throwaway capture go/no-go spike scaffolding (Task 1, OQ-1) — never part of the bootstrap.
 capture-spike.scratch.cjs
 src/main/audio/capture-spike.scratch.ts
+*.scratch.cjs
+*.scratch.ts
+*.scratch.js
 
 # OS / editor
 .DS_Store

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 context gathered
-last_updated: "2026-06-17T20:45:01.714Z"
-last_activity: 2026-06-17 -- Phase 4 planning complete
+stopped_at: Completed 04-01-PLAN.md (capture GO)
+last_updated: "2026-06-17T23:02:25Z"
+last_activity: 2026-06-17 -- 04-01 complete (capture go/no-go GO; ISttProvider seam + resample utility)
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 13
-  completed_plans: 9
-  percent: 43
+  completed_plans: 10
+  percent: 46
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-16)
 
 **Core value:** When the user presses a hotkey during a meeting, a grounded, relevant AI response appears on the overlay fast enough to be useful — without ever stealing keyboard/mouse focus from the meeting app.
-**Current focus:** Phase 4 — stt pipeline + live transcript
+**Current focus:** Phase 04 — stt-pipeline-live-transcript
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-06-17 -- Phase 4 planning complete
+Phase: 04 (stt-pipeline-live-transcript) — EXECUTING
+Plan: 2 of 4 (04-01 complete)
+Status: Executing Phase 04
+Last activity: 2026-06-17 -- 04-01 complete (capture go/no-go GO; ISttProvider seam + resample utility)
 
-Progress: [██████████] 100%
+Progress: [███░░░░░░░] 25% (1 of 4 plans)
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [██████████] 100%
 | Phase Phase 02 PP03 | 8min | 2 tasks tasks | 4 files files |
 | Phase 03 P01 | 8min | 3 tasks | 12 files |
 | Phase 03 P02 | 6min | 2 tasks | 3 files |
+| Phase 04 P01 | 106min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,11 @@ Recent decisions affecting current work:
 - [Phase ?]: 02-03: CTL-02 non-consumption proven empirically (app-own Ctrl+Alt accelerators still fire); CTL-03 failure-surfacing path green after finalization
 - [Phase ?]: 03-01: AudioWorklet bundled as a dedicated rollup input entry (assets/rms-meter.worklet.js) — bare .ts via ?url/new URL emits raw untranspiled source the browser can't run
 - [Phase ?]: 03-01: First write-only renderer->main IPC channel jedi:audio-level (Option 1); setDisplayMediaRequestHandler scoped to local overlay webContents with useSystemPicker:false (D-03/T-03-01); setAudioLevel coerces non-finite IPC input to 0 (T-03-02)
+- 04-01: Capture go/no-go GO — native-recorder-nodejs@1.2.0 loads in-process under Electron 35.7.5 and captures non-silent WASAPI loopback PCM (RMS 0.10-0.35, peak 0.35259). Reverses the Phase 3 Chromium NO-GO; audiotee sidecar fallback NOT needed. NOTE: this supersedes the PROJECT.md "naudiodon WASAPI sidecar" wording — the validated package is native-recorder-nodejs, in-main-process (D-01), not a sidecar.
+- 04-01: Observed device format 48000 Hz / 2 ch / 16-bit — but the pipeline reads it from getDeviceFormat() and runs assertSampleRate(declared, actual); never hardcoded.
+- 04-01: native-recorder-nodejs MUST be installed with `npm install --ignore-scripts` (prebuild-install finds no ABI match; cmake-js fallback unavailable; tarball ships a usable prebuilds/win32-x64/NativeAudioSDK.node loaded by path). FLAG for CI and 04-04.
+- 04-01: CRITICAL for 04-04 — capture must target the CURRENTLY-ACTIVE output device, NOT isDefault. On this machine isDefault enumerated as a silent Headphones device while audio routed to Speakers (Realtek). `outputs.find(isDefault) ?? outputs[0]` is insufficient.
+- 04-01: ISttProvider seam (TRN-05) defined first, Deepgram-agnostic; pure unit-tested pcm-resample.utility (TRN-01) with loud rate assertion.
 
 ### Pending Todos
 
@@ -98,7 +104,8 @@ None yet.
 ### Blockers/Concerns
 
 - Phase 1 (GO/NO-GO): RESOLVED 2026-06-17. First gate run was NO-GO (overlay blocked mouse clicks — missing `setIgnoreMouseEvents`, OVL-02); fixed in quick task 260616-w65 and re-verified GO on the target Windows 11 machine. VERIFICATION.md signed GO at Electron 35.7.5.
-- Phase 3 (GO/NO-GO): RESOLVED 2026-06-17. Gate run was NO-GO — `getDisplayMedia`/Chromium loopback produced no signal even on general media on the target machine (MSI, Windows 10.0.26200.8655, Electron 35.7.5), root cause a continuous DXGI desktop-duplicator failure (`Duplication failed`) that breaks the capture session; built-in screen source, window source, and the `electron-audio-loopback` shim all failed identically. Not the D-09 comms-device-routing partial. Phase 4 uses the `naudiodon` WASAPI-sidecar capture path. 03-LOOPBACK-GATE.md signed NO-GO at Electron 35.7.5.
+- Phase 3 (GO/NO-GO): RESOLVED 2026-06-17. Gate run was NO-GO — `getDisplayMedia`/Chromium loopback produced no signal even on general media on the target machine (MSI, Windows 10.0.26200.8655, Electron 35.7.5), root cause a continuous DXGI desktop-duplicator failure (`Duplication failed`) that breaks the capture session; built-in screen source, window source, and the `electron-audio-loopback` shim all failed identically. Not the D-09 comms-device-routing partial. Phase 4 uses a native WASAPI capture addon. 03-LOOPBACK-GATE.md signed NO-GO at Electron 35.7.5.
+- Phase 4 capture (OQ-1 GO/NO-GO): RESOLVED 2026-06-17 — GO. native-recorder-nodejs@1.2.0 loads in-process under Electron 35.7.5 and captures non-silent WASAPI loopback PCM (RMS 0.10-0.35, 48kHz/2ch/16-bit). The single biggest Phase 4 unknown is discharged; the WASAPI-in-main capture path is validated. 04-01-SUMMARY.md records the GO. Two MUST-honor findings for 04-04: install with `--ignore-scripts`; target the currently-active output device, not isDefault.
 
 ### Quick Tasks Completed
 
@@ -116,6 +123,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-17T19:52:43.739Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-stt-pipeline-live-transcript/04-CONTEXT.md
+Last session: 2026-06-17T23:02:25Z
+Stopped at: Completed 04-01-PLAN.md (capture go/no-go GO)
+Resume file: .planning/phases/04-stt-pipeline-live-transcript/04-02-PLAN.md

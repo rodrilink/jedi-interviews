@@ -133,7 +133,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Capture go/no-go gate (native-recorder-nodejs, OQ-1) + ISttProvider seam + pure PCM resample/rate-assert utility (TRN-01, TRN-05)
+- [x] 04-01-PLAN.md — Capture go/no-go gate (native-recorder-nodejs, OQ-1) + ISttProvider seam + pure PCM resample/rate-assert utility (TRN-01, TRN-05) — GO (RMS 0.10-0.35, 48kHz/2ch/16-bit); 04-04 must target the active output device, not isDefault, and install with --ignore-scripts
 
 **Wave 2** *(blocked on 04-01)*
 
@@ -231,7 +231,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Overlay Shell + Existential Behaviors | 4/4 | Complete   | 2026-06-17 |
 | 2. Global Hotkeys + Window Control | 3/3 | Complete   | 2026-06-17 |
 | 3. Audio Loopback Spike | 2/2 | Complete   | 2026-06-17 |
-| 4. STT Pipeline + Live Transcript | 0/4 | Not started | - |
+| 4. STT Pipeline + Live Transcript | 1/4 | In progress | - |
 | 5. AI Orchestration (Answer + Talking Points) | 0/3 | Not started | - |
 | 6. Session Context + Settings Window | 0/4 | Not started | - |
 | 7. Screenshot Vision + Packaging & Hardening | 0/3 | Not started | - |
