@@ -28,7 +28,7 @@ focus from the meeting app.
 ### Active
 
 - [ ] Transparent, always-on-top overlay window with adjustable opacity
-- [ ] Capture system (computer) audio via Electron built-in loopback
+- [ ] Capture system (computer) audio — built-in Electron loopback is NO-GO on the target machine (Phase 3 gate, 2026-06-17: DXGI duplicator failure); Phase 4 captures via the `naudiodon` WASAPI sidecar instead. Still required; only the mechanism changed.
 - [ ] Live rolling transcript of the captured audio, shown on the overlay
 - [ ] Hotkey: answer an interview question from the recent transcript
 - [ ] Hotkey: suggest talking points when the team is discussing project tasks
@@ -81,7 +81,8 @@ focus from the meeting app.
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Electron + TypeScript | Best overlay/screenshot support; matches user's TS-first stack | — Pending |
-| Electron built-in loopback, system audio only | Pure-JS, no native binary; mic deferred | — Pending |
+| Electron built-in loopback, system audio only | Pure-JS, no native binary; mic deferred | ✗ NO-GO (2026-06-17) — DXGI desktop-duplicator fails on the target machine (MSI); `getDisplayMedia` loopback is silent even on general media. Built-in screen/window source and the `electron-audio-loopback` shim all failed identically. Phase 4 uses the `naudiodon` WASAPI sidecar. See 03-LOOPBACK-GATE.md. |
+| `naudiodon` WASAPI sidecar for system-audio capture | Built-in loopback NO-GO on the target machine (DXGI duplicator failure); WASAPI loopback runs in a separate process and never touches Chromium's screen capturer | ✓ Adopted for Phase 4 (2026-06-17) — system-audio requirement (AUD-01/AUD-02) unchanged; only the capture mechanism changes. The 03-01 audio-capture seam isolates the swap from the STT/transcript code. |
 | Deepgram streaming STT behind a provider interface | Cheap, low-latency, swappable for local Whisper later | — Pending |
 | Claude (Opus 4.8 hard / Haiku 4.5 fast) | User is in the Anthropic ecosystem; tiered for cost/quality | — Pending |
 | Hotkey-driven AI triggers (no auto-detect) | Predictable, cheap, no awkward unprompted pop-ups; fits keyboard-only requirement | — Pending |
@@ -105,4 +106,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-17 — Phase 2 complete (keyboard-only global hotkey control loop; show/hide, move, opacity working while a meeting app holds focus, with registration failures surfaced).*
+*Last updated: 2026-06-17 — Phase 3 loopback gate NO-GO (built-in `getDisplayMedia` loopback silent on the target machine due to a DXGI desktop-duplicator failure); Phase 4 will capture system audio via the `naudiodon` WASAPI sidecar.*

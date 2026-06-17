@@ -69,7 +69,8 @@ Recent decisions affecting current work:
 
 - Phase 1: Electron pinned to a known-good 35.x patch (NOT 35.0.1; avoid the 40.x line). Exact version verified and recorded on the target machine.
 - Phase 1: Secret/IPC boundary (contextIsolation, sandbox, typed preload, safeStorage) wired in the scaffold before any API call.
-- Phase 3: Built-in loopback chosen over a native WASAPI helper; WASAPI sidecar is the documented fallback if the loopback spike shows silence.
+- Phase 3: Built-in loopback chosen over a native WASAPI helper; WASAPI sidecar is the documented fallback if the loopback spike shows silence. **[SUPERSEDED by the 03-02 gate below — the loopback spike showed silence.]**
+- Phase 3: **NO-GO (2026-06-17)** — on-machine gate (MSI, Windows 10.0.26200.8655, Electron 35.7.5) found `getDisplayMedia`/Chromium loopback **silent on general media** (HUD `Audio:` stuck at 0); root cause is a continuous DXGI desktop-duplicator failure that breaks the whole capture session. Built-in screen source, window source, and the `electron-audio-loopback` shim all failed identically. This is a full NO-GO (not the D-09 comms-device-routing partial). Phase 4 therefore uses the **`naudiodon` WASAPI-sidecar** capture path (separate process, never touches Chromium screen capture). See `.planning/phases/03-audio-loopback-spike/03-LOOPBACK-GATE.md`.
 - Phase 4: STT behind an ISttProvider seam (Deepgram v5 now, Whisper later).
 - [Phase ?]: Phase 1: Sandboxed Electron preload built as CommonJS (.cjs) — Electron does not support ESM preloads under sandbox:true.
 - [Phase ?]: Phase 1: Pinned TypeScript 5.9.3 (latest 5.x) over TS 6.x to de-risk the electron-vite React-TS scaffold.
@@ -95,7 +96,7 @@ None yet.
 ### Blockers/Concerns
 
 - Phase 1 (GO/NO-GO): RESOLVED 2026-06-17. First gate run was NO-GO (overlay blocked mouse clicks — missing `setIgnoreMouseEvents`, OVL-02); fixed in quick task 260616-w65 and re-verified GO on the target Windows 11 machine. VERIFICATION.md signed GO at Electron 35.7.5.
-- Phase 3 (GO/NO-GO): System-audio loopback must produce non-silent audio (RMS meter) before the STT pipeline is built; silence triggers the WASAPI-sidecar fallback.
+- Phase 3 (GO/NO-GO): RESOLVED 2026-06-17. Gate run was NO-GO — `getDisplayMedia`/Chromium loopback produced no signal even on general media on the target machine (MSI, Windows 10.0.26200.8655, Electron 35.7.5), root cause a continuous DXGI desktop-duplicator failure (`Duplication failed`) that breaks the capture session; built-in screen source, window source, and the `electron-audio-loopback` shim all failed identically. Not the D-09 comms-device-routing partial. Phase 4 uses the `naudiodon` WASAPI-sidecar capture path. 03-LOOPBACK-GATE.md signed NO-GO at Electron 35.7.5.
 
 ### Quick Tasks Completed
 
