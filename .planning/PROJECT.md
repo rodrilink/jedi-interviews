@@ -23,12 +23,11 @@ focus from the meeting app.
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Overlay is moved and controlled by keyboard only (global hotkeys), never stealing focus from the meeting app — Validated in Phase 2: Global Hotkeys + Window Control (conflict-tested against Teams/Zoom/VS Code, 2026-06-17)
 
 ### Active
 
 - [ ] Transparent, always-on-top overlay window with adjustable opacity
-- [ ] Overlay is moved and controlled by keyboard only (global hotkeys), never stealing focus from the meeting app
 - [ ] Capture system (computer) audio via Electron built-in loopback
 - [ ] Live rolling transcript of the captured audio, shown on the overlay
 - [ ] Hotkey: answer an interview question from the recent transcript
@@ -106,4 +105,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-16 after initialization*
+*Last updated: 2026-06-17 — Phase 2 complete (keyboard-only global hotkey control loop; show/hide, move, opacity working while a meeting app holds focus, with registration failures surfaced).*
