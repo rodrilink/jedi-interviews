@@ -1,0 +1,13 @@
+# Minimal Windows packaging config for the Phase 1 transparency smoke test (D-10).
+# Installer/signing and full re-verification of the packaged build are deferred to Phase 7 (PKG-01).
+appId: com.rodrigo.jedi-interviews
+productName: Jedi Interviews
+directories:
+    output: release
+    buildResources: build
+files:
+    - out/**/*
+    - package.json
+win:
+    target:
+        - portable

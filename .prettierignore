@@ -1,0 +1,8 @@
+node_modules
+out
+dist
+release
+package-lock.json
+.planning
+.claude
+CLAUDE.md

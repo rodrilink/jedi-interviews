@@ -1,0 +1,43 @@
+{
+    "name": "jedi-interviews",
+    "version": "1.0.0",
+    "description": "A personal Windows desktop assistant for meetings and interviews — a transparent, always-on-top, keyboard-controlled overlay.",
+    "type": "module",
+    "main": "./out/main/index.js",
+    "author": "rodrigo-gomez@idexx.com",
+    "license": "UNLICENSED",
+    "private": true,
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "dev": "electron-vite dev",
+        "build": "electron-vite build",
+        "preview": "electron-vite preview",
+        "start": "electron-vite preview",
+        "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+        "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
+        "typecheck": "npm run typecheck:node && npm run typecheck:web",
+        "lint": "oxlint .",
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
+    },
+    "dependencies": {
+        "electron-store": "11.0.2"
+    },
+    "devDependencies": {
+        "@types/node": "22.10.5",
+        "@types/react": "19.2.17",
+        "@types/react-dom": "19.2.3",
+        "@vitejs/plugin-react": "4.3.4",
+        "electron": "35.7.5",
+        "electron-builder": "26.15.3",
+        "electron-vite": "5.0.0",
+        "oxlint": "1.70.0",
+        "prettier": "3.4.2",
+        "react": "19.2.7",
+        "react-dom": "19.2.7",
+        "typescript": "5.9.3",
+        "vite": "6.0.7"
+    }
+}

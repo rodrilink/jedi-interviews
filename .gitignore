@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+*.tsbuildinfo
+
+# electron-builder packaging output
+release/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local electron-store data (lives in userData, but guard against any local copy)
+*.json.bak
+config.json.tmp
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
