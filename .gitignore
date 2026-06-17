@@ -17,6 +17,19 @@ npm-debug.log*
 *.json.bak
 config.json.tmp
 
+# Local dev secrets (D-08): the Deepgram API key is sourced from an env var or a local
+# untracked dev-config read in main only — never committed (honors SET-03). Phase 6's
+# safeStorage-backed entry replaces this source without touching the gateway.
+.env
+.env.*
+*.local
+secrets.local.json
+dev-config.local.json
+
+# Throwaway capture go/no-go spike scaffolding (Task 1, OQ-1) — never part of the bootstrap.
+capture-spike.scratch.cjs
+src/main/audio/capture-spike.scratch.ts
+
 # OS / editor
 .DS_Store
 Thumbs.db
