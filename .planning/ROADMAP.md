@@ -69,13 +69,13 @@ Plans:
   4. Global hotkeys fire while a real meeting app (e.g. Teams or Zoom) is the focused window, without stealing that app's accelerators.
   5. A hotkey that fails to register or conflicts is detected and surfaced to the user, never silently dropped.
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 
-- [ ] 02-01: HotkeyService via uiohook-napi (with globalShortcut fallback), register()-return checking and surfacing
-- [ ] 02-02: Window-control actions — show/hide (through the content-protection wrapper), move, opacity
-- [ ] 02-03: Conflict testing against Teams/Zoom/VS Code; choose Ctrl+Alt default set
+- [ ] 02-01-PLAN.md — HotkeyRegistrarService via uiohook-napi (globalShortcut fallback): native install+rebuild, register()-result checking, Hotkeys: status line in the HUD (CTL-02, CTL-03)
+- [ ] 02-02-PLAN.md — WindowControlActionsService wired through the registrar: show/hide via showOverlay, 50px clamped move across monitors, 10% opacity steps, HUD toggle, quit (OVL-03, OVL-05, CTL-01)
+- [ ] 02-03-PLAN.md — Conflict testing against Teams/Zoom/VS Code on the target machine; finalize the default Ctrl+Alt chord set (CTL-02, OVL-05, OVL-03, CTL-01)
 
 **Notes**: Check the `register()` return from the first hotkey written. If the uiohook-napi native rebuild proves difficult on this machine, fall back to globalShortcut with conflict detection (research flag: Phase 2 evaluate rebuild). Standard patterns — no deeper research needed.
 
