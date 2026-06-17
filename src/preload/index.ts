@@ -20,13 +20,20 @@ export interface IOverlayStatus {
 /** IPC channel for the read-only, non-secret status push from main (D-05). */
 const STATUS_CHANNEL = 'jedi:status';
 
+/** IPC channel for the single write-only renderer → main RMS level report (D-04/D-05). */
+const AUDIO_LEVEL_CHANNEL = 'jedi:audio-level';
+
 /**
  * The single typed, read-only, NON-SECRET namespace exposed on `window.jedi`.
  *
  * Phase 1 establishes the structural boundary only (D-06): no secret-bearing channels
- * exist (D-05). `onStatus` is the ONLY IPC surface in Phase 1 — a one-way main → renderer
- * subscription carrying proof-of-life data (Electron version, content-protection state,
- * window position) for the debug HUD. The renderer can only listen; it cannot push back.
+ * exist (D-05). `onStatus` is a one-way main → renderer subscription carrying proof-of-life
+ * data (Electron version, content-protection state, window position) for the debug HUD.
+ *
+ * Phase 3 adds the ONE exception to the otherwise listen-only boundary: `reportAudioLevel`
+ * is a narrow, single-purpose, write-only renderer → main channel for the non-secret RMS
+ * level (D-04/D-05). Everything else stays one-way main → renderer; no general control
+ * surface is exposed.
  */
 const jediApi = {
     /** Marks the structural boundary as live. */
@@ -39,6 +46,19 @@ const jediApi = {
      */
     onStatus(callback: (status: IOverlayStatus) => void): void {
         ipcRenderer.on(STATUS_CHANNEL, (_event: IpcRendererEvent, status: IOverlayStatus) => callback(status));
+    },
+
+    /**
+     * Reports the latest renderer-computed RMS audio level to the main process (D-04/D-05).
+     *
+     * This is the app's ONLY write-direction IPC surface: main re-broadcasts the value on the
+     * read-only `jedi:status` channel so the HUD `Audio:` row reflects it. The level is a
+     * non-secret scalar in `[0, 1]`; no audio samples or secrets cross this channel.
+     *
+     * @param level - The RMS audio level in the range `[0, 1]`.
+     */
+    reportAudioLevel(level: number): void {
+        ipcRenderer.send(AUDIO_LEVEL_CHANNEL, level);
     },
 };
 
