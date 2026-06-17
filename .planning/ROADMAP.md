@@ -99,12 +99,17 @@ Plans:
   2. A live RMS meter shows a non-zero signal while system audio plays, confirming the capture is not silent — verified on the target Windows 11 machine and the pinned Electron version from Phase 1.
   3. The spike result is recorded as a documented decision: proceed with built-in loopback, or trigger the WASAPI-sidecar fallback.
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 
-- [ ] 03-01: Isolated loopback capture spike with live RMS meter
-- [ ] 03-02: On-machine verification and recorded go/no-go decision (built-in loopback vs WASAPI sidecar fallback)
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Loopback capture seam + AudioWorklet RMS + live Audio: HUD row wired end-to-end via jedi:status; auto-start no-picker capture; unit-tested RMS utility (AUD-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-02-PLAN.md — On-machine human-judged two-source (general media + Teams/Zoom) go/no-go verification; committed 03-LOOPBACK-GATE.md + decision logged in STATE.md/PROJECT.md (AUD-02)
 
 **Notes**: GO/NO-GO GATE. Loopback silence is the single biggest technical risk (research flag: Phase 3 spike gate). Keep this phase small and gate-like. `getDisplayMedia` with `audio:true, video:false` throws on Windows — `video:true` must be present. If the result is silence, the WASAPI-sidecar fallback changes the build plan for Phase 4. Do not start Deepgram integration until this gate passes.
 
