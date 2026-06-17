@@ -95,6 +95,13 @@ Add a `keyup` listener that clears the keycode from `heldDiscreteKeycodes` so th
 press fires. Update the test at `:199` to assert `show/hide` fires **once** across repeated
 keydowns.
 
+**RESOLVED (commit 63fdff4):** `dispatchUiohookKeydown` now branches on `chord.kind`. Discrete
+chords use a `heldDiscreteKeycodes` leading-edge guard — fire once per press, ignore the OS
+auto-repeat keydown stream until a `keyup` listener clears the held keycode. Repeat chords
+(move/opacity) are untouched and still fire per keydown (D-01). `teardown()` clears the held set.
+The misleading "idempotent toggle" comment was replaced. Tests now assert: held discrete chord
+fires once across two keydowns, fires again after a keyup, and repeat chords fire per keydown.
+
 ## Warnings
 
 ### WR-01: `register()` is non-idempotent — duplicate uiohook listeners stack
