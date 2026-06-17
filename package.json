@@ -21,7 +21,8 @@
         "lint": "oxlint .",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
-        "test": "vitest run"
+        "test": "vitest run",
+        "verify:secret": "electron-vite build --config electron.vite.verify.config.ts && electron out/verify/verify-secret.js"
     },
     "dependencies": {
         "electron-store": "11.0.2"
