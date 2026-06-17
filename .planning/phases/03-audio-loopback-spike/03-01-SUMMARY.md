@@ -114,3 +114,7 @@ None. The capture path is fully wired; the only thing not exercised here is the 
 ## Threat Flags
 
 None beyond the plan's `<threat_model>`. The new surface (`setDisplayMediaRequestHandler`, `ipcMain.on('jedi:audio-level')`) is exactly the registered T-03-01/T-03-02 surface and is mitigated as planned.
+
+## Self-Check: PASSED
+
+All created files present on disk (rms.utility.ts, rms.utility.test.ts, rms-meter.worklet.ts, audio-capture.service.ts, env.d.ts, 03-01-SUMMARY.md) and the transpiled worklet asset emitted (out/renderer/assets/rms-meter.worklet.js). All task commits verified in git log: b2eb5f7, ecdf081, 65276bc, 1ccbb0b.

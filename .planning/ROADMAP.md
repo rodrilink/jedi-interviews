@@ -105,7 +105,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — Loopback capture seam + AudioWorklet RMS + live Audio: HUD row wired end-to-end via jedi:status; auto-start no-picker capture; unit-tested RMS utility (AUD-01)
+- [x] 03-01-PLAN.md — Loopback capture seam + AudioWorklet RMS + live Audio: HUD row wired end-to-end via jedi:status; auto-start no-picker capture; unit-tested RMS utility (AUD-01)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -222,7 +222,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Overlay Shell + Existential Behaviors | 4/4 | Complete   | 2026-06-17 |
 | 2. Global Hotkeys + Window Control | 3/3 | Complete   | 2026-06-17 |
-| 3. Audio Loopback Spike | 0/2 | Not started | - |
+| 3. Audio Loopback Spike | 1/2 | In Progress|  |
 | 4. STT Pipeline + Live Transcript | 0/4 | Not started | - |
 | 5. AI Orchestration (Answer + Talking Points) | 0/3 | Not started | - |
 | 6. Session Context + Settings Window | 0/4 | Not started | - |
