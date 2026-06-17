@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 ## Current Position
 
 Phase: 01 (overlay-shell-existential-behaviors) — EXECUTING
-Plan: 4 of 4
-Status: Ready to execute
-Last activity: 2026-06-17
+Plan: 4 of 4 — GO/NO-GO gate paused (NO-GO on first run; click-through fixed, re-run required)
+Status: Plan 01-04 open — re-run on-machine gate after quick task 260616-w65
+Last activity: 2026-06-17 -- Completed quick task 260616-w65: overlay click-through fix
 
 Progress: [████████░░] 75%
 
@@ -80,8 +80,14 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 1 (GO/NO-GO): Focus discipline + content protection must be verified on the target Windows 11 machine before any feature work. Version-coupled Electron risk.
+- Phase 1 (GO/NO-GO): on the first on-machine gate run (2026-06-17), focus/transparency/content-protection all passed, but the overlay BLOCKED mouse clicks to windows beneath it (missing `setIgnoreMouseEvents` — OVL-02 violation). Fixed in quick task 260616-w65. The 01-04 gate must be RE-RUN on the target Windows 11 machine before Phase 1 can be signed off GO.
 - Phase 3 (GO/NO-GO): System-audio loopback must produce non-silent audio (RMS meter) before the STT pipeline is built; silence triggers the WASAPI-sidecar fallback.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260616-w65 | Fix overlay click-through bug — overlay swallowed mouse clicks (OVL-02 gap from Phase 1 gate) | 2026-06-17 | 4115f62 | [260616-w65-fix-overlay-click-through-bug-overlay-wi](./quick/260616-w65-fix-overlay-click-through-bug-overlay-wi/) |
 
 ## Deferred Items
 
