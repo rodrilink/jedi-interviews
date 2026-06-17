@@ -64,3 +64,18 @@ body {
     font-variant-numeric: tabular-nums;
     color: rgb(226 232 240 / 100%);
 }
+
+/*
+ * The hotkey cheat-sheet block (D-13): a compact reference of the bound chords below the status
+ * rows. Separated by a hairline rule; each row reuses the __key/__value styling so the chords
+ * line up with the status grid above.
+ */
+.debug-hud__cheatsheet {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgb(148 163 184 / 24%);
+}
+
+.debug-hud__cheatsheet-row {
+    display: contents;
+}

@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron';
-import { createOverlayWindow, showOverlay, pushStatus, setHotkeyStatus } from './overlay-window.manager';
-import { HotkeyRegistrarService, HOTKEY_ACTION_LABELS, type HotkeyHandlerMap } from './hotkey-registrar.service';
+import { createOverlayWindow, showOverlay, pushStatus, setHotkeyStatus, getOverlayVisible } from './overlay-window.manager';
+import { HotkeyRegistrarService, type HotkeyHandlerMap } from './hotkey-registrar.service';
+import { WindowControlActionsService } from './window-control.actions';
 
 /**
  * The single hotkey registrar for the app's lifetime. Instantiated once after the overlay
@@ -10,19 +11,34 @@ import { HotkeyRegistrarService, HOTKEY_ACTION_LABELS, type HotkeyHandlerMap } f
 let hotkeyRegistrar: HotkeyRegistrarService | undefined;
 
 /**
- * Builds the action-label -> handler map for the registrar. In 02-01 every handler is a no-op
- * stub so the registration + failure-surfacing + hold-to-repeat seam can be proven end to end;
- * 02-02 replaces these with the real window-control handlers (move, opacity, show/hide, quit).
+ * Builds the action-label -> handler map for the registrar from the real window-control
+ * actions (02-02). Each label maps to a method on {@link WindowControlActionsService} that
+ * mutates the overlay window. The single show/hide chord branches on the main-owned
+ * {@link getOverlayVisible} state (owned in overlay-window.manager, not duplicated here): hide
+ * when currently visible, show via {@link showOverlay} when hidden (D-14/D-15). The four move
+ * directions, opacity up/down, the HUD-content toggle (D-14), and quit (D-04) map directly.
  *
+ * @param actions - The window-control action service bound to the overlay window.
  * @returns A handler map covering every locked action label.
  */
-function buildStubHandlers(): HotkeyHandlerMap {
-    const handlers: HotkeyHandlerMap = {};
-    for (const label of HOTKEY_ACTION_LABELS) {
-        handlers[label] = (): void => {};
-    }
-
-    return handlers;
+function buildHandlers(actions: WindowControlActionsService): HotkeyHandlerMap {
+    return {
+        'show/hide': (): void => {
+            if (getOverlayVisible()) {
+                actions.hideOverlay();
+            } else {
+                actions.showOverlay();
+            }
+        },
+        'move-left': (): void => actions.moveLeft(),
+        'move-right': (): void => actions.moveRight(),
+        'move-up': (): void => actions.moveUp(),
+        'move-down': (): void => actions.moveDown(),
+        'opacity-down': (): void => actions.opacityDown(),
+        'opacity-up': (): void => actions.opacityUp(),
+        'hud-toggle': (): void => actions.toggleHud(),
+        quit: (): void => actions.quit(),
+    };
 }
 
 /**
@@ -50,8 +66,10 @@ app.whenReady().then(() => {
 
     // Register the global hotkey layer after the overlay boots. The aggregated outcome is
     // fed to the HUD over the read-only jedi:status channel (D-06) — startup-only (D-07), and
-    // the app launches even if some chords fail (D-08). Real handlers arrive in 02-02.
-    hotkeyRegistrar = new HotkeyRegistrarService(buildStubHandlers());
+    // the app launches even if some chords fail (D-08). The real window-control handlers
+    // (02-02) mutate this overlay window when their chords fire.
+    const windowControlActions = new WindowControlActionsService(window);
+    hotkeyRegistrar = new HotkeyRegistrarService(buildHandlers(windowControlActions));
     const result = hotkeyRegistrar.register();
     setHotkeyStatus(result);
     pushStatus(window);

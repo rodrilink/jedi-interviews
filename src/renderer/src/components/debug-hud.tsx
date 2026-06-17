@@ -11,19 +11,36 @@ interface IOverlayStatus {
     position: { x: number; y: number };
     /** Startup hotkey-registration outcome (D-06). Declared identically in main and preload. */
     hotkeys: { active: string; failed: string[] };
+    /** Whether the HUD content is shown (D-14/D-15). Main-owned; declared identically in main and preload. */
+    hudVisible: boolean;
 }
+
+/**
+ * The compact hotkey cheat-sheet shown in the HUD (D-13) so it doubles as an on-screen
+ * reference while the user learns the chords. The chords are the 02-01 PLACEHOLDERS — 02-03
+ * finalizes the concrete defaults after conflict testing, at which point this copy is updated.
+ */
+const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: string }> = [
+    { id: 'showhide', label: 'Show / Hide', chord: 'Ctrl+Alt+J' },
+    { id: 'move', label: 'Move', chord: 'Ctrl+Alt+Arrows' },
+    { id: 'opacity', label: 'Opacity', chord: 'Ctrl+Alt+[ / ]' },
+    { id: 'hud', label: 'Toggle HUD', chord: 'Ctrl+Alt+H' },
+    { id: 'quit', label: 'Quit', chord: 'Ctrl+Alt+Q' },
+];
 
 /**
  * A small, toggleable debug HUD that renders the overlay's proof-of-life status:
  * Electron version, content-protection state (ON/OFF), and window position (D-07).
  *
- * It subscribes to the read-only `window.jedi.onStatus` channel — the only IPC surface
- * in Phase 1, carrying no secrets (D-05). The HUD is built to survive into later phases
- * (D-08): it accepts a `visible` prop and defaults to shown in Phase 1 (no hotkeys yet);
- * Phase 2 wires the toggle once the global hotkey layer exists.
+ * It subscribes to the read-only `window.jedi.onStatus` channel (D-05). HUD content
+ * visibility is owned by the main process (D-14/D-15): once status arrives, the component
+ * renders strictly according to the pushed `hudVisible` flag — the HUD-toggle chord flips it
+ * in main. The `visible` prop is only a fallback default used before the first status push (or
+ * if the bridge is unavailable); it never overrides the pushed flag. The renderer is a pure
+ * view: it never controls window or HUD state (no renderer->main channel).
  *
  * @param props - Component props.
- * @param props.visible - Whether the HUD is shown. Defaults to `true` for Phase 1.
+ * @param props.visible - Fallback HUD visibility before the first status push. Defaults to `true`.
  * @returns The HUD element, or `null` when hidden.
  */
 export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element | null {
@@ -33,7 +50,10 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
         window.jedi?.onStatus((next: IOverlayStatus) => setStatus(next));
     }, []);
 
-    if (!visible) {
+    // Main owns HUD-content visibility (D-15): honor the pushed flag once it arrives; before the
+    // first push fall back to the prop default so the HUD shows on launch (D-12).
+    const hudVisible: boolean = status ? status.hudVisible : visible;
+    if (!hudVisible) {
         return null;
     }
 
@@ -62,6 +82,14 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
                 <dd className="debug-hud__value" data-testid="cell-hotkey-status">
                     {hotkeyLabel}
                 </dd>
+            </dl>
+            <dl className="debug-hud__grid debug-hud__cheatsheet" data-testid="card-hotkey-cheatsheet">
+                {HOTKEY_CHEAT_SHEET.map((entry) => (
+                    <div className="debug-hud__cheatsheet-row" key={entry.id} data-testid={`row-hotkey-${entry.id}`}>
+                        <dt className="debug-hud__key">{entry.label}</dt>
+                        <dd className="debug-hud__value">{entry.chord}</dd>
+                    </div>
+                ))}
             </dl>
         </section>
     );

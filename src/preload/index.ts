@@ -13,6 +13,8 @@ export interface IOverlayStatus {
     position: { x: number; y: number };
     /** Startup hotkey-registration outcome (D-06). Declared identically in main and renderer. */
     hotkeys: { active: string; failed: string[] };
+    /** Whether the HUD content is shown (D-14/D-15). Main-owned; declared identically in main and renderer. */
+    hudVisible: boolean;
 }
 
 /** IPC channel for the read-only, non-secret status push from main (D-05). */
