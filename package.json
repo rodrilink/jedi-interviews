@@ -22,6 +22,7 @@
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "test": "vitest run",
+        "package": "electron-vite build && electron-builder --win",
         "verify:secret": "electron-vite build --config electron.vite.verify.config.ts && electron out/verify/verify-secret.js"
     },
     "dependencies": {
