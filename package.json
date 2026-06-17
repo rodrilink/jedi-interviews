@@ -20,7 +20,8 @@
         "typecheck": "npm run typecheck:node && npm run typecheck:web",
         "lint": "oxlint .",
         "format": "prettier --write .",
-        "format:check": "prettier --check ."
+        "format:check": "prettier --check .",
+        "test": "vitest run"
     },
     "dependencies": {
         "electron-store": "11.0.2"
@@ -38,6 +39,7 @@
         "react": "19.2.7",
         "react-dom": "19.2.7",
         "typescript": "5.9.3",
-        "vite": "6.0.7"
+        "vite": "6.0.7",
+        "vitest": "3.2.4"
     }
 }
