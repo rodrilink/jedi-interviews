@@ -75,6 +75,19 @@ function emitCtrlAltKeydown(keycode: number): void {
     });
 }
 
+/** Emits a single uiohook keyup carrying the given keycode (releasing the held chord). */
+function emitKeyup(keycode: number): void {
+    fakeUiohook.emit('keyup', {
+        type: 5,
+        time: Date.now(),
+        altKey: true,
+        ctrlKey: true,
+        metaKey: false,
+        shiftKey: false,
+        keycode,
+    });
+}
+
 /** Builds a handler map where every action label maps to a fresh spy. */
 function buildHandlerSpies(labels: readonly string[]): Record<string, ReturnType<typeof vi.fn>> {
     const handlers: Record<string, ReturnType<typeof vi.fn>> = {};
@@ -163,7 +176,7 @@ describe('hotkey-registrar.service', () => {
         expect(() => service.register()).not.toThrow();
     });
 
-    it('should invoke move and opacity handlers on each uiohook key-repeat event but discrete handlers once', async () => {
+    it('should invoke repeat handlers on each uiohook key-repeat event but discrete handlers once (CR-01)', async () => {
         // Arrange
         const { HotkeyRegistrarService } = await import('./hotkey-registrar.service');
         const handlers = {
@@ -181,7 +194,8 @@ describe('hotkey-registrar.service', () => {
         service.register();
 
         // Act
-        // The OS emits a stream of keydown events while a key is held (hold-to-repeat).
+        // The OS emits a stream of keydown events while a key is held (hold-to-repeat). The two
+        // show/hide keydowns arrive with no intervening keyup — simulating a held discrete chord.
         emitCtrlAltKeydown(KEYCODE.ArrowLeft);
         emitCtrlAltKeydown(KEYCODE.ArrowLeft);
         emitCtrlAltKeydown(KEYCODE.ArrowLeft);
@@ -191,11 +205,28 @@ describe('hotkey-registrar.service', () => {
         emitCtrlAltKeydown(KEYCODE.J);
 
         // Assert
+        // Repeat chords (D-01) step on every keydown.
         expect(handlers['move-left']).toHaveBeenCalledTimes(3);
         expect(handlers['opacity-up']).toHaveBeenCalledTimes(2);
-        // Discrete actions fire once per keydown — repeated keydowns DO re-invoke, but the test
-        // here documents that move/opacity are the hold-to-repeat actions; show/hide simply
-        // reflects raw keydown count (it is discrete by intent — repeats are a no-op toggle).
+        // Discrete chords fire once on the leading edge; the auto-repeat keydown is ignored.
+        expect(handlers['show/hide']).toHaveBeenCalledTimes(1);
+    });
+
+    it('should fire a discrete chord again after a keyup releases the held key (CR-01)', async () => {
+        // Arrange
+        const { HotkeyRegistrarService } = await import('./hotkey-registrar.service');
+        const handlers = buildHandlerSpies(['show/hide', 'move-left', 'move-right', 'move-up', 'move-down', 'opacity-down', 'opacity-up', 'hud-toggle', 'quit']);
+        const service = new HotkeyRegistrarService(handlers);
+        service.register();
+
+        // Act
+        // First press (leading edge), an auto-repeat that must be ignored, release, then a re-press.
+        emitCtrlAltKeydown(KEYCODE.J);
+        emitCtrlAltKeydown(KEYCODE.J);
+        emitKeyup(KEYCODE.J);
+        emitCtrlAltKeydown(KEYCODE.J);
+
+        // Assert
         expect(handlers['show/hide']).toHaveBeenCalledTimes(2);
     });
 

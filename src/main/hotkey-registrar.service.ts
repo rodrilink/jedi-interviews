@@ -81,6 +81,15 @@ export class HotkeyRegistrarService {
     private activeLayer: HotkeyLayer = 'none';
 
     /**
+     * Keycodes of currently-held DISCRETE chords. The OS re-emits `keydown` on its auto-repeat
+     * stream while a key is held; a discrete chord must fire only on the leading edge of a press,
+     * so we record its keycode here on first fire and ignore subsequent auto-repeat keydowns until
+     * the matching `keyup` removes it. Repeat chords (move/opacity, D-01) are never tracked here —
+     * they intentionally fire on every keydown.
+     */
+    private readonly heldDiscreteKeycodes = new Set<number>();
+
+    /**
      * @param handlers - Map of action label -> handler invoked when that chord fires. In this
      *   plan the handlers may be no-op stubs; 02-02 injects the real window-control handlers.
      *   A missing entry for a locked label is treated as a failed binding (surfaced, not thrown).
@@ -118,6 +127,8 @@ export class HotkeyRegistrarService {
             globalShortcut.unregisterAll();
         }
 
+        // Clear the leading-edge guard so a fresh register() starts with no stale held keys.
+        this.heldDiscreteKeycodes.clear();
         this.activeLayer = 'none';
     }
 
@@ -138,11 +149,16 @@ export class HotkeyRegistrarService {
             }
         }
 
-        // The OS re-emits `keydown` while a key is held; matching per event gives move/opacity
-        // their hold-to-repeat behavior (D-01). Discrete actions also fire per keydown, but a
-        // repeated discrete press is an idempotent toggle, so no debounce is needed.
+        // The OS re-emits `keydown` while a key is held. Repeat chords (move/opacity) fire on every
+        // such event to give them their hold-to-repeat behavior (D-01). Discrete chords are guarded
+        // by a leading-edge check in dispatchUiohookKeydown so they fire once per physical press;
+        // the keyup listener below clears the held key so the next press fires again.
         uIOhook.on('keydown', (event: UiohookKeyboardEvent) => {
             this.dispatchUiohookKeydown(event);
+        });
+
+        uIOhook.on('keyup', (event: UiohookKeyboardEvent) => {
+            this.heldDiscreteKeycodes.delete(event.keycode);
         });
 
         uIOhook.start();
@@ -152,8 +168,9 @@ export class HotkeyRegistrarService {
 
     /**
      * Matches a uiohook keydown against the locked chords (Ctrl+Alt + keycode) and invokes the
-     * matching action's handler. Invoked on EACH keydown — including the OS auto-repeat stream —
-     * so move/opacity step on every repeat (D-01).
+     * matching action's handler. Invoked on EACH keydown — including the OS auto-repeat stream.
+     * Repeat chords (move/opacity) step on every repeat (D-01); discrete chords are gated by a
+     * leading-edge guard so they fire once per press and ignore auto-repeat until `keyup`.
      *
      * @param event - The uiohook keyboard event.
      */
@@ -165,6 +182,15 @@ export class HotkeyRegistrarService {
         const chord = HOTKEY_CHORDS.find((candidate) => candidate.keycode === event.keycode);
         if (chord === undefined) {
             return;
+        }
+
+        if (chord.kind === 'discrete') {
+            if (this.heldDiscreteKeycodes.has(chord.keycode)) {
+                // Auto-repeat keydown for a still-held discrete chord — ignore until keyup.
+                return;
+            }
+
+            this.heldDiscreteKeycodes.add(chord.keycode);
         }
 
         const handler = this.handlers[chord.label];
