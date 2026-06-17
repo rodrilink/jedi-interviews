@@ -1,52 +1,32 @@
 import { app, BrowserWindow } from 'electron';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
-
-const currentDirectory: string = fileURLToPath(new URL('.', import.meta.url));
+import { createOverlayWindow, showOverlay, pushStatus } from './overlay-window.manager';
 
 /**
- * Creates the application's main window.
+ * Boots the overlay window once Electron is ready.
  *
- * The renderer is wired with the structural security boundary from the start (D-06):
- * contextIsolation and sandbox are enabled, nodeIntegration is left disabled, and the
- * renderer can only reach the main process through the typed contextBridge preload.
- *
- * @returns The created BrowserWindow instance.
+ * The overlay is created hidden and revealed only via {@link showOverlay} (never
+ * `show()`/`focus()`), so it never steals focus from the active meeting app (OVL-02).
+ * Revealing it on `ready-to-show` mitigates the transparent-window white flash (Pitfall 6).
+ * The first status push primes the HUD with the live version, content-protection state,
+ * and position.
  */
-function createWindow(): BrowserWindow {
-    const window = new BrowserWindow({
-        width: 900,
-        height: 670,
-        show: false,
-        autoHideMenuBar: true,
-        webPreferences: {
-            preload: join(currentDirectory, '../preload/index.cjs'),
-            contextIsolation: true,
-            sandbox: true,
-            backgroundThrottling: false,
-        },
-    });
+function bootOverlay(): BrowserWindow {
+    const window = createOverlayWindow();
 
     window.on('ready-to-show', () => {
-        window.show();
+        showOverlay(window);
+        pushStatus(window);
     });
-
-    // electron-vite injects ELECTRON_RENDERER_URL in dev for HMR; load the built file otherwise.
-    if (process.env.ELECTRON_RENDERER_URL) {
-        void window.loadURL(process.env.ELECTRON_RENDERER_URL);
-    } else {
-        void window.loadFile(join(currentDirectory, '../renderer/index.html'));
-    }
 
     return window;
 }
 
 app.whenReady().then(() => {
-    createWindow();
+    bootOverlay();
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
+            bootOverlay();
         }
     });
 });
