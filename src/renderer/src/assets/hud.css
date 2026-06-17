@@ -66,6 +66,17 @@ body {
 }
 
 /*
+ * The live audio RMS meter (D-04): a fixed-width monospaced bar so the block glyphs render evenly
+ * and the row never reflows as the level changes. The accent color matches the title's cyan to read
+ * as a live signal indicator against the muted status rows.
+ */
+.debug-hud__meter {
+    font-family: 'Cascadia Mono', 'Consolas', monospace;
+    letter-spacing: 0.04em;
+    color: rgb(125 211 252 / 100%);
+}
+
+/*
  * The hotkey cheat-sheet block (D-13): a compact reference of the bound chords below the status
  * rows. Separated by a hairline rule; each row reuses the __key/__value styling so the chords
  * line up with the status grid above.

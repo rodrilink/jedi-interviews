@@ -1,5 +1,5 @@
-import { app, BrowserWindow } from 'electron';
-import { createOverlayWindow, showOverlay, pushStatus, setHotkeyStatus, getOverlayVisible } from './overlay-window.manager';
+import { app, BrowserWindow, ipcMain, session, desktopCapturer, type IpcMainEvent } from 'electron';
+import { createOverlayWindow, showOverlay, pushStatus, setHotkeyStatus, getOverlayVisible, setAudioLevel } from './overlay-window.manager';
 import { HotkeyRegistrarService, type HotkeyHandlerMap } from './hotkey-registrar.service';
 import { WindowControlActionsService } from './window-control.actions';
 
@@ -42,6 +42,48 @@ function buildHandlers(actions: WindowControlActionsService): HotkeyHandlerMap {
 }
 
 /**
+ * Installs the picker-free system-audio loopback grant and the single renderer -> main
+ * audio-level report listener.
+ *
+ * `setDisplayMediaRequestHandler` answers the overlay renderer's `getDisplayMedia` call directly
+ * with a screen video source plus `audio: 'loopback'` (Windows-only, Electron 31+), so loopback
+ * audio is granted with NO on-screen picker and NO user gesture — preserving the focus/click-through
+ * contract (D-03 / OVL-02). The grant is scoped to the locally-loaded overlay `webContents` only:
+ * any request from a different `webContents` is denied (`callback({})`), so no remote/unknown content
+ * can ever be granted capture (T-03-01). The renderer discards the video track and keeps only audio.
+ *
+ * `ipcMain.on('jedi:audio-level')` is the app's only write-direction IPC surface: it records the
+ * untrusted, non-secret RMS scalar via {@link setAudioLevel} (which coerces non-finite input) and
+ * re-broadcasts it on the read-only `jedi:status` channel so the HUD `Audio:` row updates (T-03-02).
+ *
+ * @param window - The overlay window whose webContents is the sole authorized capture target.
+ */
+function installAudioPipeline(window: BrowserWindow): void {
+    session.defaultSession.setDisplayMediaRequestHandler(
+        (request, callback) => {
+            // Grant loopback ONLY to the locally-loaded overlay renderer; deny everything else.
+            if (request.frame?.url !== window.webContents.getURL()) {
+                callback({});
+                return;
+            }
+
+            void desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+                // A video source MUST accompany audio:'loopback' on Windows; the renderer stops and
+                // discards the video track immediately, keeping only the system-audio stream.
+                callback({ video: sources[0], audio: 'loopback' });
+            });
+        },
+        // useSystemPicker:false — never show an OS picker (D-03); the handler resolves the source.
+        { useSystemPicker: false }
+    );
+
+    ipcMain.on('jedi:audio-level', (_event: IpcMainEvent, level: number) => {
+        setAudioLevel(level);
+        pushStatus(window);
+    });
+}
+
+/**
  * Boots the overlay window once Electron is ready.
  *
  * The overlay is created hidden and revealed only via {@link showOverlay} (never
@@ -63,6 +105,11 @@ function bootOverlay(): BrowserWindow {
 
 app.whenReady().then(() => {
     const window = bootOverlay();
+
+    // Install the picker-free loopback grant + the renderer->main audio-level listener so the
+    // renderer's auto-started capture (D-03) can resolve getDisplayMedia and surface the live RMS
+    // level in the HUD Audio: row over the read-only jedi:status push (D-04/D-05).
+    installAudioPipeline(window);
 
     // Register the global hotkey layer after the overlay boots. The aggregated outcome is
     // fed to the HUD over the read-only jedi:status channel (D-06) — startup-only (D-07), and

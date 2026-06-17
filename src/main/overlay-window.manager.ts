@@ -25,6 +25,14 @@ export interface IOverlayStatus {
      * its HUD content visibility purely from this pushed flag (D-15: renderer is a pure view).
      */
     hudVisible: boolean;
+    /**
+     * The latest RMS audio level from the renderer's loopback capture (D-04/D-05), in `[0, 1]`.
+     * Surfaced read-only in the HUD `Audio:` row so a non-silent signal can be confirmed by eye.
+     * Unlike every other field this value uniquely ORIGINATES renderer-side (where `getDisplayMedia`
+     * and the AudioWorklet live) — it arrives over the single write-only `jedi:audio-level` channel,
+     * is recorded via {@link setAudioLevel}, and then rides the normal `jedi:status` push to the HUD.
+     */
+    audioLevel: number;
 }
 
 /** IPC channel name for the read-only, non-secret status push to the renderer (D-05). */
@@ -52,6 +60,24 @@ let lastHotkeyResult: { active: string; failed: string[] } = { active: 'none', f
  */
 export function setHotkeyStatus(result: { active: string; failed: string[] }): void {
     lastHotkeyResult = result;
+}
+
+/**
+ * The latest RMS level reported up from the renderer capture (mirrors {@link lastHotkeyResult}):
+ * owned at module level because, like the hotkey result, it is not derivable from the window.
+ * Updated via {@link setAudioLevel} before {@link pushStatus} so the HUD `Audio:` row reflects it.
+ */
+let lastAudioLevel = 0;
+
+/**
+ * Records the latest renderer-computed RMS level so the next {@link pushStatus} carries it to the
+ * HUD `Audio:` row (D-04/D-05). Coerces non-finite input to 0: the value crosses the untrusted
+ * `jedi:audio-level` IPC boundary and feeds only a numeric readout, never control flow (T-03-02).
+ *
+ * @param level - The RMS level, expected in `[0, 1]`.
+ */
+export function setAudioLevel(level: number): void {
+    lastAudioLevel = Number.isFinite(level) ? level : 0;
 }
 
 /**
@@ -124,6 +150,7 @@ function buildStatus(window: BrowserWindow): IOverlayStatus {
         position: { x, y },
         hotkeys: lastHotkeyResult,
         hudVisible,
+        audioLevel: lastAudioLevel,
     };
 }
 

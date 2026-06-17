@@ -15,6 +15,8 @@ export interface IOverlayStatus {
     hotkeys: { active: string; failed: string[] };
     /** Whether the HUD content is shown (D-14/D-15). Main-owned; declared identically in main and renderer. */
     hudVisible: boolean;
+    /** Latest RMS audio level in `[0, 1]` (D-04/D-05). Renderer-originated; declared identically in main and renderer. */
+    audioLevel: number;
 }
 
 /** IPC channel for the read-only, non-secret status push from main (D-05). */

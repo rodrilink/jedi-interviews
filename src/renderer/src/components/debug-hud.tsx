@@ -13,6 +13,27 @@ interface IOverlayStatus {
     hotkeys: { active: string; failed: string[] };
     /** Whether the HUD content is shown (D-14/D-15). Main-owned; declared identically in main and preload. */
     hudVisible: boolean;
+    /** Latest RMS audio level in `[0, 1]` (D-04/D-05). Renderer-originated; declared identically in main and preload. */
+    audioLevel: number;
+}
+
+/** Number of block cells in the audio meter bar — the level scales across this many glyphs. */
+const AUDIO_METER_CELLS = 10;
+
+/**
+ * Renders an RMS level as a fixed 2-decimal number plus a block-character bar (D-04) so the live
+ * signal is readable at a glance without width jitter (the number uses tabular figures). The bar
+ * fills `level * AUDIO_METER_CELLS` cells with `█` and pads the remainder with `░`.
+ *
+ * @param level - The RMS level in `[0, 1]`.
+ * @returns The combined numeric + bar label for the HUD `Audio:` row.
+ */
+function formatAudioMeter(level: number): string {
+    const clamped = Math.min(1, Math.max(0, level));
+    const filled = Math.round(clamped * AUDIO_METER_CELLS);
+    const bar = '█'.repeat(filled) + '░'.repeat(AUDIO_METER_CELLS - filled);
+
+    return `${clamped.toFixed(2)} ${bar}`;
 }
 
 /**
@@ -62,6 +83,7 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
     const positionLabel = status ? `${status.position.x}, ${status.position.y}` : '—';
     const electronVersionLabel = status?.electronVersion ?? '—';
     const hotkeyLabel = status ? (status.hotkeys.failed.length === 0 ? 'OK' : `${status.hotkeys.failed.length} failed`) : '—';
+    const audioLevelLabel = status ? formatAudioMeter(status.audioLevel) : '—';
 
     return (
         <section className="debug-hud" data-testid="card-debug-hud">
@@ -82,6 +104,10 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
                 <dt className="debug-hud__key">Hotkeys</dt>
                 <dd className="debug-hud__value" data-testid="cell-hotkey-status">
                     {hotkeyLabel}
+                </dd>
+                <dt className="debug-hud__key">Audio</dt>
+                <dd className="debug-hud__value debug-hud__meter" data-testid="cell-audio-level">
+                    {audioLevelLabel}
                 </dd>
             </dl>
             <dl className="debug-hud__grid debug-hud__cheatsheet" data-testid="card-hotkey-cheatsheet">
