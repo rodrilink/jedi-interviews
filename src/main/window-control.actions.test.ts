@@ -31,8 +31,7 @@ vi.mock('./overlay-window.manager', () => ({
 }));
 
 /** A single mocked display covering one rectangle of the virtual desktop. */
-const createDisplay = (x: number, y: number, width: number, height: number): Display =>
-    ({ workArea: { x, y, width, height } }) as Display;
+const createDisplay = (x: number, y: number, width: number, height: number): Display => ({ workArea: { x, y, width, height } }) as Display;
 
 /**
  * Builds a mocked overlay BrowserWindow with controllable position/opacity. Tracks the last
@@ -41,10 +40,12 @@ const createDisplay = (x: number, y: number, width: number, height: number): Dis
  */
 const createMockWindow = ({
     position = [0, 0],
+    size = [420, 220],
     opacity = 1,
     destroyed = false,
 }: {
     position?: [number, number];
+    size?: [number, number];
     opacity?: number;
     destroyed?: boolean;
 } = {}): BrowserWindow => {
@@ -57,6 +58,7 @@ const createMockWindow = ({
         setPosition: vi.fn((x: number, y: number): void => {
             currentPosition = [x, y];
         }),
+        getSize: (): [number, number] => size,
         getOpacity: (): number => currentOpacity,
         setOpacity: vi.fn((value: number): void => {
             currentOpacity = value;

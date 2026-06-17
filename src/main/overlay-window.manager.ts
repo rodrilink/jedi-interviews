@@ -18,6 +18,13 @@ export interface IOverlayStatus {
      * labels whose chord failed to bind. Owned by main, surfaced read-only in the HUD.
      */
     hotkeys: { active: string; failed: string[] };
+    /**
+     * Whether the HUD *content* is shown inside the overlay window (D-14/D-15). This is a
+     * main-owned flag, distinct from whether the overlay *window* itself is visible: the
+     * HUD-toggle chord flips this without touching window visibility. The renderer derives
+     * its HUD content visibility purely from this pushed flag (D-15: renderer is a pure view).
+     */
+    hudVisible: boolean;
 }
 
 /** IPC channel name for the read-only, non-secret status push to the renderer (D-05). */
@@ -48,6 +55,61 @@ export function setHotkeyStatus(result: { active: string; failed: string[] }): v
 }
 
 /**
+ * Whether the HUD *content* is currently shown (D-12: starts shown on launch). Tracked at
+ * module level (mirroring {@link contentProtectionEnabled}) because it is main-owned and the
+ * HUD-toggle chord flips it independently of the overlay window's own visibility (D-14).
+ */
+let hudVisible = true;
+
+/**
+ * Sets the main-owned HUD-content visibility flag (D-14/D-15). The next {@link pushStatus}
+ * carries it to the renderer, which derives its HUD content visibility purely from this flag.
+ *
+ * @param visible - Whether the HUD content should be shown.
+ */
+export function setHudVisible(visible: boolean): void {
+    hudVisible = visible;
+}
+
+/**
+ * Reads the main-owned HUD-content visibility flag.
+ *
+ * @returns Whether the HUD content is currently shown.
+ */
+export function getHudVisible(): boolean {
+    return hudVisible;
+}
+
+/**
+ * Whether the overlay *window* itself is currently visible (D-12: starts shown on launch).
+ * Owned here in one place (mirroring {@link contentProtectionEnabled}) rather than fragmented
+ * into index.ts, so the single show/hide chord can branch on it: {@link showOverlay} sets it
+ * true and {@link hideOverlay} sets it false. Distinct from {@link hudVisible}, which toggles
+ * the HUD *content* within the window (D-14).
+ */
+let isOverlayVisible = true;
+
+/**
+ * Sets the main-owned overlay-window visibility flag. Called by {@link showOverlay} (true) and
+ * {@link hideOverlay} (false) so window shown-state lives in exactly one place (D-15).
+ *
+ * @param visible - Whether the overlay window is shown.
+ */
+export function setOverlayVisible(visible: boolean): void {
+    isOverlayVisible = visible;
+}
+
+/**
+ * Reads the main-owned overlay-window visibility flag so the single show/hide chord can branch
+ * between {@link showOverlay} and {@link hideOverlay} without a duplicate state variable.
+ *
+ * @returns Whether the overlay window is currently shown.
+ */
+export function getOverlayVisible(): boolean {
+    return isOverlayVisible;
+}
+
+/**
  * Builds the status payload from the live window state.
  *
  * @param window - The overlay window to read position from.
@@ -61,6 +123,7 @@ function buildStatus(window: BrowserWindow): IOverlayStatus {
         contentProtection: contentProtectionEnabled,
         position: { x, y },
         hotkeys: lastHotkeyResult,
+        hudVisible,
     };
 }
 
@@ -196,5 +259,25 @@ export function showOverlay(window: BrowserWindow): void {
     window.setIgnoreMouseEvents(true, { forward: true });
     window.setVisibleOnAllWorkspaces(true);
     window.showInactive();
+    setOverlayVisible(true);
+    pushStatus(window);
+}
+
+/**
+ * Hides the overlay window (D-14 show/hide chord, hide branch). This is the ONLY sanctioned
+ * hide path; every RE-show must route back through {@link showOverlay} so content protection,
+ * always-on-top, and click-through are re-applied (the OS can drop these across hide/show
+ * cycles — OVL-04 / Pitfall 2). Guards `isDestroyed()` because hotkeys fire async, possibly
+ * mid-teardown.
+ *
+ * @param window - The overlay window to hide.
+ */
+export function hideOverlay(window: BrowserWindow): void {
+    if (window.isDestroyed()) {
+        return;
+    }
+
+    window.hide();
+    setOverlayVisible(false);
     pushStatus(window);
 }
