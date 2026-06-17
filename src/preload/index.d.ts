@@ -1,4 +1,4 @@
-import type { JediApi } from './index';
+import type { JediApi, IOverlayStatus } from './index';
 
 declare global {
     interface Window {
@@ -7,4 +7,5 @@ declare global {
     }
 }
 
-export {};
+/** Re-exported so the renderer HUD can type the status payload it receives. */
+export type { IOverlayStatus };

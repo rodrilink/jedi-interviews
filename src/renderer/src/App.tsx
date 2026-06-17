@@ -1,22 +1,17 @@
 import type { JSX } from 'react';
+import { DebugHud } from './components/debug-hud';
+import './assets/hud.css';
 
 /**
- * Minimal renderer surface for the Walking Skeleton scaffold.
+ * The overlay renderer root.
  *
- * It reads the structural bridge (`window.jedi`) only to prove the contextIsolated
- * preload boundary is wired (D-06). Plan 01-02 replaces this with the transparent
- * debug HUD (Electron version, content-protection state, window position).
+ * In Phase 1 it renders the toggleable debug HUD (D-07/D-08), which subscribes to the
+ * read-only `window.jedi.onStatus` channel and displays the live Electron version,
+ * content-protection state, and window position over a transparent background. The HUD
+ * shows by default since no hotkeys exist yet; Phase 2 wires its toggle.
  *
- * @returns The scaffold proof-of-life element.
+ * @returns The overlay root element.
  */
 export function App(): JSX.Element {
-    const bridgeReady = window.jedi?.isReady === true;
-
-    return (
-        <main>
-            <h1>Jedi Interviews</h1>
-            <p>Walking Skeleton scaffold is running.</p>
-            <p>Preload bridge: {bridgeReady ? 'connected' : 'unavailable'}</p>
-        </main>
-    );
+    return <DebugHud visible={true} />;
 }
