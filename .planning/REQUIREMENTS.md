@@ -25,7 +25,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Audio & Transcript
 
 - [x] **AUD-01**: The app captures the computer's system (loopback) audio
-- [ ] **AUD-02**: Loopback capture is validated to produce real (non-silent) audio on the target machine before the transcript pipeline is built on it
+- [x] **AUD-02**: Loopback capture is validated to produce real (non-silent) audio on the target machine before the transcript pipeline is built on it
 - [ ] **TRN-01**: Captured audio is streamed to a speech-to-text provider and a live transcript updates on the overlay
 - [ ] **TRN-02**: The transcript shows interim (partial) and final results as they arrive
 - [ ] **TRN-03**: The STT connection automatically reconnects if it drops mid-session
@@ -112,7 +112,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CTL-02 | Phase 2 | Complete |
 | CTL-03 | Phase 2 | Complete |
 | AUD-01 | Phase 3 | Complete |
-| AUD-02 | Phase 3 | Pending |
+| AUD-02 | Phase 3 | Complete |
 | TRN-01 | Phase 4 | Pending |
 | TRN-02 | Phase 4 | Pending |
 | TRN-03 | Phase 4 | Pending |

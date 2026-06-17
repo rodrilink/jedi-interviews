@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Overlay Shell + Existential Behaviors** - Transparent, non-focus-stealing, screen-share-invisible overlay on a pinned, on-machine-verified Electron build, with the secret/IPC boundary wired. (completed 2026-06-17)
 - [x] **Phase 2: Global Hotkeys + Window Control** - Keyboard-only show/hide, move, and opacity control that works while a real meeting app holds focus, with registration failures surfaced. (completed 2026-06-17)
-- [ ] **Phase 3: Audio Loopback Spike** - Isolated go/no-go proof that system-audio loopback produces real, non-silent audio on the target machine.
+- [x] **Phase 3: Audio Loopback Spike** - Isolated go/no-go proof that system-audio loopback produces real, non-silent audio on the target machine. (completed 2026-06-17)
 - [ ] **Phase 4: STT Pipeline + Live Transcript** - Live rolling transcript with interim/final results, auto-reconnect, bounded buffer, and a swappable STT provider seam.
 - [ ] **Phase 5: AI Orchestration (Answer + Talking Points)** - Streaming, keyboard-scrollable AI answers and talking points drawn from the recent transcript.
 - [ ] **Phase 6: Session Context + Settings Window** - A focusable settings window for API keys and a persisted context editor that grounds every AI prompt.
@@ -109,7 +109,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03-02-PLAN.md — On-machine human-judged two-source (general media + Teams/Zoom) go/no-go verification; committed 03-LOOPBACK-GATE.md + decision logged in STATE.md/PROJECT.md (AUD-02)
+- [x] 03-02-PLAN.md — On-machine human-judged two-source (general media + Teams/Zoom) go/no-go verification; committed 03-LOOPBACK-GATE.md + decision logged in STATE.md/PROJECT.md (AUD-02)
 
 **Notes**: GO/NO-GO GATE. Loopback silence is the single biggest technical risk (research flag: Phase 3 spike gate). Keep this phase small and gate-like. `getDisplayMedia` with `audio:true, video:false` throws on Windows — `video:true` must be present. If the result is silence, the WASAPI-sidecar fallback changes the build plan for Phase 4. Do not start Deepgram integration until this gate passes.
 
@@ -222,7 +222,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Overlay Shell + Existential Behaviors | 4/4 | Complete   | 2026-06-17 |
 | 2. Global Hotkeys + Window Control | 3/3 | Complete   | 2026-06-17 |
-| 3. Audio Loopback Spike | 1/2 | In Progress|  |
+| 3. Audio Loopback Spike | 2/2 | Complete   | 2026-06-17 |
 | 4. STT Pipeline + Live Transcript | 0/4 | Not started | - |
 | 5. AI Orchestration (Answer + Talking Points) | 0/3 | Not started | - |
 | 6. Session Context + Settings Window | 0/4 | Not started | - |
