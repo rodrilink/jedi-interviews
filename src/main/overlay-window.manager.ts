@@ -56,12 +56,19 @@ export function pushStatus(window: BrowserWindow): void {
 /**
  * Creates the transparent, frameless, always-on-top overlay window.
  *
- * The window is built `focusable: false` so it can never take keyboard/mouse focus from
- * the active meeting app (OVL-02). It is created hidden (`show: false`) and must only ever
- * be revealed through {@link showOverlay}, which uses `showInactive()` — never `show()`
- * or `focus()`. `backgroundColor: '#00000000'` plus `transparent: true` avoid the
- * first-paint white flash (Pitfall 6). The renderer keeps the same contextIsolation +
- * sandbox boundary established in 01-01 (D-06); no secret channels are exposed.
+ * The window is built `focusable: false` so it can never take *keyboard* focus from the
+ * active meeting app (OVL-02). Keyboard focus is only half the story: a transparent,
+ * always-on-top window still *captures mouse events* across its entire surface, so clicks
+ * landing on it never reach the windows beneath. `setIgnoreMouseEvents(true, { forward: true })`
+ * makes the overlay click-through so those clicks pass to the window underneath — without it
+ * the overlay silently blocks clicks across its whole area even though `focusable: false`
+ * already stops it taking keyboard focus. Click-through is permanent because the app is
+ * keyboard-only and the user never needs to interact with the overlay via the mouse (OVL-02).
+ * It is created hidden (`show: false`) and must only ever be revealed through
+ * {@link showOverlay}, which uses `showInactive()` — never `show()` or `focus()`.
+ * `backgroundColor: '#00000000'` plus `transparent: true` avoid the first-paint white flash
+ * (Pitfall 6). The renderer keeps the same contextIsolation + sandbox boundary established in
+ * 01-01 (D-06); no secret channels are exposed.
  *
  * @returns The created overlay BrowserWindow instance.
  */
@@ -84,6 +91,12 @@ export function createOverlayWindow(): BrowserWindow {
             backgroundThrottling: false,
         },
     });
+
+    // Make the overlay click-through so mouse events pass to the window beneath it.
+    // `focusable: false` only governs keyboard focus; without this the overlay captures
+    // clicks across its whole surface. `forward: true` still lets the renderer observe
+    // move events for hover effects. Permanent: the app is keyboard-only (OVL-02).
+    window.setIgnoreMouseEvents(true, { forward: true });
 
     // Re-assert the existential behaviors defensively whenever focus is lost: the
     // always-on-top level and content protection can be dropped by the OS on focus
@@ -141,8 +154,10 @@ export function createOverlayWindow(): BrowserWindow {
  * Re-applies, in order: the highest practical always-on-top level (`'screen-saver'`,
  * above the Windows taskbar), content protection (re-applied on EVERY show — OVL-04 /
  * Pitfall 2, since the OS can drop the capture-exclusion affinity across hide/show
- * cycles), then `showInactive()` so the overlay appears without taking focus (OVL-02 /
- * Pitfall 3). It MUST never call the focus-stealing show/focus methods.
+ * cycles), click-through (re-applied on EVERY show for the same defensive reason — the OS
+ * can reset window attributes across hide/show cycles), then `showInactive()` so the
+ * overlay appears without taking focus (OVL-02 / Pitfall 3). It MUST never call the
+ * focus-stealing show/focus methods.
  *
  * `setVisibleOnAllWorkspaces(true)` is called as a harmless no-op on Windows (it has no
  * effect there per the Electron docs) so the intent is documented without being relied on.
@@ -153,6 +168,7 @@ export function showOverlay(window: BrowserWindow): void {
     window.setAlwaysOnTop(true, 'screen-saver');
     window.setContentProtection(true);
     contentProtectionEnabled = true;
+    window.setIgnoreMouseEvents(true, { forward: true });
     window.setVisibleOnAllWorkspaces(true);
     window.showInactive();
     pushStatus(window);
