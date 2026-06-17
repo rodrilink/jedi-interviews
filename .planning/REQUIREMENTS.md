@@ -14,7 +14,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **OVL-03**: The user can adjust the overlay's opacity by keyboard
 - [x] **OVL-04**: The overlay is hidden from screen-share/recording capture (`setContentProtection`, re-applied after every show)
 - [ ] **OVL-05**: The user can show/hide the overlay by global hotkey
-- [ ] **OVL-06**: The overlay confirms its non-focus-stealing and screen-share-invisible behavior on the target Windows 11 machine and pinned Electron version
+- [x] **OVL-06**: The overlay confirms its non-focus-stealing and screen-share-invisible behavior on the target Windows 11 machine and pinned Electron version
 
 ### Control
 
@@ -104,7 +104,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OVL-01 | Phase 1 | Complete |
 | OVL-02 | Phase 1 | Complete |
 | OVL-04 | Phase 1 | Complete |
-| OVL-06 | Phase 1 | Pending |
+| OVL-06 | Phase 1 | Complete |
 | SET-03 | Phase 1 | Complete |
 | OVL-03 | Phase 2 | Pending |
 | OVL-05 | Phase 2 | Pending |

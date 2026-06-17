@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-06-17T03:39:27.891Z"
-last_activity: 2026-06-17
+stopped_at: Phase 1 complete — GO/NO-GO gate signed GO
+last_updated: "2026-06-17T04:30:00.000Z"
+last_activity: 2026-06-17 -- Phase 1 GO/NO-GO gate signed GO (01-04 complete)
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
-  percent: 0
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 
 ## Current Position
 
-Phase: 01 (overlay-shell-existential-behaviors) — EXECUTING
-Plan: 4 of 4 — GO/NO-GO gate paused (NO-GO on first run; click-through fixed, re-run required)
-Status: Plan 01-04 open — re-run on-machine gate after quick task 260616-w65
-Last activity: 2026-06-17 -- Completed quick task 260616-w65: overlay click-through fix
+Phase: 01 (overlay-shell-existential-behaviors) — COMPLETE
+Plan: 4 of 4 — GO/NO-GO gate signed GO (2026-06-17, Electron 35.7.5, machine MSI)
+Status: Phase 1 complete — gate cleared, ready for Phase 2
+Last activity: 2026-06-17 -- Phase 1 GO/NO-GO gate signed GO (01-04 complete)
 
-Progress: [████████░░] 75%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -80,7 +80,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 1 (GO/NO-GO): on the first on-machine gate run (2026-06-17), focus/transparency/content-protection all passed, but the overlay BLOCKED mouse clicks to windows beneath it (missing `setIgnoreMouseEvents` — OVL-02 violation). Fixed in quick task 260616-w65. The 01-04 gate must be RE-RUN on the target Windows 11 machine before Phase 1 can be signed off GO.
+- Phase 1 (GO/NO-GO): RESOLVED 2026-06-17. First gate run was NO-GO (overlay blocked mouse clicks — missing `setIgnoreMouseEvents`, OVL-02); fixed in quick task 260616-w65 and re-verified GO on the target Windows 11 machine. VERIFICATION.md signed GO at Electron 35.7.5.
 - Phase 3 (GO/NO-GO): System-audio loopback must produce non-silent audio (RMS meter) before the STT pipeline is built; silence triggers the WASAPI-sidecar fallback.
 
 ### Quick Tasks Completed
