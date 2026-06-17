@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-06-17T03:25:21.218Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-06-17T03:32:22.240Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 ## Current Position
 
 Phase: 01 (overlay-shell-existential-behaviors) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-06-17
 
-Progress: [███░░░░░░░] 25%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [███░░░░░░░] 25%
 
 *Updated after each plan completion*
 | Phase 01 P01 | 7 | 2 tasks | 17 files |
+| Phase 01 P02 | 6min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,8 @@ Recent decisions affecting current work:
 - Phase 4: STT behind an ISttProvider seam (Deepgram v5 now, Whisper later).
 - [Phase ?]: Phase 1: Sandboxed Electron preload built as CommonJS (.cjs) — Electron does not support ESM preloads under sandbox:true.
 - [Phase ?]: Phase 1: Pinned TypeScript 5.9.3 (latest 5.x) over TS 6.x to de-risk the electron-vite React-TS scaffold.
+- [Phase ?]: Phase 1: Overlay shown only via showOverlay() — re-applies setContentProtection(true) on every show/blur/display-change (OVL-04); reveal is showInactive-only, never show()/focus() (OVL-02).
+- [Phase ?]: Phase 1: Single read-only non-secret jedi:status channel (electronVersion/contentProtection/position) is the entire Phase 1 IPC surface; HUD is a toggleable debug component surviving into later phases (D-07/D-08).
 
 ### Pending Todos
 
@@ -87,6 +90,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-17T03:24:46.736Z
-Stopped at: Phase 1 context gathered
+Last session: 2026-06-17T03:32:22.233Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
