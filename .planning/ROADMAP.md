@@ -47,7 +47,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 01-02-PLAN.md — Overlay WindowManager (transparent/frameless/always-on-top/focusable:false) + showOverlay() content-protection re-apply wrapper + read-only status channel + toggleable debug HUD (OVL-01/02/04)
-- [ ] 01-03-PLAN.md — Main-only safeStorage placeholder round-trip + `npm run verify:secret` PASS/FAIL; no renderer/IPC secret channel (SET-03)
+- [x] 01-03-PLAN.md — Main-only safeStorage placeholder round-trip + `npm run verify:secret` PASS/FAIL; no renderer/IPC secret channel (SET-03)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -207,7 +207,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Overlay Shell + Existential Behaviors | 2/4 | In Progress|  |
+| 1. Overlay Shell + Existential Behaviors | 3/4 | In Progress|  |
 | 2. Global Hotkeys + Window Control | 0/3 | Not started | - |
 | 3. Audio Loopback Spike | 0/2 | Not started | - |
 | 4. STT Pipeline + Live Transcript | 0/4 | Not started | - |
