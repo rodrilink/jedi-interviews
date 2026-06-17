@@ -11,6 +11,8 @@ export interface IOverlayStatus {
     electronVersion: string;
     contentProtection: boolean;
     position: { x: number; y: number };
+    /** Startup hotkey-registration outcome (D-06). Declared identically in main and renderer. */
+    hotkeys: { active: string; failed: string[] };
 }
 
 /** IPC channel for the read-only, non-secret status push from main (D-05). */

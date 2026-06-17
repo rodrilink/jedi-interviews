@@ -9,6 +9,8 @@ interface IOverlayStatus {
     electronVersion: string;
     contentProtection: boolean;
     position: { x: number; y: number };
+    /** Startup hotkey-registration outcome (D-06). Declared identically in main and preload. */
+    hotkeys: { active: string; failed: string[] };
 }
 
 /**
@@ -38,6 +40,7 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
     const contentProtectionLabel = status ? (status.contentProtection ? 'ON' : 'OFF') : '—';
     const positionLabel = status ? `${status.position.x}, ${status.position.y}` : '—';
     const electronVersionLabel = status?.electronVersion ?? '—';
+    const hotkeyLabel = status ? (status.hotkeys.failed.length === 0 ? 'OK' : `${status.hotkeys.failed.length} failed`) : '—';
 
     return (
         <section className="debug-hud" data-testid="card-debug-hud">
@@ -54,6 +57,10 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
                 <dt className="debug-hud__key">Position</dt>
                 <dd className="debug-hud__value" data-testid="cell-position">
                     {positionLabel}
+                </dd>
+                <dt className="debug-hud__key">Hotkeys</dt>
+                <dd className="debug-hud__value" data-testid="cell-hotkey-status">
+                    {hotkeyLabel}
                 </dd>
             </dl>
         </section>

@@ -12,6 +12,12 @@ export interface IOverlayStatus {
     electronVersion: string;
     contentProtection: boolean;
     position: { x: number; y: number };
+    /**
+     * The startup hotkey-registration outcome (D-06): `active` is the layer that handled
+     * registration ('uiohook' | 'globalShortcut' | 'none') and `failed` lists the action
+     * labels whose chord failed to bind. Owned by main, surfaced read-only in the HUD.
+     */
+    hotkeys: { active: string; failed: string[] };
 }
 
 /** IPC channel name for the read-only, non-secret status push to the renderer (D-05). */
@@ -22,6 +28,24 @@ export const STATUS_CHANNEL = 'jedi:status';
  * ON/OFF truthfully. Set inside {@link showOverlay} where protection is (re-)applied.
  */
 let contentProtectionEnabled = false;
+
+/**
+ * The latest hotkey-registration outcome, tracked at module level (mirroring
+ * {@link contentProtectionEnabled}) because it is owned by main but NOT derivable from the
+ * window. Set via {@link setHotkeyStatus} by the registrar before {@link pushStatus} so the
+ * HUD reflects it truthfully (D-06/D-15). Defaults to a not-yet-registered state.
+ */
+let lastHotkeyResult: { active: string; failed: string[] } = { active: 'none', failed: [] };
+
+/**
+ * Records the aggregated hotkey-registration outcome so the next {@link pushStatus} carries it
+ * to the HUD. Called once at startup by the registrar (D-07: startup-only detection).
+ *
+ * @param result - The active layer and the list of action labels that failed to bind.
+ */
+export function setHotkeyStatus(result: { active: string; failed: string[] }): void {
+    lastHotkeyResult = result;
+}
 
 /**
  * Builds the status payload from the live window state.
@@ -36,6 +60,7 @@ function buildStatus(window: BrowserWindow): IOverlayStatus {
         electronVersion: process.versions.electron,
         contentProtection: contentProtectionEnabled,
         position: { x, y },
+        hotkeys: lastHotkeyResult,
     };
 }
 
