@@ -101,13 +101,43 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmapper) | | Pending |
+| OVL-01 | Phase 1 | Pending |
+| OVL-02 | Phase 1 | Pending |
+| OVL-04 | Phase 1 | Pending |
+| OVL-06 | Phase 1 | Pending |
+| SET-03 | Phase 1 | Pending |
+| OVL-03 | Phase 2 | Pending |
+| OVL-05 | Phase 2 | Pending |
+| CTL-01 | Phase 2 | Pending |
+| CTL-02 | Phase 2 | Pending |
+| CTL-03 | Phase 2 | Pending |
+| AUD-01 | Phase 3 | Pending |
+| AUD-02 | Phase 3 | Pending |
+| TRN-01 | Phase 4 | Pending |
+| TRN-02 | Phase 4 | Pending |
+| TRN-03 | Phase 4 | Pending |
+| TRN-04 | Phase 4 | Pending |
+| TRN-05 | Phase 4 | Pending |
+| AI-01 | Phase 5 | Pending |
+| AI-02 | Phase 5 | Pending |
+| AI-04 | Phase 5 | Pending |
+| AI-05 | Phase 5 | Pending |
+| CTX-01 | Phase 6 | Pending |
+| CTX-02 | Phase 6 | Pending |
+| CTX-03 | Phase 6 | Pending |
+| CTX-04 | Phase 6 | Pending |
+| SET-01 | Phase 6 | Pending |
+| SET-02 | Phase 6 | Pending |
+| SET-04 | Phase 6 | Pending |
+| AI-06 | Phase 6 | Pending |
+| AI-03 | Phase 7 | Pending |
+| PKG-01 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 30 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 30 ⚠️
+- Mapped to phases: 30 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-16*
-*Last updated: 2026-06-16 after initial definition*
+*Last updated: 2026-06-16 after roadmap creation (traceability populated)*
