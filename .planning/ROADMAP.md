@@ -127,14 +127,22 @@ Plans:
   4. The user can clear the transcript by hotkey, and the buffer is automatically capped to a bounded size.
   5. Speech-to-text is reached only through an `ISttProvider` interface, so the Deepgram backend can be swapped (e.g. for local Whisper) without touching consumers.
 
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
 
-- [ ] 04-01: ISttProvider seam + DeepgramSttGateway (v5, main process, key out of renderer)
-- [ ] 04-02: AudioWorklet PCM16 pipeline at asserted 16kHz, chunked ~100ms renderer→main IPC
-- [ ] 04-03: TranscriptBuffer (rolling, time/word-bounded) + clear-buffer hotkey
-- [ ] 04-04: Auto-reconnect with backoff + connection-status indicator; interim/final overlay rendering
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Capture go/no-go gate (native-recorder-nodejs, OQ-1) + ISttProvider seam + pure PCM resample/rate-assert utility (TRN-01, TRN-05)
+
+**Wave 2** *(blocked on 04-01)*
+
+- [ ] 04-02-PLAN.md — DeepgramSttGateway implements ISttProvider: Deepgram v5 live client, interim/final, reconnect+backoff, keep-alive, key main-only (TRN-01, TRN-02, TRN-03, TRN-05)
+- [ ] 04-03-PLAN.md — Time-bounded TranscriptBuffer (hard memory ceiling) + clear-transcript Ctrl+Alt chord via HotkeyRegistrarService (TRN-04)
+
+**Wave 3** *(blocked on 04-02 + 04-03)*
+
+- [ ] 04-04-PLAN.md — Wire capture→resample→gateway→buffer→jedi:transcript push + DebugHud render (interim distinct) + retire dead renderer audio path (D-02/IN-01, WR-01/02/03) + live verify (TRN-01..TRN-04)
 
 **Notes**: Define `ISttProvider` and `DeepgramSttGateway` here, before anything else depends on STT output — the seam is cheap now and a rewrite later. Use Deepgram v5 (DeepgramClient, listen.v1.connect, sendMedia); ignore v3/v4 tutorials. Use AudioWorklet, not ScriptProcessorNode; assert that the declared sample rate equals the actual PCM rate.
 
