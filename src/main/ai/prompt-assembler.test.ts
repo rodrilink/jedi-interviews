@@ -34,6 +34,31 @@ describe('prompt-assembler', () => {
         });
     });
 
+    describe('talking-points prompt wording (AI-02/D-12)', () => {
+        it('should instruct 3 to 5 short bullets each prefixed with a dash', () => {
+            // Arrange
+            const prompt = TALKING_POINTS_SYSTEM_PROMPT;
+
+            // Act
+            const requestsThreeToFive = prompt.includes('3') && prompt.includes('5');
+
+            // Assert
+            expect(requestsThreeToFive).toBe(true);
+            expect(prompt).toContain('- ');
+        });
+
+        it('should focus the talking points on the project work being discussed', () => {
+            // Arrange
+            const prompt = TALKING_POINTS_SYSTEM_PROMPT;
+
+            // Act
+            const focusesOnProjectWork = prompt.includes('project work');
+
+            // Assert
+            expect(focusesOnProjectWork).toBe(true);
+        });
+    });
+
     describe('span embedding', () => {
         it('should embed the transcript span under a labeled recent-transcript header', () => {
             // Arrange
@@ -41,6 +66,18 @@ describe('prompt-assembler', () => {
 
             // Act
             const assembled: IAssembledPrompt = assemblePrompt({ mode: 'answer', span });
+
+            // Assert
+            expect(assembled.userContent).toContain('Recent transcript (last ~60s):');
+            expect(assembled.userContent).toContain(span);
+        });
+
+        it('should embed the transcript span under the same labeled header for talking-points mode', () => {
+            // Arrange
+            const span = 'We are refactoring the payments reconciliation job and the retry logic is flaky.';
+
+            // Act
+            const assembled: IAssembledPrompt = assemblePrompt({ mode: 'talking-points', span });
 
             // Assert
             expect(assembled.userContent).toContain('Recent transcript (last ~60s):');
@@ -66,6 +103,17 @@ describe('prompt-assembler', () => {
 
             // Act
             const assembled: IAssembledPrompt = assemblePrompt({ mode: 'answer', span, context: {} });
+
+            // Assert
+            expect(assembled.userContent).toBe(`Recent transcript (last ~60s):\n${span}`);
+        });
+
+        it('should produce no context block for talking-points mode when context is undefined (D-13 holds for both modes)', () => {
+            // Arrange
+            const span = 'We are migrating the reconciliation job off the legacy queue.';
+
+            // Act
+            const assembled: IAssembledPrompt = assemblePrompt({ mode: 'talking-points', span, context: undefined });
 
             // Assert
             expect(assembled.userContent).toBe(`Recent transcript (last ~60s):\n${span}`);

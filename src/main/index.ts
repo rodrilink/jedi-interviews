@@ -51,8 +51,8 @@ let aiHistory: AiHistory | undefined;
  * @param window - The overlay window to push the cleared transcript snapshot to.
  * @param buffer - The transcript buffer wiped by the clear-transcript chord.
  * @param getConnectionState - Reads the current connection state for the cleared-snapshot push.
- * @param aiOrchestrator - The single-in-flight AI orchestrator the 'ai-answer' chord triggers (Phase 5).
- * @param aiHistory - The shared bounded AI history (injected for symmetry; 05-02's clear-ai handler uses it).
+ * @param aiOrchestrator - The single-in-flight AI orchestrator the 'ai-answer'/'ai-talking-points' chords trigger (Phase 5).
+ * @param aiHistory - The shared bounded AI history; the 'clear-ai' chord empties it then pushes a `cleared` event.
  * @returns A handler map covering every locked action label.
  */
 function buildHandlers(
@@ -88,12 +88,17 @@ function buildHandlers(
         'scroll-transcript-down': (): void => pushScrollTranscript(window, 'down'),
         // Phase 5 (AI-01/D-05): Answer mode. The orchestrator owns the whole lifecycle — empty-span
         // guard (D-11), single-in-flight cancel on re-press (D-06), and the debounced jedi:ai push —
-        // so the handler is a one-liner. The shared aiHistory is injected into buildHandlers (Fix 3)
-        // so 05-02's 'clear-ai' handler binds to the SAME instance the orchestrator appends to; it is
-        // referenced here only to keep that shared binding explicit until that handler lands.
-        'ai-answer': (): void => {
-            void aiHistory;
-            aiOrchestrator.trigger('answer');
+        // so the handler is a one-liner.
+        'ai-answer': (): void => aiOrchestrator.trigger('answer'),
+        // Phase 5 (AI-02/D-05): Talking-points mode. Same orchestrator lifecycle as answer; the mode
+        // selects TALKING_POINTS_SYSTEM_PROMPT + claude-opus-4-8 (D-10) inside the orchestrator.
+        'ai-talking-points': (): void => aiOrchestrator.trigger('talking-points'),
+        // Phase 5 (D-02): Clear the AI panel. Empties the SAME shared aiHistory instance the orchestrator
+        // appends to (Fix 3), then pushes a `cleared` event so the renderer resets its mirror to empty.
+        // Mirrors the clear-transcript handler shape (mutate the main-owned store, then push the result).
+        'clear-ai': (): void => {
+            aiHistory.clear();
+            pushAi(window, { type: 'cleared' });
         },
         quit: (): void => actions.quit(),
     };

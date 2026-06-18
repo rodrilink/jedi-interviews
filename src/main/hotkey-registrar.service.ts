@@ -80,6 +80,20 @@ const HOTKEY_CHORDS: readonly IHotkeyChord[] = [
     // entirely in the AiOrchestrator. The 'ai-answer' handler (aiOrchestrator.trigger('answer')) is
     // wired in index.ts; a missing handler surfaces in register().failed (CTL-03) — no registrar change.
     { label: 'ai-answer', keycode: UiohookKey.A, accelerator: 'Ctrl+Alt+A', kind: 'discrete' },
+    // Phase 5 (D-05/AI-02): Talking-points mode. 'T' is OUTSIDE the locked, conflict-tested set
+    // {J, arrows, [, ], H, Q, K, PgUp, PgDn, A}; the on-machine Teams/Zoom/VS Code conflict re-check is
+    // pending for 05-02's manual verify (fall back to a reserved letter if a collision surfaces).
+    // 'discrete' so a held key triggers once per press; the AiOrchestrator owns single-in-flight (D-06/D-07).
+    // The 'ai-talking-points' handler (aiOrchestrator.trigger('talking-points')) is wired in index.ts;
+    // a missing handler surfaces in register().failed (CTL-03) — no registrar change.
+    { label: 'ai-talking-points', keycode: UiohookKey.T, accelerator: 'Ctrl+Alt+T', kind: 'discrete' },
+    // Phase 5 (D-02): Clear the AI panel. 'G' is OUTSIDE the locked, conflict-tested set (K already
+    // clears the transcript, so a distinct clear-AI letter is needed); the on-machine Teams/Zoom/VS Code
+    // conflict re-check is pending for 05-02's manual verify (fall back to a reserved letter if a
+    // collision surfaces). 'discrete' so a held key clears once per press. The 'clear-ai' handler
+    // (aiHistory.clear() + cleared push) is wired in index.ts; a missing handler surfaces in
+    // register().failed (CTL-03) — no registrar change.
+    { label: 'clear-ai', keycode: UiohookKey.G, accelerator: 'Ctrl+Alt+G', kind: 'discrete' },
 ];
 
 /** The ordered list of action labels in the locked set, exported for tests and HUD copy. */

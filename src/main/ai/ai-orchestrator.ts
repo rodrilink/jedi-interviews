@@ -62,7 +62,12 @@ export type IAiPushEvent =
     | { type: 'done'; requestId: number; id: string; text: string }
     | { type: 'error'; requestId: number; id: string; text: string }
     | { type: 'cancelled'; requestId: number; id: string }
-    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string };
+    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string }
+    // D-02: the clear-AI hotkey empties the panel. Carries no entry id (it targets the whole list);
+    // the renderer resets its mirror to an empty list. This is the minimal clear signal the current
+    // renderer contract supports — the full bounded `history-snapshot` reconciliation push lands in
+    // 05-03 (pushHistorySnapshot is still a no-op here).
+    | { type: 'cleared' };
 
 /** The active in-flight request: its mode, monotonic id, stream handle, and accumulated text. */
 interface IActiveRequest {
