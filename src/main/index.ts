@@ -1,7 +1,11 @@
-import { app, BrowserWindow, ipcMain, session, desktopCapturer, type IpcMainEvent } from 'electron';
-import { createOverlayWindow, showOverlay, pushStatus, setHotkeyStatus, getOverlayVisible, setAudioLevel } from './overlay-window.manager';
+import { app, BrowserWindow } from 'electron';
+import { createOverlayWindow, showOverlay, pushStatus, pushTranscript, setHotkeyStatus, getOverlayVisible } from './overlay-window.manager';
 import { HotkeyRegistrarService, type HotkeyHandlerMap } from './hotkey-registrar.service';
 import { WindowControlActionsService } from './window-control.actions';
+import { AudioCaptureService } from './audio/audio-capture.service';
+import { DeepgramSttGateway } from './stt/deepgram-stt.gateway';
+import { TranscriptBuffer } from './stt/transcript-buffer';
+import type { ISttTranscriptEvent, SttConnectionState } from './stt/stt-provider.interface';
 
 /**
  * The single hotkey registrar for the app's lifetime. Instantiated once after the overlay
@@ -11,17 +15,28 @@ import { WindowControlActionsService } from './window-control.actions';
 let hotkeyRegistrar: HotkeyRegistrarService | undefined;
 
 /**
+ * The single STT capture service and gateway for the app's lifetime, instantiated once in
+ * `app.whenReady()` and torn down on quit. Module-level by-convention singletons (the main process
+ * has no TSyringe container), mirroring {@link hotkeyRegistrar}.
+ */
+let audioCapture: AudioCaptureService | undefined;
+let sttGateway: DeepgramSttGateway | undefined;
+
+/**
  * Builds the action-label -> handler map for the registrar from the real window-control
- * actions (02-02). Each label maps to a method on {@link WindowControlActionsService} that
- * mutates the overlay window. The single show/hide chord branches on the main-owned
- * {@link getOverlayVisible} state (owned in overlay-window.manager, not duplicated here): hide
- * when currently visible, show via {@link showOverlay} when hidden (D-14/D-15). The four move
- * directions, opacity up/down, the HUD-content toggle (D-14), and quit (D-04) map directly.
+ * actions (02-02) plus the Phase 4 clear-transcript action (D-07). Each label maps to a handler
+ * that mutates the overlay window or the transcript buffer. The single show/hide chord branches on
+ * the main-owned {@link getOverlayVisible} state; the four move directions, opacity up/down, the
+ * HUD-content toggle (D-14), and quit (D-04) map directly. `clear-transcript` wipes the main-side
+ * {@link TranscriptBuffer} and immediately pushes the emptied snapshot so the overlay reflects it.
  *
  * @param actions - The window-control action service bound to the overlay window.
+ * @param window - The overlay window to push the cleared transcript snapshot to.
+ * @param buffer - The transcript buffer wiped by the clear-transcript chord.
+ * @param getConnectionState - Reads the current connection state for the cleared-snapshot push.
  * @returns A handler map covering every locked action label.
  */
-function buildHandlers(actions: WindowControlActionsService): HotkeyHandlerMap {
+function buildHandlers(actions: WindowControlActionsService, window: BrowserWindow, buffer: TranscriptBuffer, getConnectionState: () => SttConnectionState): HotkeyHandlerMap {
     return {
         'show/hide': (): void => {
             if (getOverlayVisible()) {
@@ -37,50 +52,12 @@ function buildHandlers(actions: WindowControlActionsService): HotkeyHandlerMap {
         'opacity-down': (): void => actions.opacityDown(),
         'opacity-up': (): void => actions.opacityUp(),
         'hud-toggle': (): void => actions.toggleHud(),
+        'clear-transcript': (): void => {
+            buffer.clear();
+            pushTranscript(window, { ...buffer.renderable(), connectionState: getConnectionState() });
+        },
         quit: (): void => actions.quit(),
     };
-}
-
-/**
- * Installs the picker-free system-audio loopback grant and the single renderer -> main
- * audio-level report listener.
- *
- * `setDisplayMediaRequestHandler` answers the overlay renderer's `getDisplayMedia` call directly
- * with a screen video source plus `audio: 'loopback'` (Windows-only, Electron 31+), so loopback
- * audio is granted with NO on-screen picker and NO user gesture — preserving the focus/click-through
- * contract (D-03 / OVL-02). The grant is scoped to the locally-loaded overlay `webContents` only:
- * any request from a different `webContents` is denied (`callback({})`), so no remote/unknown content
- * can ever be granted capture (T-03-01). The renderer discards the video track and keeps only audio.
- *
- * `ipcMain.on('jedi:audio-level')` is the app's only write-direction IPC surface: it records the
- * untrusted, non-secret RMS scalar via {@link setAudioLevel} (which coerces non-finite input) and
- * re-broadcasts it on the read-only `jedi:status` channel so the HUD `Audio:` row updates (T-03-02).
- *
- * @param window - The overlay window whose webContents is the sole authorized capture target.
- */
-function installAudioPipeline(window: BrowserWindow): void {
-    session.defaultSession.setDisplayMediaRequestHandler(
-        (request, callback) => {
-            // Grant loopback ONLY to the locally-loaded overlay renderer; deny everything else.
-            if (request.frame?.url !== window.webContents.getURL()) {
-                callback({});
-                return;
-            }
-
-            void desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
-                // A video source MUST accompany audio:'loopback' on Windows; the renderer stops and
-                // discards the video track immediately, keeping only the system-audio stream.
-                callback({ video: sources[0], audio: 'loopback' });
-            });
-        },
-        // useSystemPicker:false — never show an OS picker (D-03); the handler resolves the source.
-        { useSystemPicker: false }
-    );
-
-    ipcMain.on('jedi:audio-level', (_event: IpcMainEvent, level: number) => {
-        setAudioLevel(level);
-        pushStatus(window);
-    });
 }
 
 /**
@@ -103,20 +80,80 @@ function bootOverlay(): BrowserWindow {
     return window;
 }
 
+/**
+ * Wires the full main-side STT pipeline once: WASAPI capture -> resample -> Deepgram gateway ->
+ * transcript buffer -> one-way `jedi:transcript` push to the overlay (TRN-01/02/03/04).
+ *
+ * All pieces are by-convention singletons resolved here at the entry point only (no service-locator
+ * mid-method). The Deepgram key is read from `process.env.DEEPGRAM_API_KEY` in main only (D-08) and
+ * passed to the gateway constructor; it never crosses IPC and is never logged. Gateway `transcript`
+ * events fill the buffer (interim replaced, finals committed) and push the renderable snapshot;
+ * `connection-state-change` updates the surfaced state and re-pushes; `error` is swallowed (the
+ * gateway never throws) so a transient STT fault keeps the app running. Capture faults likewise
+ * surface to a logged, non-crashing handler.
+ *
+ * @param window - The overlay window the transcript snapshot is pushed to.
+ * @param buffer - The shared transcript buffer (also wiped by the clear-transcript chord).
+ * @returns A getter for the current connection state, read by the clear-transcript handler.
+ */
+function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer): () => SttConnectionState {
+    let connectionState: SttConnectionState = 'disconnected';
+
+    const gateway = new DeepgramSttGateway(process.env.DEEPGRAM_API_KEY ?? '');
+    sttGateway = gateway;
+
+    gateway.on('transcript', (event: ISttTranscriptEvent) => {
+        if (event.isFinal) {
+            buffer.appendFinal(event.text);
+        } else {
+            buffer.setInterim(event.text);
+        }
+
+        pushTranscript(window, { ...buffer.renderable(), connectionState });
+    });
+
+    gateway.on('connection-state-change', (state: SttConnectionState) => {
+        connectionState = state;
+        pushTranscript(window, { ...buffer.renderable(), connectionState: state });
+    });
+
+    gateway.on('error', () => {
+        // The gateway never throws — it surfaces transport faults here. We keep running; the
+        // connection-state row already reflects reconnecting/disconnected. The error is NOT logged
+        // with its payload to avoid any risk of leaking key-adjacent detail (D-08).
+    });
+
+    const capture = new AudioCaptureService(
+        (pcm) => gateway.sendAudio(pcm),
+        () => {
+            // A capture/device fault must never crash main. It surfaces via the absence of transcript
+            // updates; we keep the app alive rather than throwing (report-don't-throw, WR-01/WR-02).
+        }
+    );
+    audioCapture = capture;
+
+    void gateway.start().then(() => capture.start());
+
+    return (): SttConnectionState => connectionState;
+}
+
 app.whenReady().then(() => {
     const window = bootOverlay();
 
-    // Install the picker-free loopback grant + the renderer->main audio-level listener so the
-    // renderer's auto-started capture (D-03) can resolve getDisplayMedia and surface the live RMS
-    // level in the HUD Audio: row over the read-only jedi:status push (D-04/D-05).
-    installAudioPipeline(window);
+    // The authoritative rolling transcript buffer (main-owned, TRN-04). Wired into the STT pipeline
+    // below and wiped by the clear-transcript chord.
+    const buffer = new TranscriptBuffer();
+
+    // Wire capture -> resample -> Deepgram -> buffer -> jedi:transcript push once (TRN-01/02/03).
+    const getConnectionState = wireSttPipeline(window, buffer);
 
     // Register the global hotkey layer after the overlay boots. The aggregated outcome is
     // fed to the HUD over the read-only jedi:status channel (D-06) — startup-only (D-07), and
     // the app launches even if some chords fail (D-08). The real window-control handlers
-    // (02-02) mutate this overlay window when their chords fire.
+    // (02-02) mutate this overlay window when their chords fire; the clear-transcript chord
+    // (D-07/TRN-04) wipes the buffer and re-pushes the emptied snapshot.
     const windowControlActions = new WindowControlActionsService(window);
-    hotkeyRegistrar = new HotkeyRegistrarService(buildHandlers(windowControlActions));
+    hotkeyRegistrar = new HotkeyRegistrarService(buildHandlers(windowControlActions, window, buffer, getConnectionState));
     const result = hotkeyRegistrar.register();
     setHotkeyStatus(result);
     pushStatus(window);
@@ -131,6 +168,11 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
     // Release the native hook (or the globalShortcut accelerators) before quitting.
     hotkeyRegistrar?.teardown();
+
+    // Release the native capture handle and close the Deepgram socket so no native/socket
+    // resource leaks on quit (mirrors the registrar teardown discipline).
+    void audioCapture?.teardown();
+    void sttGateway?.stop();
 
     if (process.platform !== 'darwin') {
         app.quit();
