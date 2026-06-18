@@ -244,6 +244,36 @@ describe('deepgram-stt.gateway', () => {
         expect(fakeSocket.sendKeepAlive).toHaveBeenCalled();
     });
 
+    it('should not send a keep-alive before the socket has opened', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+
+        // Act
+        await gateway.start();
+        await vi.advanceTimersByTimeAsync(10_000);
+
+        // Assert
+        expect(fakeSocket.sendKeepAlive).not.toHaveBeenCalled();
+    });
+
+    it('should not throw when a keep-alive tick races a socket that is not open', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+        gateway.on('error', () => undefined);
+        fakeSocket.sendKeepAlive.mockImplementation(() => {
+            throw new Error('Socket is not open.');
+        });
+
+        // Act
+        await gateway.start();
+        fakeSocket.emit('open');
+
+        // Assert
+        await expect(vi.advanceTimersByTimeAsync(10_000)).resolves.not.toThrow();
+    });
+
     it('should tear down the socket on stop', async () => {
         // Arrange
         const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');

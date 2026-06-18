@@ -218,6 +218,12 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
      * Starts the keep-alive timer. On each tick, sends `sendKeepAlive({})` only when no audio chunk
      * was streamed in the interval, so Deepgram does not idle-close the socket during silence
      * (RESEARCH Pitfall 3) without competing with live audio.
+     *
+     * The send is gated on `state === 'connected'` (not merely on a non-undefined connection): the
+     * socket object exists from the moment `connect()` returns but only accepts traffic after its
+     * `'open'` event, and the SDK throws `Socket is not open.` synchronously otherwise. Because this
+     * runs inside a timer callback, that throw would become an uncaught main-process exception; the
+     * state gate plus the defensive try/catch keep a transport race from ever crashing the app.
      */
     private startKeepAlive(): void {
         this.stopKeepAlive();
@@ -229,8 +235,16 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
                 return;
             }
 
-            if (this.connection !== undefined) {
+            if (this.state !== 'connected' || this.connection === undefined) {
+                return;
+            }
+
+            try {
                 this.connection.sendKeepAlive({});
+            } catch (error) {
+                // The socket closed between the state check and the send (a transport race). Surface
+                // it without crashing; the 'close' handler drives the reconnect.
+                this.emitError(error instanceof Error ? error : new Error('Deepgram keep-alive failed'));
             }
         }, KEEP_ALIVE_INTERVAL_MS);
     }
