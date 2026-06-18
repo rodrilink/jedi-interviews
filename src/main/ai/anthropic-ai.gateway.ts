@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import Anthropic from '@anthropic-ai/sdk';
 
 import type { IAiGateway, IAiPromptRequest, IAiStream } from './ai-gateway.interface';
+import { sanitizeAiError } from './sanitize-ai-error.utility';
 
 /**
  * The Anthropic-backed {@link IAiGateway} (AI-01/AI-04, D-10/D-12).
@@ -56,7 +57,7 @@ export class AnthropicGateway extends EventEmitter implements IAiGateway {
 
             stream.on('text', (textDelta: string) => this.emit('text', textDelta));
             stream.on('abort', () => this.emit('abort'));
-            stream.on('error', (error: unknown) => this.emitError(error instanceof Error ? error : new Error('AI stream error')));
+            stream.on('error', (error: unknown) => this.emitError(error));
             // Terminal success — finalText() resolves on message_stop. The catch is intentionally a
             // no-op: a failure here has already surfaced via the 'error' / 'abort' events above, and
             // we must never log the rejection (the SDK error object can embed request headers, T-5-02).
@@ -69,7 +70,7 @@ export class AnthropicGateway extends EventEmitter implements IAiGateway {
         } catch (error) {
             // A synchronous fault before the stream object exists (e.g. an invalid/missing key the SDK
             // rejects on construct). Surface it without throwing; return a no-op abort handle.
-            this.emitError(error instanceof Error ? error : new Error('AI stream error'));
+            this.emitError(error);
 
             return { abort: (): void => undefined };
         }
@@ -79,14 +80,19 @@ export class AnthropicGateway extends EventEmitter implements IAiGateway {
      * Emits the gateway's `error` event defensively. Node's EventEmitter throws synchronously when an
      * `'error'` event is emitted with no listener attached; this gateway must surface a transport fault
      * without crashing the main process even before a consumer has subscribed, so we no-op when there
-     * is no listener rather than letting the emit throw. The error payload is NEVER logged here
-     * (T-5-02: the SDK error object can embed `x-api-key` request headers).
+     * is no listener rather than letting the emit throw.
      *
-     * @param error - The error to surface.
+     * The raw value is first reduced to a short, safe reason via {@link sanitizeAiError} (T-5-02): the
+     * SDK error object can embed the request body, headers, or `x-api-key`, and for a 400 its `message`
+     * is the entire JSON error body. We emit an `Error` whose `message` is already the sanitized reason,
+     * so the orchestrator's `AI error: ${error.message}` renders clean inline text. The raw payload is
+     * never logged and never emitted.
+     *
+     * @param error - The raw value thrown by the SDK or a transport fault.
      */
-    private emitError(error: Error): void {
+    private emitError(error: unknown): void {
         if (this.listenerCount('error') > 0) {
-            this.emit('error', error);
+            this.emit('error', new Error(sanitizeAiError(error)));
         }
     }
 }
