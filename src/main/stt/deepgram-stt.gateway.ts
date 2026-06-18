@@ -183,8 +183,7 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
             this.handleMessage(message);
         });
 
-        connection.on('close', (event: unknown) => {
-            console.log('[DIAG] socket close:', JSON.stringify(event)?.slice(0, 200));
+        connection.on('close', () => {
             if (this.stopped) {
                 return;
             }
@@ -194,7 +193,6 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
         });
 
         connection.on('error', (error: Error) => {
-            console.log('[DIAG] socket error:', error?.message ?? String(error));
             this.emitError(error);
         });
     }
