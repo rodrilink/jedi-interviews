@@ -46,6 +46,8 @@ const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: stri
     { id: 'clear', label: 'Clear transcript', chord: 'Ctrl+Alt+K' },
     { id: 'scroll', label: 'Scroll transcript', chord: 'Ctrl+Alt+PgUp / PgDn' },
     { id: 'answer', label: 'Answer', chord: 'Ctrl+Alt+A' },
+    { id: 'talking-points', label: 'Talking points', chord: 'Ctrl+Alt+T' },
+    { id: 'clear-ai', label: 'Clear AI', chord: 'Ctrl+Alt+G' },
     { id: 'quit', label: 'Quit', chord: 'Ctrl+Alt+Q' },
 ];
 

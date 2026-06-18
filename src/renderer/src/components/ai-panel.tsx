@@ -16,7 +16,10 @@ type IAiPushEvent =
     | { type: 'done'; requestId: number; id: string; text: string }
     | { type: 'error'; requestId: number; id: string; text: string }
     | { type: 'cancelled'; requestId: number; id: string }
-    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string };
+    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string }
+    // D-02: the clear-AI hotkey empties the panel — no entry id (it resets the whole list). Mirrors the
+    // `cleared` variant declared identically in main/preload (Phase 5; full snapshot reconciliation in 05-03).
+    | { type: 'cleared' };
 
 /** The inline lifecycle state of a rendered entry (D-04). */
 type AiEntryState = 'thinking' | 'streaming' | 'done' | 'error' | 'cancelled' | 'empty';
@@ -81,6 +84,10 @@ function reduceEntries(entries: IAiPanelEntry[], event: IAiPushEvent): IAiPanelE
             return entries.map((entry) => (entry.id === event.id ? { ...entry, text: event.text, state: 'error' } : entry));
         case 'cancelled':
             return entries.map((entry) => (entry.id === event.id ? { ...entry, state: 'cancelled' } : entry));
+        case 'cleared':
+            // D-02: the clear-AI hotkey resets the whole panel to empty. Main owns the authoritative
+            // history (it called AiHistory.clear()); the renderer mirrors that by dropping every entry.
+            return [];
         default:
             return entries;
     }
