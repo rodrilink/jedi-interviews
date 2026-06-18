@@ -113,7 +113,10 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
         }
 
         this.audioSentSinceKeepAlive = true;
-        this.connection.sendMedia(pcm.buffer);
+        // Send the Int16Array view itself (an ArrayBufferView) rather than `.buffer`: `.buffer` is
+        // ArrayBufferLike (possibly SharedArrayBuffer) which sendMedia's ArrayBuffer | ArrayBufferView
+        // type rejects, and the view also respects any subarray offset/length.
+        this.connection.sendMedia(pcm);
     }
 
     /**
@@ -131,8 +134,10 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
                 encoding: 'linear16',
                 sample_rate: TARGET_SAMPLE_RATE,
                 channels: TARGET_CHANNELS,
-                interim_results: true,
-                smart_format: true,
+                // The SDK types these query params as string-literal unions ('true' | 'false' | string),
+                // not booleans — they are serialized into the websocket query string.
+                interim_results: 'true',
+                smart_format: 'true',
                 // The HeaderAuthProvider supplies the real auth header from `apiKey`; the per-call
                 // Authorization field is left empty so it merges out (verified against @deepgram/sdk@5.4.0).
                 Authorization: '',
