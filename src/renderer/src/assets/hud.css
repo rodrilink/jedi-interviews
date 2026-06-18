@@ -23,16 +23,28 @@ body {
 }
 
 #root {
+    /*
+     * The overlay root stacks two sibling surfaces (D-01): the toggleable DebugHud on top and the
+     * always-on AiPanel below. A column flexbox bounded to the viewport height lets the HUD take its
+     * natural size while the AI panel takes the remaining space and scrolls internally — so the panel
+     * is never pushed off-screen on the fixed 460x700 overlay (the window is resizable:false).
+     */
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    height: 100vh;
     background: transparent;
+    gap: 8px;
+    padding: 8px;
 }
 
 .debug-hud {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    width: calc(100vw - 16px);
-    height: calc(100vh - 16px);
-    margin: 8px;
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 55%;
     padding: 12px 16px;
     border-radius: 8px 8px 18px 18px;
     background: rgb(12 14 20 / 72%);
@@ -148,4 +160,104 @@ body {
 
 .debug-hud__cheatsheet-row {
     display: contents;
+}
+
+/*
+ * The always-on AI panel (D-01): a sibling surface below the HUD, NOT gated on hudVisible. It takes
+ * the remaining column height and scrolls its entry list internally so a long streamed answer never
+ * pushes the panel off the fixed overlay. Same dark translucent chrome as the HUD for visual unity.
+ */
+.ai-panel {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 12px 16px;
+    border-radius: 18px 18px 8px 8px;
+    background: rgb(12 14 20 / 72%);
+    color: rgb(226 232 240 / 100%);
+    border: 1px solid rgb(148 163 184 / 28%);
+    font-size: 12px;
+    line-height: 1.5;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.ai-panel__title {
+    flex: 0 0 auto;
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgb(196 181 253 / 100%);
+}
+
+/* The scrollable stack of entries, newest at the bottom (D-02), auto-following while streaming (D-03). */
+.ai-panel__entries {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 50%) transparent;
+}
+
+.ai-panel__entries::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ai-panel__entries::-webkit-scrollbar-thumb {
+    background: rgb(148 163 184 / 50%);
+    border-radius: 3px;
+}
+
+/* A single stacked entry: a hairline rule separates entries; the newest reads at the bottom. */
+.ai-panel__entry {
+    padding: 6px 0;
+    border-top: 1px solid rgb(148 163 184 / 18%);
+}
+
+.ai-panel__entry:first-child {
+    border-top: none;
+}
+
+.ai-panel__entry-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2px;
+    font-size: 11px;
+}
+
+.ai-panel__entry-mode {
+    color: rgb(196 181 253 / 100%);
+    font-weight: 600;
+}
+
+.ai-panel__entry-time {
+    color: rgb(148 163 184 / 100%);
+    font-variant-numeric: tabular-nums;
+}
+
+.ai-panel__entry-body {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: rgb(226 232 240 / 100%);
+}
+
+/* The pre-first-token state reads dimmed + italic so it is visually distinct from streamed text (D-04). */
+.ai-panel__entry--thinking .ai-panel__entry-body {
+    color: rgb(148 163 184 / 85%);
+    font-style: italic;
+}
+
+/* Cancelled + empty entries are de-emphasized; an error reads in a warning hue (D-04). */
+.ai-panel__entry--cancelled .ai-panel__entry-body,
+.ai-panel__entry--empty .ai-panel__entry-body {
+    color: rgb(148 163 184 / 85%);
+    font-style: italic;
+}
+
+.ai-panel__entry--error .ai-panel__entry-body {
+    color: rgb(248 180 180 / 100%);
 }

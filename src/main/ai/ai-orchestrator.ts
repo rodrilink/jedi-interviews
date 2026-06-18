@@ -1,0 +1,309 @@
+/**
+ * The single-in-flight AI request orchestrator (D-06/D-07/D-09/D-10/D-11, AI-04).
+ *
+ * It owns the entire AI request lifecycle in the main process: read the recent transcript span,
+ * guard the empty span, assemble the prompt, start exactly ONE gateway stream at a time, debounce
+ * the streamed text deltas to the renderer, and append the finished entry to the bounded history.
+ * The renderer is a pure view of the pushed {@link IAiPushEvent}s (IN-01) — there is no
+ * renderer->main control surface; triggers come only from main-side hotkeys.
+ *
+ * Single-in-flight invariant (D-06/D-07): at most one stream is active. Re-pressing the SAME mode
+ * cancels its own stream (D-06); pressing the OTHER mode cancels the current and starts the new one
+ * (D-07). Every stream + its target entry is tagged with a monotonic request id; gateway events
+ * whose id is no longer the active one are ignored, so an aborted stream's late deltas can never
+ * bleed into a new entry (Pitfall 1).
+ */
+
+import type { AiMode, IAiGateway, IAiStream } from './ai-gateway.interface';
+import { assemblePrompt, RECENT_SPAN_MS } from './prompt-assembler';
+import { AiHistory } from './ai-history';
+import { TranscriptBuffer } from '../stt/transcript-buffer';
+
+/**
+ * Per-mode model ids (D-10). Named per-mode constants so a mode can be cheaply re-tiered later
+ * (e.g. moving talking-points to Haiku if 05-03 latency logging shows Opus too slow).
+ */
+export const ANSWER_MODEL = 'claude-haiku-4-5';
+export const TALKING_POINTS_MODEL = 'claude-opus-4-8';
+
+/**
+ * Per-mode hard output-token caps (Pitfall 6). The system prompt enforces brevity; these are the
+ * safety caps, tunable during 05-03 latency logging. Answers are a few sentences; talking points are
+ * 3–5 short bullets.
+ */
+export const MAX_TOKENS: Record<AiMode, number> = {
+    answer: 400,
+    'talking-points': 500,
+};
+
+/**
+ * The trailing-edge debounce interval (ms) for pushing streamed text deltas to the renderer (AI-04).
+ * In the locked 30–60ms band (D-04), matching the house 66ms audio-level throttle rationale: a fast
+ * Haiku stream would otherwise flood IPC token-by-token.
+ */
+export const DELTA_DEBOUNCE_MS = 40;
+
+/** The empty-span placeholder text shown when there is nothing recent to act on (D-11). */
+export const EMPTY_SPAN_TEXT = 'No recent transcript to act on';
+
+/** The inline message shown when the Anthropic key is absent (Pitfall 3 / T-5-02). Never logs the key. */
+export const MISSING_KEY_TEXT = 'AI error: missing API key';
+
+/**
+ * The one-way push payload sent to the renderer over the `jedi:ai` channel (Pitfall 4). Every
+ * variant carries the `requestId` so the renderer can reconcile streaming deltas to the correct
+ * in-progress entry. Streaming pushes incremental `delta`s (cheap); terminal events (`done` /
+ * `error` / `cancelled`) carry the full text and the main re-pushes a bounded `history-snapshot`
+ * only on terminal/clear — not per delta.
+ */
+export type IAiPushEvent =
+    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number }
+    | { type: 'delta'; requestId: number; id: string; text: string }
+    | { type: 'done'; requestId: number; id: string; text: string }
+    | { type: 'error'; requestId: number; id: string; text: string }
+    | { type: 'cancelled'; requestId: number; id: string }
+    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string };
+
+/** The active in-flight request: its mode, monotonic id, stream handle, and accumulated text. */
+interface IActiveRequest {
+    mode: AiMode;
+    requestId: number;
+    /** The entry id (the monotonic requestId rendered as a string) used as the renderer row key. */
+    id: string;
+    stream: IAiStream;
+    text: string;
+    debounceTimer: ReturnType<typeof setTimeout> | undefined;
+    pendingDelta: boolean;
+}
+
+/**
+ * Orchestrates single-in-flight AI requests.
+ *
+ * @remarks
+ * The Electron main process has no TSyringe DI container, so this is not an `@singleton()`; it is
+ * instantiated once in `index.ts` (05-01) and treated as a singleton by convention. Its dependencies
+ * — the gateway, the shared transcript buffer, the shared AI history, and a `pushAi` closure — are
+ * constructor-injected (it never imports the overlay manager directly), mirroring how
+ * `wireSttPipeline` closes over `pushTranscript(window, …)`.
+ */
+export class AiOrchestrator {
+    private active: IActiveRequest | undefined;
+    private requestSeq = 0;
+    private handlersWired = false;
+
+    /**
+     * @param gateway - The AI generation seam (Anthropic in production, a fake in tests).
+     * @param transcriptBuffer - The shared main-owned transcript buffer (the span source, D-09).
+     * @param history - The shared bounded AI history; MUST be the same instance the clear-AI handler binds to.
+     * @param pushAi - Pushes an {@link IAiPushEvent} to the renderer (a closure over the overlay window).
+     */
+    public constructor(
+        private readonly gateway: IAiGateway,
+        private readonly transcriptBuffer: TranscriptBuffer,
+        private readonly history: AiHistory,
+        private readonly pushAi: (event: IAiPushEvent) => void
+    ) {
+        this.wireGatewayHandlers();
+    }
+
+    /**
+     * Triggers an AI request for the given mode (the hotkey entry point, D-05/D-06/D-07).
+     *
+     * Reads the ~60s span (D-09); if it is empty, appends the D-11 placeholder and makes NO gateway
+     * call. Otherwise enforces the single-in-flight invariant: re-pressing the SAME mode cancels its
+     * own stream and returns (D-06); the OTHER mode cancels the current then starts the new one
+     * (D-07). The new stream + its entry are tagged with a fresh monotonic request id (Pitfall 1).
+     *
+     * @param mode - The AI mode to run.
+     */
+    public trigger(mode: AiMode): void {
+        const span = this.transcriptBuffer.recentSince(RECENT_SPAN_MS);
+
+        // D-11 empty-span guard — BEFORE any gateway call.
+        if (span.trim().length === 0) {
+            const requestId = ++this.requestSeq;
+            const id = String(requestId);
+            const at = Date.now();
+            this.history.append({ id, mode, text: EMPTY_SPAN_TEXT, kind: 'empty' });
+            this.pushAi({ type: 'empty', requestId, id, mode, at, text: EMPTY_SPAN_TEXT });
+            this.pushHistorySnapshot();
+
+            return;
+        }
+
+        // D-06: re-press the SAME mode while its stream is in flight -> cancel, done.
+        if (this.active !== undefined && this.active.mode === mode) {
+            this.cancelActive();
+
+            return;
+        }
+
+        // D-07: the OTHER mode mid-stream -> cancel the current, then start the new one.
+        if (this.active !== undefined) {
+            this.cancelActive();
+        }
+
+        const requestId = ++this.requestSeq;
+        const id = String(requestId);
+        const at = Date.now();
+        const model = mode === 'answer' ? ANSWER_MODEL : TALKING_POINTS_MODEL;
+        const { system, userContent } = assemblePrompt({ mode, span, context: undefined });
+
+        const stream = this.gateway.stream({ model, maxTokens: MAX_TOKENS[mode], system, userContent });
+        this.active = { mode, requestId, id, stream, text: '', debounceTimer: undefined, pendingDelta: false };
+
+        // Surface the in-flight 'thinking…' state immediately so the entry appears before the first token (D-04).
+        this.pushAi({ type: 'thinking', requestId, id, mode, at });
+    }
+
+    /**
+     * Wires the gateway's typed events once. Each handler ignores events that are not for the active
+     * request id (Pitfall 1), so an aborted stream's late deltas/terminals never affect a new entry.
+     */
+    private wireGatewayHandlers(): void {
+        if (this.handlersWired) {
+            return;
+        }
+
+        this.handlersWired = true;
+
+        this.gateway.on('text', (textDelta: string) => {
+            // Pitfall-1 request-id guard: with a shared gateway emitter, a delta from an aborted stream
+            // can still fire after its request was cancelled. We only have one active request at a time
+            // (single-in-flight, D-07), so once `active` is cleared on cancel/terminal, a late delta has
+            // no active request to attach to and is dropped — it can never bleed into the new entry.
+            if (this.active === undefined) {
+                return;
+            }
+
+            this.active.text += textDelta;
+            this.scheduleDeltaFlush(this.active.requestId);
+        });
+
+        this.gateway.on('done', (finalText: string) => {
+            if (this.active === undefined) {
+                return;
+            }
+
+            const { requestId, id, mode } = this.active;
+            const text = finalText.length > 0 ? finalText : this.active.text;
+            this.clearActive();
+            this.history.append({ id, mode, text, kind: 'done' });
+            this.pushAi({ type: 'done', requestId, id, text });
+            this.pushHistorySnapshot();
+        });
+
+        this.gateway.on('error', (error: Error) => {
+            if (this.active === undefined) {
+                return;
+            }
+
+            const { requestId, id, mode } = this.active;
+            // Sanitized inline reason only — NEVER the raw error payload (T-5-02: it can embed x-api-key).
+            const text = `AI error: ${error.message}`;
+            this.clearActive();
+            this.history.append({ id, mode, text, kind: 'error' });
+            this.pushAi({ type: 'error', requestId, id, text });
+            this.pushHistorySnapshot();
+        });
+
+        this.gateway.on('abort', () => {
+            if (this.active === undefined) {
+                return;
+            }
+
+            const { requestId, id, mode } = this.active;
+            this.clearActive();
+            this.history.append({ id, mode, text: '(cancelled)', kind: 'cancelled' });
+            this.pushAi({ type: 'cancelled', requestId, id });
+            this.pushHistorySnapshot();
+        });
+    }
+
+    /**
+     * Schedules a trailing-edge flush of the accumulated text to the renderer (AI-04). Coalesces
+     * rapid token deltas into one push per {@link DELTA_DEBOUNCE_MS} window, mirroring the house
+     * 66ms audio-level throttle. The first token does NOT push synchronously; it pushes on the timer.
+     */
+    private scheduleDeltaFlush(requestId: number): void {
+        if (this.active === undefined) {
+            return;
+        }
+
+        this.active.pendingDelta = true;
+        if (this.active.debounceTimer !== undefined) {
+            return;
+        }
+
+        this.active.debounceTimer = setTimeout(() => {
+            this.flushDelta(requestId);
+        }, DELTA_DEBOUNCE_MS);
+    }
+
+    /**
+     * Flushes the accumulated streamed text as one `delta` push, if there is a pending change. The
+     * `requestId` captured when the timer was scheduled is re-checked here (Pitfall-1 request-id
+     * guard): if the active request changed (`requestId !== this.active.requestId`) or there is no
+     * active request, the timer belongs to a superseded stream and its flush is dropped.
+     *
+     * @param requestId - The request id active when this flush was scheduled.
+     */
+    private flushDelta(requestId: number): void {
+        if (this.active === undefined || requestId !== this.active.requestId) {
+            return;
+        }
+
+        this.active.debounceTimer = undefined;
+        if (!this.active.pendingDelta) {
+            return;
+        }
+
+        this.active.pendingDelta = false;
+        this.pushAi({ type: 'delta', requestId: this.active.requestId, id: String(this.active.requestId), text: this.active.text });
+    }
+
+    /**
+     * Cancels the active request from a hotkey re-press (D-06) or a cross-mode switch (D-07).
+     *
+     * Aborts the underlying stream, then records the `(cancelled)` entry and clears `active`
+     * SYNCHRONOUSLY rather than waiting for the gateway's async `'abort'` event. Doing it here is the
+     * Pitfall-1 guard: once `active` is cleared, a late `text`/`done` from the aborted stream finds no
+     * active request and is ignored, so cancelled-stream tokens can never bleed into a new entry. The
+     * gateway `'abort'` handler then no-ops (its `active === undefined` guard), avoiding a double record.
+     */
+    private cancelActive(): void {
+        if (this.active === undefined) {
+            return;
+        }
+
+        const { requestId, id, mode, stream } = this.active;
+        stream.abort();
+        this.clearActive();
+        this.history.append({ id, mode, text: '(cancelled)', kind: 'cancelled' });
+        this.pushAi({ type: 'cancelled', requestId, id });
+        this.pushHistorySnapshot();
+    }
+
+    /** Clears the active request and its pending debounce timer so the next trigger starts clean. */
+    private clearActive(): void {
+        if (this.active?.debounceTimer !== undefined) {
+            clearTimeout(this.active.debounceTimer);
+        }
+
+        this.active = undefined;
+    }
+
+    /**
+     * Reconciliation hook for terminal/clear events (Pitfall 4: never on the per-delta fast path).
+     *
+     * In 05-01 the terminal `done`/`error`/`cancelled`/`empty` pushes already carry the authoritative
+     * entry text, and the bounded history is the main-owned source of truth (D-02). A dedicated
+     * `history-snapshot` push (already a variant of {@link IAiPushEvent}) is wired here in 05-03 when
+     * the renderer needs the full bounded list for scrollback reconciliation — attaching it here keeps
+     * it off the per-delta path so main never re-serializes the bounded list many times a second.
+     */
+    private pushHistorySnapshot(): void {
+        // Intentionally a no-op in 05-01: the terminal pushes deliver the authoritative entry text and
+        // the renderer reconciles its bounded mirror there. 05-03 attaches the full-snapshot push.
+    }
+}

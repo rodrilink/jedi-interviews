@@ -22,6 +22,8 @@ config.json.tmp
 # safeStorage-backed entry replaces this source without touching the gateway.
 .env
 .env.*
+# Keep the committed, secret-free template that documents which keys to set locally.
+!.env.example
 *.local
 secrets.local.json
 dev-config.local.json

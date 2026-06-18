@@ -73,6 +73,13 @@ const HOTKEY_CHORDS: readonly IHotkeyChord[] = [
     // jedi:scroll-transcript signal to the renderer, which scrolls the transcript element.
     { label: 'scroll-transcript-up', keycode: UiohookKey.PageUp, accelerator: 'Ctrl+Alt+PageUp', kind: 'repeat' },
     { label: 'scroll-transcript-down', keycode: UiohookKey.PageDown, accelerator: 'Ctrl+Alt+PageDown', kind: 'repeat' },
+    // Phase 5 (D-05/AI-01): Answer mode. 'A' is OUTSIDE the locked, conflict-tested set
+    // {J, arrows, [, ], H, Q, K, PgUp, PgDn}; the on-machine Teams/Zoom/VS Code conflict re-check is
+    // pending for 05-02's manual verify (fall back to a reserved letter if a collision surfaces).
+    // 'discrete' so a held key triggers once per press; re-pressing mid-stream cancels (D-06), handled
+    // entirely in the AiOrchestrator. The 'ai-answer' handler (aiOrchestrator.trigger('answer')) is
+    // wired in index.ts; a missing handler surfaces in register().failed (CTL-03) — no registrar change.
+    { label: 'ai-answer', keycode: UiohookKey.A, accelerator: 'Ctrl+Alt+A', kind: 'discrete' },
 ];
 
 /** The ordered list of action labels in the locked set, exported for tests and HUD copy. */

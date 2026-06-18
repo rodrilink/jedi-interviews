@@ -3,6 +3,9 @@ import { join } from 'path';
 import { fileURLToPath } from 'url';
 
 import type { SttConnectionState } from './stt/stt-provider.interface';
+import type { IAiPushEvent } from './ai/ai-orchestrator';
+
+export type { IAiPushEvent };
 
 const currentDirectory: string = fileURLToPath(new URL('.', import.meta.url));
 
@@ -38,6 +41,14 @@ export const STATUS_CHANNEL = 'jedi:status';
  * times per second) and would otherwise bloat the status payload three sites declare identically.
  */
 export const TRANSCRIPT_CHANNEL = 'jedi:transcript';
+
+/**
+ * IPC channel for the read-only, one-way AI push to the renderer (Phase 5, AI-04). Kept separate from
+ * {@link STATUS_CHANNEL} for the SAME reason {@link TRANSCRIPT_CHANNEL} is: AI traffic is high-frequency
+ * (debounced streamed deltas fire many times per response) and would otherwise bloat the status payload.
+ * Carries {@link IAiPushEvent} payloads only — AI text + state, never the Anthropic key or any secret.
+ */
+export const AI_CHANNEL = 'jedi:ai';
 
 /**
  * IPC channel for the read-only, one-way scroll-transcript signal (Phase 4). The overlay never takes
@@ -191,6 +202,24 @@ export function pushTranscript(window: BrowserWindow, payload: IOverlayTranscrip
     }
 
     window.webContents.send(TRANSCRIPT_CHANNEL, payload);
+}
+
+/**
+ * Pushes an AI event to the renderer over the read-only, one-way `jedi:ai` channel (Phase 5, AI-04).
+ * Mirrors {@link pushTranscript} exactly, including the teardown guard, since AI pushes also fire async
+ * (on every debounced delta / terminal event) possibly mid-teardown. The payload is AI text + state
+ * only — never the Anthropic key or any secret. The orchestrator injects this as a `pushAi(event)`
+ * closure over the overlay window, exactly as `wireSttPipeline` closes over `pushTranscript`.
+ *
+ * @param window - The overlay window whose webContents receives the payload.
+ * @param payload - The AI push event (thinking / delta / done / error / cancelled / empty).
+ */
+export function pushAi(window: BrowserWindow, payload: IAiPushEvent): void {
+    if (window.isDestroyed() || window.webContents.isDestroyed()) {
+        return;
+    }
+
+    window.webContents.send(AI_CHANNEL, payload);
 }
 
 /**
