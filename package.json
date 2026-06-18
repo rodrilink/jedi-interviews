@@ -27,6 +27,7 @@
         "rebuild": "electron-rebuild -f -w uiohook-napi"
     },
     "dependencies": {
+        "@anthropic-ai/sdk": "0.104.2",
         "@deepgram/sdk": "5.4.0",
         "electron-store": "11.0.2",
         "native-recorder-nodejs": "1.2.0",
