@@ -137,7 +137,7 @@ Plans:
 
 **Wave 2** *(blocked on 04-01)*
 
-- [ ] 04-02-PLAN.md — DeepgramSttGateway implements ISttProvider: Deepgram v5 live client, interim/final, reconnect+backoff, keep-alive, key main-only (TRN-01, TRN-02, TRN-03, TRN-05)
+- [x] 04-02-PLAN.md — DeepgramSttGateway implements ISttProvider: Deepgram v5 live client, interim/final, reconnect+backoff, keep-alive, key main-only (TRN-01, TRN-02, TRN-03, TRN-05)
 - [ ] 04-03-PLAN.md — Time-bounded TranscriptBuffer (hard memory ceiling) + clear-transcript Ctrl+Alt chord via HotkeyRegistrarService (TRN-04)
 
 **Wave 3** *(blocked on 04-02 + 04-03)*
@@ -231,7 +231,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Overlay Shell + Existential Behaviors | 4/4 | Complete   | 2026-06-17 |
 | 2. Global Hotkeys + Window Control | 3/3 | Complete   | 2026-06-17 |
 | 3. Audio Loopback Spike | 2/2 | Complete   | 2026-06-17 |
-| 4. STT Pipeline + Live Transcript | 1/4 | In progress | - |
+| 4. STT Pipeline + Live Transcript | 2/4 | In Progress|  |
 | 5. AI Orchestration (Answer + Talking Points) | 0/3 | Not started | - |
 | 6. Session Context + Settings Window | 0/4 | Not started | - |
 | 7. Screenshot Vision + Packaging & Hardening | 0/3 | Not started | - |

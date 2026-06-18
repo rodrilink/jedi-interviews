@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-01-PLAN.md (capture GO)
-last_updated: "2026-06-17T23:02:25Z"
-last_activity: 2026-06-17 -- 04-01 complete (capture go/no-go GO; ISttProvider seam + resample utility)
+stopped_at: Completed 04-02-PLAN.md (DeepgramSttGateway)
+last_updated: "2026-06-18T00:08:02.602Z"
+last_activity: 2026-06-17
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 13
-  completed_plans: 10
-  percent: 46
+  completed_plans: 11
+  percent: 43
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 ## Current Position
 
 Phase: 04 (stt-pipeline-live-transcript) — EXECUTING
-Plan: 2 of 4 (04-01 complete)
-Status: Executing Phase 04
-Last activity: 2026-06-17 -- 04-01 complete (capture go/no-go GO; ISttProvider seam + resample utility)
+Plan: 3 of 4 (04-01 complete)
+Status: Ready to execute
+Last activity: 2026-06-17
 
-Progress: [███░░░░░░░] 25% (1 of 4 plans)
+Progress: [█████████░] 85%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [███░░░░░░░] 25% (1 of 4 plans)
 | Phase 03 P01 | 8min | 3 tasks | 12 files |
 | Phase 03 P02 | 6min | 2 tasks | 3 files |
 | Phase 04 P01 | 106min | 3 tasks | 6 files |
+| Phase 04 P02 | 18min | 2 tasks tasks | 2 files files |
 
 ## Accumulated Context
 
@@ -96,6 +97,7 @@ Recent decisions affecting current work:
 - 04-01: native-recorder-nodejs MUST be installed with `npm install --ignore-scripts` (prebuild-install finds no ABI match; cmake-js fallback unavailable; tarball ships a usable prebuilds/win32-x64/NativeAudioSDK.node loaded by path). FLAG for CI and 04-04.
 - 04-01: CRITICAL for 04-04 — capture must target the CURRENTLY-ACTIVE output device, NOT isDefault. On this machine isDefault enumerated as a silent Headphones device while audio routed to Speakers (Realtek). `outputs.find(isDefault) ?? outputs[0]` is insufficient.
 - 04-01: ISttProvider seam (TRN-05) defined first, Deepgram-agnostic; pure unit-tested pcm-resample.utility (TRN-01) with loud rate assertion.
+- [Phase 04]: 04-02: DeepgramSttGateway implements ISttProvider over @deepgram/sdk v5 - backoff 500ms x2 max 8s +/-20% jitter (resets on open); states connecting/connected/reconnecting/disconnected/error; key env var DEEPGRAM_API_KEY injected via constructor (gateway never reads process.env), never logged/emitted/IPC'd; keep-alive ~6s during silence; sendAudio drops PCM while disconnected (D-06); consumers depend on the seam only (TRN-05).
 
 ### Pending Todos
 
@@ -123,6 +125,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-17T23:02:25Z
-Stopped at: Completed 04-01-PLAN.md (capture go/no-go GO)
-Resume file: .planning/phases/04-stt-pipeline-live-transcript/04-02-PLAN.md
+Last session: 2026-06-18T00:08:02.592Z
+Stopped at: Completed 04-02-PLAN.md (DeepgramSttGateway)
+Resume file: .planning/phases/04-stt-pipeline-live-transcript/04-03-PLAN.md
