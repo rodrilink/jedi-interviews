@@ -16,7 +16,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Overlay Shell + Existential Behaviors** - Transparent, non-focus-stealing, screen-share-invisible overlay on a pinned, on-machine-verified Electron build, with the secret/IPC boundary wired. (completed 2026-06-17)
 - [x] **Phase 2: Global Hotkeys + Window Control** - Keyboard-only show/hide, move, and opacity control that works while a real meeting app holds focus, with registration failures surfaced. (completed 2026-06-17)
 - [x] **Phase 3: Audio Loopback Spike** - Isolated go/no-go proof that system-audio loopback produces real, non-silent audio on the target machine. (completed 2026-06-17)
-- [x] **Phase 4: STT Pipeline + Live Transcript** - Live rolling transcript with interim/final results, auto-reconnect, bounded buffer, and a swappable STT provider seam. (completed 2026-06-18)
+- [x] **Phase 4: STT Pipeline + Live Transcript** - Live rolling transcript with interim/final results, auto-reconnect, bounded buffer, and a swappable STT provider seam.
+ (completed 2026-06-18)
 - [ ] **Phase 5: AI Orchestration (Answer + Talking Points)** - Streaming, keyboard-scrollable AI answers and talking points drawn from the recent transcript.
 - [ ] **Phase 6: Session Context + Settings Window** - A focusable settings window for API keys and a persisted context editor that grounds every AI prompt.
 - [ ] **Phase 7: Screenshot Vision + Packaging & Hardening** - Screenshot-driven code-challenge solving and a runnable Windows .exe with transparency, focus discipline, and content protection intact.
@@ -160,13 +161,21 @@ Plans:
   4. Responses longer than the visible overlay are fully readable via keyboard scrollback.
   5. Re-pressing a mode hotkey cancels an in-flight stream cleanly.
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 
-- [ ] 05-01: AIOrchestrator + PromptAssembly + AnthropicGateway (streaming), tiered model routing (Haiku fast paths)
-- [ ] 05-02: Answer-question and talking-points hotkeys with default ~60s transcript-span selection
-- [ ] 05-03: Streaming overlay render + keyboard scrollback + stream cancel on re-press; hotkey→first-token latency logging
+**Wave 1**
+
+- [ ] 05-01-PLAN.md — End-to-end Answer slice: @anthropic-ai/sdk + Wave-0 test stubs, IAiGateway/AnthropicGateway, pure PromptAssembler (empty D-13 context slot), bounded AiHistory, single-in-flight AiOrchestrator (empty-span + request-id guards, debounced deltas), jedi:ai channel + always-on AiPanel, Ctrl+Alt+A (AI-01, AI-04)
+
+**Wave 2** *(blocked on 05-01)*
+
+- [ ] 05-02-PLAN.md — Talking-points mode (Ctrl+Alt+T → Opus, 3-5 bullets), clear-AI chord (Ctrl+Alt+G), full new-chord 02-03 conflict re-test vs Teams/Zoom/VS Code (AI-02)
+
+**Wave 3** *(blocked on 05-01 + 05-02)*
+
+- [ ] 05-03-PLAN.md — Focused-panel scrollback: main-owned activePanel flag + corner indicator + Ctrl+Alt+F cycle + active-panel-routed PgUp/PgDn, cross-mode cancel-current-start-new, hotkey→first-token latency logging (AI-05, D-07, D-08, D-10)
 
 **Notes**: Confirm current claude-haiku-4-5 / claude-opus-4-8 model IDs and the streaming API shape via the claude-api skill at implementation time (research flag: Phase 5 API shape). AI-06 (grounding) is partially exercised here via the transcript span but is only fully satisfied once the Session Context store exists in Phase 6 — AI-06 is mapped to Phase 6. Trigger on a bounded recent finalized window to control latency and context bloat.
 **UI hint**: yes
