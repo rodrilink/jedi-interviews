@@ -5,6 +5,35 @@ import { downmixToMonoFloat32, resampleLinear, float32ToInt16, assertSampleRate 
 /** Target output rate for Deepgram's linear16 endpoint (16 kHz mono), matching the resample utility (TRN-01). */
 const TARGET_SAMPLE_RATE = 16000;
 
+/** The minimal output-device shape this service needs from `AudioRecorder.getDevices` (id/name/isDefault). */
+export interface ICaptureDevice {
+    id: string;
+    name: string;
+    isDefault: boolean;
+}
+
+/**
+ * Chooses which output device to capture (04-01 finding: `isDefault` is not necessarily where Windows
+ * routes audio). Precedence: an explicit name override (case-insensitive substring) → the device
+ * flagged default → the first enumerated device. Pure and side-effect free so it is unit-testable.
+ *
+ * @param devices - The enumerated output devices (must be non-empty; callers guard the empty case).
+ * @param overrideName - Optional case-insensitive name substring to pin a specific device.
+ * @returns The selected device.
+ */
+export function selectCaptureDevice<TDevice extends ICaptureDevice>(devices: readonly TDevice[], overrideName?: string): TDevice {
+    const trimmedOverride = overrideName?.trim();
+    if (trimmedOverride !== undefined && trimmedOverride.length > 0) {
+        const needle = trimmedOverride.toLowerCase();
+        const matched = devices.find((candidate) => candidate.name.toLowerCase().includes(needle));
+        if (matched !== undefined) {
+            return matched;
+        }
+    }
+
+    return devices.find((candidate) => candidate.isDefault) ?? devices[0];
+}
+
 /**
  * The main-process system-audio loopback capture service (D-01/D-02).
  *
@@ -66,10 +95,11 @@ export class AudioCaptureService {
                 return;
             }
 
-            // 04-01 finding: the isDefault device is not necessarily where Windows is routing audio.
-            // We select the default when present but fall back to the first enumerated device so a
-            // missing/ambiguous default never leaves capture unstarted.
-            const device = outputs.find((candidate) => candidate.isDefault) ?? outputs[0];
+            // 04-01 finding: the isDefault device is NOT necessarily where Windows routes audio (the
+            // default enumerated as a silent headset while media played on the speakers). Allow an
+            // explicit override via JEDI_CAPTURE_DEVICE (case-insensitive name substring) so the user
+            // can pin the device actually playing audio; otherwise prefer the default, then the first.
+            const device = selectCaptureDevice(outputs, process.env.JEDI_CAPTURE_DEVICE);
             const format = AudioRecorder.getDeviceFormat(device.id);
 
             // The declared resample inRate IS the device's reported rate — assertSampleRate then holds
