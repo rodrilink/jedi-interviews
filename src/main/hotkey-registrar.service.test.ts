@@ -27,6 +27,7 @@ const KEYCODE = {
     J: 36,
     H: 35,
     Q: 16,
+    K: 37,
     ArrowLeft: 57419,
     ArrowUp: 57416,
     ArrowRight: 57421,
@@ -43,6 +44,7 @@ vi.mock('uiohook-napi', () => ({
         J: KEYCODE.J,
         H: KEYCODE.H,
         Q: KEYCODE.Q,
+        K: KEYCODE.K,
         ArrowLeft: KEYCODE.ArrowLeft,
         ArrowUp: KEYCODE.ArrowUp,
         ArrowRight: KEYCODE.ArrowRight,
@@ -264,5 +266,33 @@ describe('hotkey-registrar.service', () => {
 
         // Assert
         expect(moveHandler).toHaveBeenCalledTimes(1);
+    });
+
+    it('should fire the clear-transcript handler once for a single Ctrl+Alt+K press (D-07)', async () => {
+        // Arrange
+        const { HotkeyRegistrarService, HOTKEY_ACTION_LABELS } = await import('./hotkey-registrar.service');
+        const handlers = buildHandlerSpies(HOTKEY_ACTION_LABELS);
+        const service = new HotkeyRegistrarService(handlers);
+        service.register();
+
+        // Act
+        emitCtrlAltKeydown(KEYCODE.K);
+
+        // Assert
+        expect(handlers['clear-transcript']).toHaveBeenCalledTimes(1);
+    });
+
+    it('should surface a missing clear-transcript handler in failed (CTL-03)', async () => {
+        // Arrange
+        const { HotkeyRegistrarService, HOTKEY_ACTION_LABELS } = await import('./hotkey-registrar.service');
+        const handlers = buildHandlerSpies(HOTKEY_ACTION_LABELS);
+        delete handlers['clear-transcript'];
+        const service = new HotkeyRegistrarService(handlers);
+
+        // Act
+        const result = service.register();
+
+        // Assert
+        expect(result.failed).toContain('clear-transcript');
     });
 });

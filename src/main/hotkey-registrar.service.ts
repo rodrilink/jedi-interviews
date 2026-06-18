@@ -60,6 +60,13 @@ const HOTKEY_CHORDS: readonly IHotkeyChord[] = [
     { label: 'opacity-up', keycode: UiohookKey.BracketRight, accelerator: 'Ctrl+Alt+]', kind: 'repeat' },
     { label: 'hud-toggle', keycode: UiohookKey.H, accelerator: 'Ctrl+Alt+H', kind: 'discrete' },
     { label: 'quit', keycode: UiohookKey.Q, accelerator: 'Ctrl+Alt+Q', kind: 'discrete' },
+    // Phase 4 (D-07/TRN-04): wipe the main-side TranscriptBuffer. 'K' for "clear" is not in the
+    // locked, conflict-tested set {J, arrows, [, ], H, Q}; the on-machine Teams/Zoom/VS Code
+    // re-check is scheduled for 04-04's manual verify (fall back to 'X' if a conflict surfaces).
+    // 'discrete' so a held key clears once per press, not repeatedly. The clear-transcript handler
+    // (transcriptBuffer.clear()) is wired in index.ts (04-04); a missing handler surfaces in
+    // register().failed (CTL-03), exactly like every other chord — no registrar logic changes.
+    { label: 'clear-transcript', keycode: UiohookKey.K, accelerator: 'Ctrl+Alt+K', kind: 'discrete' },
 ];
 
 /** The ordered list of action labels in the locked set, exported for tests and HUD copy. */
