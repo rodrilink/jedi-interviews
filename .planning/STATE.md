@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02-PLAN.md (DeepgramSttGateway)
-last_updated: "2026-06-18T00:08:02.602Z"
-last_activity: 2026-06-17
+stopped_at: Completed 04-03-PLAN.md (TranscriptBuffer + clear-transcript chord)
+last_updated: "2026-06-18T00:34:47.448Z"
+last_activity: 2026-06-18
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 12
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 ## Current Position
 
 Phase: 04 (stt-pipeline-live-transcript) — EXECUTING
-Plan: 3 of 4 (04-01 complete)
+Plan: 4 of 4 (04-01 complete)
 Status: Ready to execute
-Last activity: 2026-06-17
+Last activity: 2026-06-18
 
-Progress: [█████████░] 85%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [█████████░] 85%
 | Phase 03 P02 | 6min | 2 tasks | 3 files |
 | Phase 04 P01 | 106min | 3 tasks | 6 files |
 | Phase 04 P02 | 18min | 2 tasks tasks | 2 files files |
+| Phase 04 P03 | 8min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,8 @@ Recent decisions affecting current work:
 - 04-01: CRITICAL for 04-04 — capture must target the CURRENTLY-ACTIVE output device, NOT isDefault. On this machine isDefault enumerated as a silent Headphones device while audio routed to Speakers (Realtek). `outputs.find(isDefault) ?? outputs[0]` is insufficient.
 - 04-01: ISttProvider seam (TRN-05) defined first, Deepgram-agnostic; pure unit-tested pcm-resample.utility (TRN-01) with loud rate assertion.
 - [Phase 04]: 04-02: DeepgramSttGateway implements ISttProvider over @deepgram/sdk v5 - backoff 500ms x2 max 8s +/-20% jitter (resets on open); states connecting/connected/reconnecting/disconnected/error; key env var DEEPGRAM_API_KEY injected via constructor (gateway never reads process.env), never logged/emitted/IPC'd; keep-alive ~6s during silence; sendAudio drops PCM while disconnected (D-06); consumers depend on the seam only (TRN-05).
+- [Phase ?]: 04-03: TranscriptBuffer (TRN-04, main-owned, D-06) — WINDOW_MS=90s + clock-independent ceilings MAX_SEGMENTS=400/MAX_TOTAL_CHARS=20000 (T-4-06); interim replaced; recentSince(ms) is Phase 5 span read; injected clock.
+- [Phase ?]: 04-03: clear-transcript chord = Ctrl+Alt+K (D-07) — one discrete IHotkeyChord, no registrar logic change; missing handler surfaces in register().failed (CTL-03). On-machine Teams/Zoom/VS Code conflict re-check PENDING for 04-04 (fall back to X).
 
 ### Pending Todos
 
@@ -125,6 +128,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-18T00:08:02.592Z
-Stopped at: Completed 04-02-PLAN.md (DeepgramSttGateway)
-Resume file: .planning/phases/04-stt-pipeline-live-transcript/04-03-PLAN.md
+Last session: 2026-06-18T00:34:47.438Z
+Stopped at: Completed 04-03-PLAN.md (TranscriptBuffer + clear-transcript chord)
+Resume file: None

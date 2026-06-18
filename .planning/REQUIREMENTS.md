@@ -29,7 +29,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **TRN-01**: Captured audio is streamed to a speech-to-text provider and a live transcript updates on the overlay
 - [x] **TRN-02**: The transcript shows interim (partial) and final results as they arrive
 - [x] **TRN-03**: The STT connection automatically reconnects if it drops mid-session
-- [ ] **TRN-04**: The user can clear the transcript by hotkey, and the buffer is automatically capped to a bounded size
+- [x] **TRN-04**: The user can clear the transcript by hotkey, and the buffer is automatically capped to a bounded size
 - [x] **TRN-05**: Speech-to-text is accessed through a provider interface so the backend (Deepgram) can be swapped (e.g. for local Whisper) without rewriting consumers — ISttProvider seam defined in 04-01 (src/main/stt/stt-provider.interface.ts)
 
 ### AI Assistance
@@ -116,7 +116,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRN-01 | Phase 4 | In progress (04-01: capture validated + pure resample utility; overlay render in 04-04) |
 | TRN-02 | Phase 4 | Complete |
 | TRN-03 | Phase 4 | Complete |
-| TRN-04 | Phase 4 | Pending |
+| TRN-04 | Phase 4 | Complete |
 | TRN-05 | Phase 4 | Complete (04-01) |
 | AI-01 | Phase 5 | Pending |
 | AI-02 | Phase 5 | Pending |
