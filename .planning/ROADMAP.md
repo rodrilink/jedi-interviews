@@ -167,7 +167,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 05-01-PLAN.md — End-to-end Answer slice: @anthropic-ai/sdk + Wave-0 test stubs, IAiGateway/AnthropicGateway, pure PromptAssembler (empty D-13 context slot), bounded AiHistory, single-in-flight AiOrchestrator (empty-span + request-id guards, debounced deltas), jedi:ai channel + always-on AiPanel, Ctrl+Alt+A (AI-01, AI-04)
+- [x] 05-01-PLAN.md — End-to-end Answer slice: @anthropic-ai/sdk + Wave-0 test stubs, IAiGateway/AnthropicGateway, pure PromptAssembler (empty D-13 context slot), bounded AiHistory, single-in-flight AiOrchestrator (empty-span + request-id guards, debounced deltas), jedi:ai channel + always-on AiPanel, Ctrl+Alt+A (AI-01, AI-04)
 
 **Wave 2** *(blocked on 05-01)*
 
@@ -241,6 +241,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. Global Hotkeys + Window Control | 3/3 | Complete   | 2026-06-17 |
 | 3. Audio Loopback Spike | 2/2 | Complete   | 2026-06-17 |
 | 4. STT Pipeline + Live Transcript | 4/4 | Complete   | 2026-06-18 |
-| 5. AI Orchestration (Answer + Talking Points) | 0/3 | Not started | - |
+| 5. AI Orchestration (Answer + Talking Points) | 1/3 | In Progress|  |
 | 6. Session Context + Settings Window | 0/4 | Not started | - |
 | 7. Screenshot Vision + Packaging & Hardening | 0/3 | Not started | - |
