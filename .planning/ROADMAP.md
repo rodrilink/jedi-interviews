@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Overlay Shell + Existential Behaviors** - Transparent, non-focus-stealing, screen-share-invisible overlay on a pinned, on-machine-verified Electron build, with the secret/IPC boundary wired. (completed 2026-06-17)
 - [x] **Phase 2: Global Hotkeys + Window Control** - Keyboard-only show/hide, move, and opacity control that works while a real meeting app holds focus, with registration failures surfaced. (completed 2026-06-17)
 - [x] **Phase 3: Audio Loopback Spike** - Isolated go/no-go proof that system-audio loopback produces real, non-silent audio on the target machine. (completed 2026-06-17)
-- [ ] **Phase 4: STT Pipeline + Live Transcript** - Live rolling transcript with interim/final results, auto-reconnect, bounded buffer, and a swappable STT provider seam.
+- [x] **Phase 4: STT Pipeline + Live Transcript** - Live rolling transcript with interim/final results, auto-reconnect, bounded buffer, and a swappable STT provider seam. (completed 2026-06-18)
 - [ ] **Phase 5: AI Orchestration (Answer + Talking Points)** - Streaming, keyboard-scrollable AI answers and talking points drawn from the recent transcript.
 - [ ] **Phase 6: Session Context + Settings Window** - A focusable settings window for API keys and a persisted context editor that grounds every AI prompt.
 - [ ] **Phase 7: Screenshot Vision + Packaging & Hardening** - Screenshot-driven code-challenge solving and a runnable Windows .exe with transparency, focus discipline, and content protection intact.
@@ -142,7 +142,7 @@ Plans:
 
 **Wave 3** *(blocked on 04-02 + 04-03)*
 
-- [ ] 04-04-PLAN.md — Wire capture→resample→gateway→buffer→jedi:transcript push + DebugHud render (interim distinct) + retire dead renderer audio path (D-02/IN-01, WR-01/02/03) + live verify (TRN-01..TRN-04)
+- [x] 04-04-PLAN.md — Wire capture→resample→gateway→buffer→jedi:transcript push + DebugHud render (interim distinct) + retire dead renderer audio path (D-02/IN-01, WR-01/02/03) + live verify (TRN-01..TRN-04)
 
 **Notes**: Define `ISttProvider` and `DeepgramSttGateway` here, before anything else depends on STT output — the seam is cheap now and a rewrite later. Use Deepgram v5 (DeepgramClient, listen.v1.connect, sendMedia); ignore v3/v4 tutorials. Use AudioWorklet, not ScriptProcessorNode; assert that the declared sample rate equals the actual PCM rate.
 
@@ -231,7 +231,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Overlay Shell + Existential Behaviors | 4/4 | Complete   | 2026-06-17 |
 | 2. Global Hotkeys + Window Control | 3/3 | Complete   | 2026-06-17 |
 | 3. Audio Loopback Spike | 2/2 | Complete   | 2026-06-17 |
-| 4. STT Pipeline + Live Transcript | 3/4 | In Progress|  |
+| 4. STT Pipeline + Live Transcript | 4/4 | Complete   | 2026-06-18 |
 | 5. AI Orchestration (Answer + Talking Points) | 0/3 | Not started | - |
 | 6. Session Context + Settings Window | 0/4 | Not started | - |
 | 7. Screenshot Vision + Packaging & Hardening | 0/3 | Not started | - |
