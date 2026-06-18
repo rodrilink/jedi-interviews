@@ -15,29 +15,34 @@ import Anthropic from '@anthropic-ai/sdk';
  * @returns A short, safe reason fragment (no `AI error:` prefix, no raw payload).
  */
 export function sanitizeAiError(error: unknown): string {
-    if (error instanceof Anthropic.AuthenticationError) {
-        return 'authentication failed — check your API key';
-    }
-    if (error instanceof Anthropic.PermissionDeniedError) {
-        return 'access denied for this model';
-    }
-    if (error instanceof Anthropic.RateLimitError) {
-        return 'rate limited — try again shortly';
-    }
-    if (error instanceof Anthropic.BadRequestError) {
-        // A 400 with a billing message is the most common operator-facing case (credit balance too
-        // low). Surface a short, actionable phrase rather than the raw JSON body.
-        if (typeof error.message === 'string' && error.message.toLowerCase().includes('credit balance')) {
-            return 'credit balance too low — add credits in Plans & Billing';
+    // Branch on the HTTP status of the base APIError rather than `instanceof` on each subclass: the
+    // SDK exposes the subclasses (BadRequestError, etc.) as static members on the value but not as
+    // named TYPE exports, so `instanceof Anthropic.BadRequestError` fails to typecheck. `status` +
+    // `type` are the documented, stable fields (see the claude-api error reference) and never carry
+    // the raw payload.
+    if (error instanceof Anthropic.APIError) {
+        const status: number | undefined = typeof error.status === 'number' ? error.status : undefined;
+        const rawMessage: string = typeof error.message === 'string' ? error.message : '';
+
+        switch (status) {
+            case 401:
+                return 'authentication failed — check your API key';
+            case 403:
+                return 'access denied for this model';
+            case 429:
+                return 'rate limited — try again shortly';
+            case 400:
+                // A 400 with a billing message is the most common operator-facing case (credit balance
+                // too low). Surface a short, actionable phrase rather than the raw JSON body.
+                if (rawMessage.toLowerCase().includes('credit balance')) {
+                    return 'credit balance too low — add credits in Plans & Billing';
+                }
+
+                return 'invalid request';
+            default:
+                // Any other API-status error (5xx, overloaded, etc.): report the status only, never the body.
+                return status !== undefined ? `Anthropic API error (${status})` : 'Anthropic API error';
         }
-
-        return 'invalid request';
-    }
-    if (error instanceof Anthropic.InternalServerError || error instanceof Anthropic.APIError) {
-        // Any other API-status error (5xx, overloaded, etc.): report the status only, never the body.
-        const status = typeof error.status === 'number' ? error.status : undefined;
-
-        return status !== undefined ? `Anthropic API error (${status})` : 'Anthropic API error';
     }
 
     // Non-SDK fault (network, abort-adjacent, unexpected): a fixed generic phrase, never the payload.

@@ -4,18 +4,19 @@ import Anthropic from '@anthropic-ai/sdk';
 import { sanitizeAiError } from './sanitize-ai-error.utility';
 
 /**
- * Builds an `Anthropic.APIError` subclass instance with a given status and message. The SDK error
- * constructors take (status, error, message, headers); we only need status + message for the mapping.
+ * Builds an `Anthropic.APIError` with a given HTTP status and message. The sanitizer branches on
+ * `status`, so the concrete subclass is irrelevant — the base class with the right status exercises
+ * every branch and avoids the value-vs-type-export mismatch on the subclass names.
  */
-function buildApiError<T extends typeof Anthropic.APIError>(ErrorClass: T, status: number, message: string): InstanceType<T> {
-    return new (ErrorClass as new (status: number, error: unknown, message: string, headers: undefined) => InstanceType<T>)(status, undefined, message, undefined);
+function buildApiError(status: number, message: string): Anthropic.APIError {
+    return new Anthropic.APIError(status, undefined, message, undefined);
 }
 
 describe('sanitize-ai-error.utility', () => {
     it('should map a 400 credit-balance error to a short billing reason without the raw payload', () => {
         // Arrange
         const rawMessage: string = '400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}';
-        const error: Anthropic.BadRequestError = buildApiError(Anthropic.BadRequestError, 400, rawMessage);
+        const error: Anthropic.APIError = buildApiError(400, rawMessage);
 
         // Act
         const reason: string = sanitizeAiError(error);
@@ -24,9 +25,9 @@ describe('sanitize-ai-error.utility', () => {
         expect(reason).toBe('credit balance too low — add credits in Plans & Billing');
     });
 
-    it('should map an authentication error to a key-check reason', () => {
+    it('should map a 401 to a key-check reason', () => {
         // Arrange
-        const error: Anthropic.AuthenticationError = buildApiError(Anthropic.AuthenticationError, 401, 'invalid x-api-key');
+        const error: Anthropic.APIError = buildApiError(401, 'invalid x-api-key');
 
         // Act
         const reason: string = sanitizeAiError(error);
@@ -35,9 +36,20 @@ describe('sanitize-ai-error.utility', () => {
         expect(reason).toBe('authentication failed — check your API key');
     });
 
-    it('should map a rate-limit error to a retry reason', () => {
+    it('should map a 403 to an access-denied reason', () => {
         // Arrange
-        const error: Anthropic.RateLimitError = buildApiError(Anthropic.RateLimitError, 429, 'too many requests');
+        const error: Anthropic.APIError = buildApiError(403, 'permission denied');
+
+        // Act
+        const reason: string = sanitizeAiError(error);
+
+        // Assert
+        expect(reason).toBe('access denied for this model');
+    });
+
+    it('should map a 429 to a retry reason', () => {
+        // Arrange
+        const error: Anthropic.APIError = buildApiError(429, 'too many requests');
 
         // Act
         const reason: string = sanitizeAiError(error);
@@ -48,7 +60,7 @@ describe('sanitize-ai-error.utility', () => {
 
     it('should map a non-credit 400 to a generic invalid-request reason without the payload', () => {
         // Arrange
-        const error: Anthropic.BadRequestError = buildApiError(Anthropic.BadRequestError, 400, '400 {"error":{"message":"messages: roles must alternate"}}');
+        const error: Anthropic.APIError = buildApiError(400, '400 {"error":{"message":"messages: roles must alternate"}}');
 
         // Act
         const reason: string = sanitizeAiError(error);
@@ -59,7 +71,7 @@ describe('sanitize-ai-error.utility', () => {
 
     it('should report only the status for other API errors, never the body', () => {
         // Arrange
-        const error: Anthropic.InternalServerError = buildApiError(Anthropic.InternalServerError, 529, 'overloaded {"secret":"leak"}');
+        const error: Anthropic.APIError = buildApiError(529, 'overloaded {"secret":"leak"}');
 
         // Act
         const reason: string = sanitizeAiError(error);
