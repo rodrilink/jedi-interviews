@@ -2,6 +2,8 @@ import { BrowserWindow, screen } from 'electron';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 
+import type { SttConnectionState } from './stt/stt-provider.interface';
+
 const currentDirectory: string = fileURLToPath(new URL('.', import.meta.url));
 
 /**
@@ -25,18 +27,31 @@ export interface IOverlayStatus {
      * its HUD content visibility purely from this pushed flag (D-15: renderer is a pure view).
      */
     hudVisible: boolean;
-    /**
-     * The latest RMS audio level from the renderer's loopback capture (D-04/D-05), in `[0, 1]`.
-     * Surfaced read-only in the HUD `Audio:` row so a non-silent signal can be confirmed by eye.
-     * Unlike every other field this value uniquely ORIGINATES renderer-side (where `getDisplayMedia`
-     * and the AudioWorklet live) — it arrives over the single write-only `jedi:audio-level` channel,
-     * is recorded via {@link setAudioLevel}, and then rides the normal `jedi:status` push to the HUD.
-     */
-    audioLevel: number;
 }
 
 /** IPC channel name for the read-only, non-secret status push to the renderer (D-05). */
 export const STATUS_CHANNEL = 'jedi:status';
+
+/**
+ * IPC channel name for the read-only, one-way transcript push to the renderer (D-04). Kept separate
+ * from {@link STATUS_CHANNEL} because transcript traffic is high-frequency (interim results fire many
+ * times per second) and would otherwise bloat the status payload three sites declare identically.
+ */
+export const TRANSCRIPT_CHANNEL = 'jedi:transcript';
+
+/**
+ * The read-only transcript payload pushed to the HUD over {@link TRANSCRIPT_CHANNEL} (D-04). Carries
+ * the renderable transcript snapshot plus the coarse STT connection state — text and state only,
+ * never the Deepgram key or any secret (D-08). The renderer is a pure view of this payload.
+ */
+export interface IOverlayTranscript {
+    /** The space-joined finalized transcript text in the current time window. */
+    finalText: string;
+    /** The current interim (partial) transcript, rendered visually distinct from final (D-04). */
+    interimText: string;
+    /** The coarse STT connection state, surfaced read-only on the overlay (TRN-03). */
+    connectionState: SttConnectionState;
+}
 
 /**
  * The current content-protection state, tracked at module level so the HUD can reflect
@@ -60,24 +75,6 @@ let lastHotkeyResult: { active: string; failed: string[] } = { active: 'none', f
  */
 export function setHotkeyStatus(result: { active: string; failed: string[] }): void {
     lastHotkeyResult = result;
-}
-
-/**
- * The latest RMS level reported up from the renderer capture (mirrors {@link lastHotkeyResult}):
- * owned at module level because, like the hotkey result, it is not derivable from the window.
- * Updated via {@link setAudioLevel} before {@link pushStatus} so the HUD `Audio:` row reflects it.
- */
-let lastAudioLevel = 0;
-
-/**
- * Records the latest renderer-computed RMS level so the next {@link pushStatus} carries it to the
- * HUD `Audio:` row (D-04/D-05). Coerces non-finite input to 0: the value crosses the untrusted
- * `jedi:audio-level` IPC boundary and feeds only a numeric readout, never control flow (T-03-02).
- *
- * @param level - The RMS level, expected in `[0, 1]`.
- */
-export function setAudioLevel(level: number): void {
-    lastAudioLevel = Number.isFinite(level) ? level : 0;
 }
 
 /**
@@ -150,7 +147,6 @@ function buildStatus(window: BrowserWindow): IOverlayStatus {
         position: { x, y },
         hotkeys: lastHotkeyResult,
         hudVisible,
-        audioLevel: lastAudioLevel,
     };
 }
 
@@ -166,6 +162,23 @@ export function pushStatus(window: BrowserWindow): void {
     }
 
     window.webContents.send(STATUS_CHANNEL, buildStatus(window));
+}
+
+/**
+ * Pushes a transcript snapshot to the renderer over the read-only, one-way `jedi:transcript`
+ * channel (D-04). Mirrors {@link pushStatus} exactly, including the teardown guard, since transcript
+ * pushes also fire async (on every interim/final/connection-state event) possibly mid-teardown. The
+ * payload is text + connection state only — never the Deepgram key or any secret (D-08).
+ *
+ * @param window - The overlay window whose webContents receives the payload.
+ * @param payload - The renderable transcript snapshot plus the coarse connection state.
+ */
+export function pushTranscript(window: BrowserWindow, payload: IOverlayTranscript): void {
+    if (window.isDestroyed() || window.webContents.isDestroyed()) {
+        return;
+    }
+
+    window.webContents.send(TRANSCRIPT_CHANNEL, payload);
 }
 
 /**

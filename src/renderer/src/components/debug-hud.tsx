@@ -13,53 +13,50 @@ interface IOverlayStatus {
     hotkeys: { active: string; failed: string[] };
     /** Whether the HUD content is shown (D-14/D-15). Main-owned; declared identically in main and preload. */
     hudVisible: boolean;
-    /** Latest RMS audio level in `[0, 1]` (D-04/D-05). Renderer-originated; declared identically in main and preload. */
-    audioLevel: number;
 }
 
-/** Number of block cells in the audio meter bar — the level scales across this many glyphs. */
-const AUDIO_METER_CELLS = 10;
-
 /**
- * Renders an RMS level as a fixed 2-decimal number plus a block-character bar (D-04) so the live
- * signal is readable at a glance without width jitter (the number uses tabular figures). The bar
- * fills `level * AUDIO_METER_CELLS` cells with `█` and pads the remainder with `░`.
- *
- * @param level - The RMS level in `[0, 1]`.
- * @returns The combined numeric + bar label for the HUD `Audio:` row.
+ * The read-only transcript payload received over the `window.jedi.onTranscript` bridge (D-04).
+ * Structurally mirrors `IOverlayTranscript` in main/preload; declared locally for the same reason.
  */
-function formatAudioMeter(level: number): string {
-    const clamped = Math.min(1, Math.max(0, level));
-    const filled = Math.round(clamped * AUDIO_METER_CELLS);
-    const bar = '█'.repeat(filled) + '░'.repeat(AUDIO_METER_CELLS - filled);
-
-    return `${clamped.toFixed(2)} ${bar}`;
+interface IOverlayTranscript {
+    /** The space-joined finalized transcript text in the current time window. */
+    finalText: string;
+    /** The current interim (partial) transcript, rendered visually distinct from final (D-04). */
+    interimText: string;
+    /** The coarse STT connection state surfaced on the overlay (TRN-03). */
+    connectionState: string;
 }
 
 /**
  * The compact hotkey cheat-sheet shown in the HUD (D-13) so it doubles as an on-screen
  * reference while the user learns the chords. These are the finalized default chords —
  * 02-03 conflict-tested them against Teams/Zoom/VS Code and shipped the suggested set
- * unchanged (no collisions). See `02-HOTKEY-CONFLICT-TEST.md`.
+ * unchanged (no collisions). The clear-transcript chord (Ctrl+Alt+K, D-07) is appended here;
+ * its on-machine conflict re-check is scheduled for 04-04's manual verify (fall back to
+ * Ctrl+Alt+X if it collides). See `02-HOTKEY-CONFLICT-TEST.md`.
  */
 const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: string }> = [
     { id: 'showhide', label: 'Show / Hide', chord: 'Ctrl+Alt+J' },
     { id: 'move', label: 'Move', chord: 'Ctrl+Alt+Arrows' },
     { id: 'opacity', label: 'Opacity', chord: 'Ctrl+Alt+[ / ]' },
     { id: 'hud', label: 'Toggle HUD', chord: 'Ctrl+Alt+H' },
+    { id: 'clear', label: 'Clear transcript', chord: 'Ctrl+Alt+K' },
     { id: 'quit', label: 'Quit', chord: 'Ctrl+Alt+Q' },
 ];
 
 /**
- * A small, toggleable debug HUD that renders the overlay's proof-of-life status:
- * Electron version, content-protection state (ON/OFF), and window position (D-07).
+ * A small, toggleable debug HUD that renders the overlay's proof-of-life status (Electron version,
+ * content-protection state, window position, hotkey status) plus the live STT transcript and
+ * connection state (D-04).
  *
- * It subscribes to the read-only `window.jedi.onStatus` channel (D-05). HUD content
- * visibility is owned by the main process (D-14/D-15): once status arrives, the component
- * renders strictly according to the pushed `hudVisible` flag — the HUD-toggle chord flips it
- * in main. The `visible` prop is only a fallback default used before the first status push (or
- * if the bridge is unavailable); it never overrides the pushed flag. The renderer is a pure
- * view: it never controls window or HUD state (no renderer->main channel).
+ * It subscribes to the read-only `window.jedi.onStatus` and `window.jedi.onTranscript` channels
+ * (D-05/D-04), capturing each subscription's unsubscribe function and calling both on cleanup so no
+ * listener leaks under React Strict Mode (WR-03). HUD content visibility is owned by the main process
+ * (D-14/D-15): once status arrives, the component renders strictly according to the pushed
+ * `hudVisible` flag — the HUD-toggle chord flips it in main, which also hides the transcript with it
+ * (D-05). The `visible` prop is only a fallback default used before the first status push. The
+ * renderer is a pure view: it never controls window or HUD state (no renderer->main channel, IN-01).
  *
  * @param props - Component props.
  * @param props.visible - Fallback HUD visibility before the first status push. Defaults to `true`.
@@ -67,9 +64,16 @@ const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: stri
  */
 export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element | null {
     const [status, setStatus] = useState<IOverlayStatus | null>(null);
+    const [transcript, setTranscript] = useState<IOverlayTranscript | null>(null);
 
     useEffect(() => {
-        window.jedi?.onStatus((next: IOverlayStatus) => setStatus(next));
+        const offStatus = window.jedi?.onStatus((next: IOverlayStatus) => setStatus(next));
+        const offTranscript = window.jedi?.onTranscript((next: IOverlayTranscript) => setTranscript(next));
+
+        return (): void => {
+            offStatus?.();
+            offTranscript?.();
+        };
     }, []);
 
     // Main owns HUD-content visibility (D-15): honor the pushed flag once it arrives; before the
@@ -83,7 +87,9 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
     const positionLabel = status ? `${status.position.x}, ${status.position.y}` : '—';
     const electronVersionLabel = status?.electronVersion ?? '—';
     const hotkeyLabel = status ? (status.hotkeys.failed.length === 0 ? 'OK' : `${status.hotkeys.failed.length} failed`) : '—';
-    const audioLevelLabel = status ? formatAudioMeter(status.audioLevel) : '—';
+    const connectionStateLabel = transcript?.connectionState ?? '—';
+    const finalTextLabel = transcript?.finalText ?? '';
+    const interimTextLabel = transcript?.interimText ?? '';
 
     return (
         <section className="debug-hud" data-testid="card-debug-hud">
@@ -105,11 +111,19 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
                 <dd className="debug-hud__value" data-testid="cell-hotkey-status">
                     {hotkeyLabel}
                 </dd>
-                <dt className="debug-hud__key">Audio</dt>
-                <dd className="debug-hud__value debug-hud__meter" data-testid="cell-audio-level">
-                    {audioLevelLabel}
+                <dt className="debug-hud__key">Connection</dt>
+                <dd className="debug-hud__value" data-testid="cell-connection-state">
+                    {connectionStateLabel}
                 </dd>
             </dl>
+            <p className="debug-hud__transcript" data-testid="card-transcript">
+                <span className="debug-hud__transcript-final" data-testid="cell-transcript-final">
+                    {finalTextLabel}
+                </span>{' '}
+                <span className="debug-hud__interim" data-testid="cell-transcript-interim">
+                    {interimTextLabel}
+                </span>
+            </p>
             <dl className="debug-hud__grid debug-hud__cheatsheet" data-testid="card-hotkey-cheatsheet">
                 {HOTKEY_CHEAT_SHEET.map((entry) => (
                     <div className="debug-hud__cheatsheet-row" key={entry.id} data-testid={`row-hotkey-${entry.id}`}>

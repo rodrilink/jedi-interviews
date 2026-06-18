@@ -15,27 +15,40 @@ export interface IOverlayStatus {
     hotkeys: { active: string; failed: string[] };
     /** Whether the HUD content is shown (D-14/D-15). Main-owned; declared identically in main and renderer. */
     hudVisible: boolean;
-    /** Latest RMS audio level in `[0, 1]` (D-04/D-05). Renderer-originated; declared identically in main and renderer. */
-    audioLevel: number;
+}
+
+/**
+ * The read-only transcript payload pushed from main over `jedi:transcript` (D-04).
+ *
+ * Mirrors `IOverlayTranscript` in the main process. Declared here (rather than imported) because the
+ * sandboxed preload is bundled separately and must not reach into main. Text + connection state only;
+ * never the Deepgram key or any secret (D-08).
+ */
+export interface IOverlayTranscript {
+    /** The space-joined finalized transcript text in the current time window. */
+    finalText: string;
+    /** The current interim (partial) transcript, rendered visually distinct from final (D-04). */
+    interimText: string;
+    /** The coarse STT connection state (`connecting | connected | reconnecting | disconnected | error`). */
+    connectionState: string;
 }
 
 /** IPC channel for the read-only, non-secret status push from main (D-05). */
 const STATUS_CHANNEL = 'jedi:status';
 
-/** IPC channel for the single write-only renderer → main RMS level report (D-04/D-05). */
-const AUDIO_LEVEL_CHANNEL = 'jedi:audio-level';
+/** IPC channel for the read-only, one-way transcript push from main (D-04). */
+const TRANSCRIPT_CHANNEL = 'jedi:transcript';
 
 /**
  * The single typed, read-only, NON-SECRET namespace exposed on `window.jedi`.
  *
- * Phase 1 establishes the structural boundary only (D-06): no secret-bearing channels
- * exist (D-05). `onStatus` is a one-way main → renderer subscription carrying proof-of-life
- * data (Electron version, content-protection state, window position) for the debug HUD.
+ * The boundary is strictly one-way main → renderer (D-06): `onStatus` and `onTranscript` are
+ * subscriptions carrying proof-of-life data and the live transcript respectively. As of Phase 4
+ * (IN-01) the renderer → main write surface is ZERO — the Phase 3 `reportAudioLevel` exception was
+ * removed when the renderer audio path was retired (D-02), so no control channel is exposed.
  *
- * Phase 3 adds the ONE exception to the otherwise listen-only boundary: `reportAudioLevel`
- * is a narrow, single-purpose, write-only renderer → main channel for the non-secret RMS
- * level (D-04/D-05). Everything else stays one-way main → renderer; no general control
- * surface is exposed.
+ * Both subscriptions return an unsubscribe function (WR-03) so the consuming `useEffect` can remove
+ * its listener on cleanup, preventing leaked listeners under React Strict Mode.
  */
 const jediApi = {
     /** Marks the structural boundary as live. */
@@ -45,22 +58,31 @@ const jediApi = {
      * Subscribes to read-only overlay status updates pushed from the main process.
      *
      * @param callback - Invoked with the latest non-secret status payload on every push.
+     * @returns An unsubscribe function that removes the listener (WR-03).
      */
-    onStatus(callback: (status: IOverlayStatus) => void): void {
-        ipcRenderer.on(STATUS_CHANNEL, (_event: IpcRendererEvent, status: IOverlayStatus) => callback(status));
+    onStatus(callback: (status: IOverlayStatus) => void): () => void {
+        const listener = (_event: IpcRendererEvent, status: IOverlayStatus): void => callback(status);
+        ipcRenderer.on(STATUS_CHANNEL, listener);
+
+        return (): void => {
+            ipcRenderer.removeListener(STATUS_CHANNEL, listener);
+        };
     },
 
     /**
-     * Reports the latest renderer-computed RMS audio level to the main process (D-04/D-05).
+     * Subscribes to read-only transcript updates pushed from the main process (D-04). High-frequency:
+     * interim results fire many times per second.
      *
-     * This is the app's ONLY write-direction IPC surface: main re-broadcasts the value on the
-     * read-only `jedi:status` channel so the HUD `Audio:` row reflects it. The level is a
-     * non-secret scalar in `[0, 1]`; no audio samples or secrets cross this channel.
-     *
-     * @param level - The RMS audio level in the range `[0, 1]`.
+     * @param callback - Invoked with the latest transcript snapshot + connection state on every push.
+     * @returns An unsubscribe function that removes the listener (WR-03).
      */
-    reportAudioLevel(level: number): void {
-        ipcRenderer.send(AUDIO_LEVEL_CHANNEL, level);
+    onTranscript(callback: (transcript: IOverlayTranscript) => void): () => void {
+        const listener = (_event: IpcRendererEvent, transcript: IOverlayTranscript): void => callback(transcript);
+        ipcRenderer.on(TRANSCRIPT_CHANNEL, listener);
+
+        return (): void => {
+            ipcRenderer.removeListener(TRANSCRIPT_CHANNEL, listener);
+        };
     },
 };
 

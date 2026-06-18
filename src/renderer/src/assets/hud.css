@@ -66,14 +66,25 @@ body {
 }
 
 /*
- * The live audio RMS meter (D-04): a fixed-width monospaced bar so the block glyphs render evenly
- * and the row never reflows as the level changes. The accent color matches the title's cyan to read
- * as a live signal indicator against the muted status rows.
+ * The live transcript block (D-04): finalized text reads in the normal value color; the current
+ * interim (partial) result is rendered dimmed + italic directly after it so the in-progress guess is
+ * visually distinct from committed text. The block sits below the status grid and wraps freely.
  */
-.debug-hud__meter {
-    font-family: 'Cascadia Mono', 'Consolas', monospace;
-    letter-spacing: 0.04em;
-    color: rgb(125 211 252 / 100%);
+.debug-hud__transcript {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgb(148 163 184 / 24%);
+    max-width: 380px;
+    word-break: break-word;
+}
+
+.debug-hud__transcript-final {
+    color: rgb(226 232 240 / 100%);
+}
+
+.debug-hud__interim {
+    color: rgb(148 163 184 / 85%);
+    font-style: italic;
 }
 
 /*
