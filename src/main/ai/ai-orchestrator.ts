@@ -68,6 +68,8 @@ export type IAiPushEvent =
 interface IActiveRequest {
     mode: AiMode;
     requestId: number;
+    /** The entry id (the monotonic requestId rendered as a string) used as the renderer row key. */
+    id: string;
     stream: IAiStream;
     text: string;
     debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -148,7 +150,7 @@ export class AiOrchestrator {
         const { system, userContent } = assemblePrompt({ mode, span, context: undefined });
 
         const stream = this.gateway.stream({ model, maxTokens: MAX_TOKENS[mode], system, userContent });
-        this.active = { mode, requestId, stream, text: '', debounceTimer: undefined, pendingDelta: false };
+        this.active = { mode, requestId, id, stream, text: '', debounceTimer: undefined, pendingDelta: false };
 
         // Surface the in-flight 'thinking…' state immediately so the entry appears before the first token (D-04).
         this.pushAi({ type: 'thinking', requestId, id, mode, at });

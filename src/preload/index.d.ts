@@ -1,4 +1,4 @@
-import type { JediApi, IOverlayStatus, IOverlayTranscript } from './index';
+import type { JediApi, IOverlayStatus, IOverlayTranscript, IAiPushEvent, AiMode } from './index';
 
 declare global {
     interface Window {
@@ -7,5 +7,5 @@ declare global {
     }
 }
 
-/** Re-exported so the renderer HUD can type the payloads it receives. */
-export type { IOverlayStatus, IOverlayTranscript };
+/** Re-exported so the renderer HUD + AI panel can type the payloads they receive. */
+export type { IOverlayStatus, IOverlayTranscript, IAiPushEvent, AiMode };

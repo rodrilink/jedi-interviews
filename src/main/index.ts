@@ -1,7 +1,7 @@
 import { resolve } from 'path';
 import { app, BrowserWindow } from 'electron';
 import { loadDotenvFile } from './config/load-dotenv.utility';
-import { createOverlayWindow, showOverlay, pushStatus, pushTranscript, pushScrollTranscript, setHotkeyStatus, getOverlayVisible } from './overlay-window.manager';
+import { createOverlayWindow, showOverlay, pushStatus, pushTranscript, pushScrollTranscript, pushAi, setHotkeyStatus, getOverlayVisible } from './overlay-window.manager';
 import { HotkeyRegistrarService, type HotkeyHandlerMap } from './hotkey-registrar.service';
 import { WindowControlActionsService } from './window-control.actions';
 import { AudioCaptureService } from './audio/audio-capture.service';
@@ -9,6 +9,9 @@ import { computeRmsInt16 } from './audio/rms.utility';
 import { DeepgramSttGateway } from './stt/deepgram-stt.gateway';
 import { TranscriptBuffer } from './stt/transcript-buffer';
 import type { ISttTranscriptEvent, SttConnectionState } from './stt/stt-provider.interface';
+import { AnthropicGateway } from './ai/anthropic-ai.gateway';
+import { AiOrchestrator } from './ai/ai-orchestrator';
+import { AiHistory } from './ai/ai-history';
 
 /**
  * The single hotkey registrar for the app's lifetime. Instantiated once after the overlay
@@ -26,6 +29,17 @@ let audioCapture: AudioCaptureService | undefined;
 let sttGateway: DeepgramSttGateway | undefined;
 
 /**
+ * The single AI stack for the app's lifetime (Phase 5), instantiated once in `app.whenReady()`.
+ * Module-level by-convention singletons mirroring {@link sttGateway}. {@link aiHistory} MUST be this
+ * single shared instance — NOT one constructed inside the orchestrator — because 05-02's clear-AI
+ * handler will call `aiHistory.clear()`/`snapshot()` and must bind to the SAME instance the
+ * orchestrator was injected with (Fix 3). The gateway holds no socket, so no teardown is required.
+ */
+let aiGateway: AnthropicGateway | undefined;
+let aiOrchestrator: AiOrchestrator | undefined;
+let aiHistory: AiHistory | undefined;
+
+/**
  * Builds the action-label -> handler map for the registrar from the real window-control
  * actions (02-02) plus the Phase 4 clear-transcript action (D-07). Each label maps to a handler
  * that mutates the overlay window or the transcript buffer. The single show/hide chord branches on
@@ -37,9 +51,18 @@ let sttGateway: DeepgramSttGateway | undefined;
  * @param window - The overlay window to push the cleared transcript snapshot to.
  * @param buffer - The transcript buffer wiped by the clear-transcript chord.
  * @param getConnectionState - Reads the current connection state for the cleared-snapshot push.
+ * @param aiOrchestrator - The single-in-flight AI orchestrator the 'ai-answer' chord triggers (Phase 5).
+ * @param aiHistory - The shared bounded AI history (injected for symmetry; 05-02's clear-ai handler uses it).
  * @returns A handler map covering every locked action label.
  */
-function buildHandlers(actions: WindowControlActionsService, window: BrowserWindow, buffer: TranscriptBuffer, getConnectionState: () => SttConnectionState): HotkeyHandlerMap {
+function buildHandlers(
+    actions: WindowControlActionsService,
+    window: BrowserWindow,
+    buffer: TranscriptBuffer,
+    getConnectionState: () => SttConnectionState,
+    aiOrchestrator: AiOrchestrator,
+    aiHistory: AiHistory
+): HotkeyHandlerMap {
     return {
         'show/hide': (): void => {
             if (getOverlayVisible()) {
@@ -63,6 +86,15 @@ function buildHandlers(actions: WindowControlActionsService, window: BrowserWind
         },
         'scroll-transcript-up': (): void => pushScrollTranscript(window, 'up'),
         'scroll-transcript-down': (): void => pushScrollTranscript(window, 'down'),
+        // Phase 5 (AI-01/D-05): Answer mode. The orchestrator owns the whole lifecycle — empty-span
+        // guard (D-11), single-in-flight cancel on re-press (D-06), and the debounced jedi:ai push —
+        // so the handler is a one-liner. The shared aiHistory is injected into buildHandlers (Fix 3)
+        // so 05-02's 'clear-ai' handler binds to the SAME instance the orchestrator appends to; it is
+        // referenced here only to keep that shared binding explicit until that handler lands.
+        'ai-answer': (): void => {
+            void aiHistory;
+            aiOrchestrator.trigger('answer');
+        },
         quit: (): void => actions.quit(),
     };
 }
@@ -175,13 +207,25 @@ app.whenReady().then(() => {
     // Wire capture -> resample -> Deepgram -> buffer -> jedi:transcript push once (TRN-01/02/03).
     const getConnectionState = wireSttPipeline(window, buffer);
 
+    // Wire the Phase 5 AI stack. The Anthropic key is read from process.env in main only (mirroring the
+    // Deepgram D-08 policy), AFTER loadDotenvFile, and constructor-injected — the gateway never reads
+    // env and never logs the key. aiHistory is a SINGLE shared instance (Fix 3): both the orchestrator
+    // (which appends to it) and 05-02's clear-ai handler must bind to the same instance. The
+    // orchestrator closes over the shared `buffer` (the span source) and a `pushAi(window, event)`
+    // closure, mirroring how wireSttPipeline closes over pushTranscript. If the key is empty, the
+    // orchestrator surfaces `AI error: missing API key` inline (Pitfall 3) — never logs the key.
+    aiGateway = new AnthropicGateway(process.env.ANTHROPIC_API_KEY ?? '');
+    aiHistory = new AiHistory();
+    aiOrchestrator = new AiOrchestrator(aiGateway, buffer, aiHistory, (event) => pushAi(window, event));
+
     // Register the global hotkey layer after the overlay boots. The aggregated outcome is
     // fed to the HUD over the read-only jedi:status channel (D-06) — startup-only (D-07), and
     // the app launches even if some chords fail (D-08). The real window-control handlers
     // (02-02) mutate this overlay window when their chords fire; the clear-transcript chord
-    // (D-07/TRN-04) wipes the buffer and re-pushes the emptied snapshot.
+    // (D-07/TRN-04) wipes the buffer and re-pushes the emptied snapshot. The 'ai-answer' chord
+    // (Phase 5) triggers the injected orchestrator.
     const windowControlActions = new WindowControlActionsService(window);
-    hotkeyRegistrar = new HotkeyRegistrarService(buildHandlers(windowControlActions, window, buffer, getConnectionState));
+    hotkeyRegistrar = new HotkeyRegistrarService(buildHandlers(windowControlActions, window, buffer, getConnectionState, aiOrchestrator, aiHistory));
     const result = hotkeyRegistrar.register();
     setHotkeyStatus(result);
     pushStatus(window);

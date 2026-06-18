@@ -44,8 +44,28 @@ const TRANSCRIPT_CHANNEL = 'jedi:transcript';
 /** IPC channel for the read-only, one-way scroll-transcript signal from main (Phase 4, hotkey-driven). */
 const SCROLL_TRANSCRIPT_CHANNEL = 'jedi:scroll-transcript';
 
+/** IPC channel for the read-only, one-way AI push from main (Phase 5, AI-04). */
+const AI_CHANNEL = 'jedi:ai';
+
 /** The scroll direction forwarded from main (mirrors `ScrollTranscriptDirection` in the main process). */
 export type ScrollTranscriptDirection = 'up' | 'down';
+
+/** The AI mode that produced an entry (mirrors `AiMode` in the main process). */
+export type AiMode = 'answer' | 'talking-points';
+
+/**
+ * The read-only AI push payload received over `jedi:ai` (Phase 5, AI-04). Structurally mirrors
+ * `IAiPushEvent` in the main process; declared here (rather than imported) because the sandboxed
+ * preload is bundled separately and must not reach into main. AI text + state only; never the
+ * Anthropic key or any secret.
+ */
+export type IAiPushEvent =
+    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number }
+    | { type: 'delta'; requestId: number; id: string; text: string }
+    | { type: 'done'; requestId: number; id: string; text: string }
+    | { type: 'error'; requestId: number; id: string; text: string }
+    | { type: 'cancelled'; requestId: number; id: string }
+    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string };
 
 /**
  * The single typed, read-only, NON-SECRET namespace exposed on `window.jedi`.
@@ -106,6 +126,23 @@ const jediApi = {
 
         return (): void => {
             ipcRenderer.removeListener(SCROLL_TRANSCRIPT_CHANNEL, listener);
+        };
+    },
+
+    /**
+     * Subscribes to read-only AI push events from the main process (Phase 5, AI-04). High-frequency:
+     * debounced streamed deltas fire many times per response. One-way only — there is NO renderer->main
+     * control channel (IN-01); AI triggers come from main-side hotkeys, and this is a pure subscription.
+     *
+     * @param callback - Invoked with each AI push event (thinking / delta / done / error / cancelled / empty).
+     * @returns An unsubscribe function that removes the listener (WR-03).
+     */
+    onAi(callback: (event: IAiPushEvent) => void): () => void {
+        const listener = (_event: IpcRendererEvent, payload: IAiPushEvent): void => callback(payload);
+        ipcRenderer.on(AI_CHANNEL, listener);
+
+        return (): void => {
+            ipcRenderer.removeListener(AI_CHANNEL, listener);
         };
     },
 };
