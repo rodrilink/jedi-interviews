@@ -31,6 +31,10 @@ interface IDeepgramLiveSocket {
     sendMedia(message: ArrayBuffer | ArrayBufferView): void;
     sendKeepAlive(message: object): void;
     sendCloseStream(message: object): void;
+    // `listen.v1.connect(args)` returns the socket but does NOT open it — the websocket only opens
+    // (and fires 'open') after an explicit `connect()` call. `waitForOpen()` resolves once it does.
+    connect(): void;
+    waitForOpen(): Promise<unknown>;
     close(): void;
 }
 
@@ -145,6 +149,11 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
 
             this.connection = connection;
             this.attachHandlers(connection);
+            // listen.v1.connect(args) returns the socket WITHOUT opening it. Handlers are attached
+            // first (so the leading-edge 'open' is never missed), then we explicitly open the socket.
+            // The 'open' handler drives the transition to 'connected'; the keep-alive timer is already
+            // gated on state === 'connected', so starting it now is safe (it no-ops until open).
+            connection.connect();
             this.startKeepAlive();
         } catch (error) {
             this.emitError(error instanceof Error ? error : new Error('Deepgram connect failed'));

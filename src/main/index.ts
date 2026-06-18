@@ -1,4 +1,6 @@
+import { resolve } from 'path';
 import { app, BrowserWindow } from 'electron';
+import { loadDotenvFile } from './config/load-dotenv.utility';
 import { createOverlayWindow, showOverlay, pushStatus, pushTranscript, setHotkeyStatus, getOverlayVisible } from './overlay-window.manager';
 import { HotkeyRegistrarService, type HotkeyHandlerMap } from './hotkey-registrar.service';
 import { WindowControlActionsService } from './window-control.actions';
@@ -138,6 +140,11 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer): () =>
 }
 
 app.whenReady().then(() => {
+    // Load local dev secrets (the Deepgram key, D-08) from a gitignored .env before anything reads
+    // process.env. A shell-exported var always wins; a missing file is a no-op (packaged builds inject
+    // secrets via the real environment). MUST run before wireSttPipeline reads DEEPGRAM_API_KEY.
+    loadDotenvFile(resolve(app.getAppPath(), '.env'));
+
     const window = bootOverlay();
 
     // The authoritative rolling transcript buffer (main-owned, TRN-04). Wired into the STT pipeline

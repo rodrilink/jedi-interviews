@@ -20,6 +20,8 @@ class FakeV1Socket extends EventEmitter {
     public readonly sendMedia = vi.fn<(message: ArrayBuffer | ArrayBufferView) => void>();
     public readonly sendKeepAlive = vi.fn<(message: object) => void>();
     public readonly sendCloseStream = vi.fn<(message: object) => void>();
+    public readonly connect = vi.fn<() => void>();
+    public readonly waitForOpen = vi.fn<() => Promise<unknown>>(() => Promise.resolve(undefined));
     public readonly close = vi.fn<() => void>();
 
     /**
@@ -101,6 +103,18 @@ describe('deepgram-stt.gateway', () => {
         expect(states).toContain('connecting');
         expect(states).toContain('connected');
         expect(states.indexOf('connecting')).toBeLessThan(states.indexOf('connected'));
+    });
+
+    it('should explicitly open the socket (connect) after attaching handlers', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+
+        // Act
+        await gateway.start();
+
+        // Assert
+        expect(fakeSocket.connect).toHaveBeenCalledTimes(1);
     });
 
     it('should emit an interim transcript when is_final is falsy', async () => {
