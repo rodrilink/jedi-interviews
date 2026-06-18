@@ -259,7 +259,11 @@ export function pushScrollTranscript(window: BrowserWindow, direction: ScrollTra
  */
 export function createOverlayWindow(): BrowserWindow {
     const window = new BrowserWindow({
-        width: 460,
+        // Two-column overlay: the HUD (status + transcript + cheat-sheet) sits left, the always-on
+        // AiPanel sits right. 900px splits into two readable ~440px columns; 460px was too narrow to
+        // hold both side by side. The move-clamp logic reads the live window width, so widening here
+        // needs no other position changes.
+        width: 900,
         height: 700,
         show: false,
         transparent: true,

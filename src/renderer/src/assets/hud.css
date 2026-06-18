@@ -24,13 +24,15 @@ body {
 
 #root {
     /*
-     * The overlay root stacks two sibling surfaces (D-01): the toggleable DebugHud on top and the
-     * always-on AiPanel below. A column flexbox bounded to the viewport height lets the HUD take its
-     * natural size while the AI panel takes the remaining space and scrolls internally — so the panel
-     * is never pushed off-screen on the fixed 460x700 overlay (the window is resizable:false).
+     * The overlay root places two sibling surfaces side by side (D-01): the toggleable DebugHud on the
+     * LEFT and the always-on AiPanel on the RIGHT. A ROW flexbox bounded to the viewport height gives
+     * each column its own full height, so the HUD's transcript + cheat-sheet are no longer squeezed by
+     * (or clipped against) the AI panel — they were previously stacked in one narrow column. On the
+     * 900x700 overlay each column gets ~440px. The window is resizable:false.
      */
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: stretch;
     box-sizing: border-box;
     height: 100vh;
     background: transparent;
@@ -42,18 +44,18 @@ body {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    flex: 0 1 auto;
-    min-height: 0;
-    max-height: 55%;
     /*
-     * Clip to the rounded box. Without this, when status grid + transcript + the fixed cheat-sheet
-     * together exceed max-height, the cheat-sheet (flex: 0 0 auto) overflows the HUD's bottom edge and
-     * visually collides with the always-on AiPanel sibling below (the Quit row over the "AI" title).
-     * The transcript (flex: 1 1 auto, scrolls) absorbs the squeeze instead.
+     * Left column of the two-column overlay: equal width to the AI panel, full height. No more
+     * max-height cap (it's no longer stacked above the AI panel), so the transcript gets real vertical
+     * room and the full cheat-sheet fits without clipping. The transcript (flex: 1 1 auto) scrolls
+     * inside this box; overflow: hidden keeps content within the rounded corners.
      */
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
     overflow: hidden;
     padding: 12px 16px;
-    border-radius: 8px 8px 18px 18px;
+    border-radius: 18px;
     background: rgb(12 14 20 / 72%);
     color: rgb(226 232 240 / 100%);
     border: 1px solid rgb(148 163 184 / 28%);
@@ -178,10 +180,14 @@ body {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    flex: 1 1 auto;
+    /* Right column of the two-column overlay: equal width to the HUD, full height. The entry list
+     * (.ai-panel__entries, flex: 1 1 auto) scrolls internally so a long streamed answer never grows
+     * the column. min-width: 0 lets the flex item shrink so long unbroken tokens don't widen it. */
+    flex: 1 1 0;
+    min-width: 0;
     min-height: 0;
     padding: 12px 16px;
-    border-radius: 18px 18px 8px 8px;
+    border-radius: 18px;
     background: rgb(12 14 20 / 72%);
     color: rgb(226 232 240 / 100%);
     border: 1px solid rgb(148 163 184 / 28%);
