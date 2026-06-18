@@ -2,7 +2,7 @@
 phase: 5
 slug: ai-orchestration-answer-talking-points
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-06-18
 ---
@@ -19,7 +19,7 @@ created: 2026-06-18
 |----------|-------|
 | **Framework** | Vitest 3.2.4 (co-located, per IDEXX standards) |
 | **Config file** | electron-vite / vitest config in repo root (existing; STT tests run under it) |
-| **Quick run command** | `npx vitest run src/main/ai/test/<file>.test.ts` |
+| **Quick run command** | `npx vitest run src/main/ai/<file>.test.ts` |
 | **Full suite command** | `npx vitest run` |
 | **Estimated runtime** | ~15 seconds (unit suite; no network — gateway is faked) |
 
@@ -27,7 +27,7 @@ created: 2026-06-18
 
 ## Sampling Rate
 
-- **After every task commit:** Run `npx vitest run src/main/ai/test/<touched-file>.test.ts`
+- **After every task commit:** Run `npx vitest run src/main/ai/<touched-file>.test.ts`
 - **After every plan wave:** Run `npx vitest run`
 - **Before `/gsd:verify-work`:** Full suite must be green AND on-machine live AI verify complete
 - **Max feedback latency:** 15 seconds
@@ -40,13 +40,13 @@ created: 2026-06-18
 
 | Requirement | Behavior | Threat Ref | Test Type | Automated Command | File Exists |
 |-------------|----------|------------|-----------|-------------------|-------------|
-| AI-01 | Answer-mode prompt assembly (correct system prompt + labeled span; infers latest question) | — | unit | `npx vitest run src/main/ai/test/prompt-assembler.test.ts` | ❌ W0 |
-| AI-02 | Talking-points prompt assembly (3–5 bullet instruction shape) | — | unit | `npx vitest run src/main/ai/test/prompt-assembler.test.ts` | ❌ W0 |
-| D-13 | Prompt assembler accepts empty grounding-context slot with no signature change | — | unit | `npx vitest run src/main/ai/test/prompt-assembler.test.ts` | ❌ W0 |
-| D-11 | Empty-span guard skips the API call and emits a panel entry | — | unit | `npx vitest run src/main/ai/test/ai-orchestrator.test.ts` | ❌ W0 |
-| D-06 / D-07 | Single-in-flight: re-press cancels; other mode cancels-then-starts; request-id guard prevents cross-stream event bleed | T-5 (key/stream integrity) | unit (FakeAiGateway) | `npx vitest run src/main/ai/test/ai-orchestrator.test.ts` | ❌ W0 |
-| D-02 | AI history bounded (last-N entries / total-char ceiling) | — | unit | `npx vitest run src/main/ai/test/ai-history.test.ts` | ❌ W0 |
-| AI-04 | Token-by-token delta push (trailing-edge debounce ~30–60ms) | — | unit (FakeAiGateway) | `npx vitest run src/main/ai/test/ai-orchestrator.test.ts` | ❌ W0 |
+| AI-01 | Answer-mode prompt assembly (correct system prompt + labeled span; infers latest question) | — | unit | `npx vitest run src/main/ai/prompt-assembler.test.ts` | ❌ W0 |
+| AI-02 | Talking-points prompt assembly (3–5 bullet instruction shape) | — | unit | `npx vitest run src/main/ai/prompt-assembler.test.ts` | ❌ W0 |
+| D-13 | Prompt assembler accepts empty grounding-context slot with no signature change | — | unit | `npx vitest run src/main/ai/prompt-assembler.test.ts` | ❌ W0 |
+| D-11 | Empty-span guard skips the API call and emits a panel entry | — | unit | `npx vitest run src/main/ai/ai-orchestrator.test.ts` | ❌ W0 |
+| D-06 / D-07 | Single-in-flight: re-press cancels; other mode cancels-then-starts; request-id guard prevents cross-stream event bleed | T-5 (key/stream integrity) | unit (FakeAiGateway) | `npx vitest run src/main/ai/ai-orchestrator.test.ts` | ❌ W0 |
+| D-02 | AI history bounded (last-N entries / total-char ceiling) | — | unit | `npx vitest run src/main/ai/ai-history.test.ts` | ❌ W0 |
+| AI-04 | Token-by-token delta push (trailing-edge debounce ~30–60ms) | — | unit (FakeAiGateway) | `npx vitest run src/main/ai/ai-orchestrator.test.ts` | ❌ W0 |
 | AI-04 / AI-05 | Live streaming render + keyboard scrollback + focus-cycle indicator | — | manual-only | on-machine verify (overlay `focusable:false`; live stream not unit-testable) | n/a |
 | AI-05 | `Ctrl+Alt+A`/`T`/`F` + clear-AI chord registration succeeds and conflict-tested vs Teams/Zoom/VS Code | — | manual-only | 02-03 conflict-test protocol on target machine | n/a |
 
@@ -56,9 +56,9 @@ created: 2026-06-18
 
 ## Wave 0 Requirements
 
-- [ ] `src/main/ai/test/prompt-assembler.test.ts` — stubs for AI-01 / AI-02 / D-13 (pure prompt assembly + empty context slot)
-- [ ] `src/main/ai/test/ai-history.test.ts` — stubs for D-02 bounds (mirror `transcript-buffer` tests)
-- [ ] `src/main/ai/test/ai-orchestrator.test.ts` — stubs for D-06 / D-07 / D-11 / AI-04 with a `FakeAiGateway` (mirror the `FakeV1Socket` stand-in used for Deepgram)
+- [ ] `src/main/ai/prompt-assembler.test.ts` — stubs for AI-01 / AI-02 / D-13 (pure prompt assembly + empty context slot)
+- [ ] `src/main/ai/ai-history.test.ts` — stubs for D-02 bounds (mirror `transcript-buffer` tests)
+- [ ] `src/main/ai/ai-orchestrator.test.ts` — stubs for D-06 / D-07 / D-11 / AI-04 with a `FakeAiGateway` (mirror the `FakeV1Socket` stand-in used for Deepgram)
 - [ ] No framework install needed — Vitest already configured (used by the Phase 4 STT tests).
 
 ---
@@ -83,6 +83,6 @@ created: 2026-06-18
 - [ ] Wave 0 covers all MISSING references (3 test files above)
 - [ ] No watch-mode flags
 - [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending

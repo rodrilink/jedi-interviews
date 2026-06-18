@@ -517,29 +517,29 @@ export function assemblePrompt(input: IAssembleInput): IAssembledPrompt {
 |----------|-------|
 | Framework | Vitest 3.2.4 (co-located, per IDEXX standards) `[VERIFIED: package.json]` |
 | Config file | electron-vite / vitest config in repo root (existing; STT tests run under it) |
-| Quick run command | `npx vitest run src/main/ai/test/<file>.test.ts` |
+| Quick run command | `npx vitest run src/main/ai/<file>.test.ts` |
 | Full suite command | `npx vitest run` |
 
 ### Phase Requirements → Test Map
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
-| AI-01 | Answer-mode prompt assembly (correct system prompt + labeled span) | unit | `npx vitest run src/main/ai/test/prompt-assembler.test.ts` | ❌ Wave 0 |
-| AI-02 | Talking-points prompt assembly | unit | `npx vitest run src/main/ai/test/prompt-assembler.test.ts` | ❌ Wave 0 |
-| D-11 | Empty-span guard skips the API call | unit | `npx vitest run src/main/ai/test/ai-orchestrator.test.ts` | ❌ Wave 0 |
-| D-06/D-07 | Single-in-flight: re-press cancels; other mode cancels-then-starts; request-id guard | unit (fake gateway) | `npx vitest run src/main/ai/test/ai-orchestrator.test.ts` | ❌ Wave 0 |
-| D-02 | AI history bounded (last-N / total-char ceiling) | unit | `npx vitest run src/main/ai/test/ai-history.test.ts` | ❌ Wave 0 |
-| AI-04 | Token-by-token delta push (debounce trailing-edge) | unit | `npx vitest run src/main/ai/test/ai-orchestrator.test.ts` | ❌ Wave 0 |
+| AI-01 | Answer-mode prompt assembly (correct system prompt + labeled span) | unit | `npx vitest run src/main/ai/prompt-assembler.test.ts` | ❌ Wave 0 |
+| AI-02 | Talking-points prompt assembly | unit | `npx vitest run src/main/ai/prompt-assembler.test.ts` | ❌ Wave 0 |
+| D-11 | Empty-span guard skips the API call | unit | `npx vitest run src/main/ai/ai-orchestrator.test.ts` | ❌ Wave 0 |
+| D-06/D-07 | Single-in-flight: re-press cancels; other mode cancels-then-starts; request-id guard | unit (fake gateway) | `npx vitest run src/main/ai/ai-orchestrator.test.ts` | ❌ Wave 0 |
+| D-02 | AI history bounded (last-N / total-char ceiling) | unit | `npx vitest run src/main/ai/ai-history.test.ts` | ❌ Wave 0 |
+| AI-04 | Token-by-token delta push (debounce trailing-edge) | unit | `npx vitest run src/main/ai/ai-orchestrator.test.ts` | ❌ Wave 0 |
 | AI-04/AI-05 | Live streaming render + scrollback + focus-cycle | manual-only | on-machine verify (overlay is `focusable:false`; live stream not unit-testable) | n/a |
 
 ### Sampling Rate
-- **Per task commit:** `npx vitest run src/main/ai/test/<touched-file>.test.ts`
+- **Per task commit:** `npx vitest run src/main/ai/<touched-file>.test.ts`
 - **Per wave merge:** `npx vitest run`
 - **Phase gate:** Full suite green + on-machine live AI verify before `/gsd:verify-work`.
 
 ### Wave 0 Gaps
-- [ ] `src/main/ai/test/prompt-assembler.test.ts` — covers AI-01/AI-02 (pure prompt assembly + empty context slot, D-13)
-- [ ] `src/main/ai/test/ai-history.test.ts` — covers D-02 bounds (mirror `transcript-buffer` tests)
-- [ ] `src/main/ai/test/ai-orchestrator.test.ts` — covers D-06/D-07/D-11/AI-04 with a `FakeAiGateway` (mirror the `FakeV1Socket` stand-in used for Deepgram)
+- [ ] `src/main/ai/prompt-assembler.test.ts` — covers AI-01/AI-02 (pure prompt assembly + empty context slot, D-13)
+- [ ] `src/main/ai/ai-history.test.ts` — covers D-02 bounds (mirror `transcript-buffer` tests)
+- [ ] `src/main/ai/ai-orchestrator.test.ts` — covers D-06/D-07/D-11/AI-04 with a `FakeAiGateway` (mirror the `FakeV1Socket` stand-in used for Deepgram)
 - [ ] No framework install needed — Vitest already configured.
 
 ## Security Domain
