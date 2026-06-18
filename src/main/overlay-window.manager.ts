@@ -51,6 +51,8 @@ export interface IOverlayTranscript {
     interimText: string;
     /** The coarse STT connection state, surfaced read-only on the overlay (TRN-03). */
     connectionState: SttConnectionState;
+    /** The live capture RMS level in `[0, 1]`, computed in main, rendered as the overlay audio meter. */
+    audioLevel: number;
 }
 
 /**

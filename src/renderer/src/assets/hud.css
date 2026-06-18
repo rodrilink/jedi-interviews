@@ -66,6 +66,29 @@ body {
 }
 
 /*
+ * The live audio meter: a thin track with a fill whose width is the capture RMS level (0..100%),
+ * pushed from main on every audio frame. The width transition smooths the ~15 fps updates into a
+ * fluid bar. Green so "audio is alive" reads at a glance, distinct from the transcript text.
+ */
+.debug-hud__meter {
+    display: inline-block;
+    width: 160px;
+    height: 8px;
+    border-radius: 4px;
+    background: rgb(148 163 184 / 24%);
+    overflow: hidden;
+    vertical-align: middle;
+}
+
+.debug-hud__meter-fill {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    background: rgb(74 222 128 / 90%);
+    transition: width 80ms linear;
+}
+
+/*
  * The live transcript block (D-04): finalized text reads in the normal value color; the current
  * interim (partial) result is rendered dimmed + italic directly after it so the in-progress guess is
  * visually distinct from committed text. The block sits below the status grid and wraps freely.

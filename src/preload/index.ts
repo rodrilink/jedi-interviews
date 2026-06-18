@@ -31,6 +31,8 @@ export interface IOverlayTranscript {
     interimText: string;
     /** The coarse STT connection state (`connecting | connected | reconnecting | disconnected | error`). */
     connectionState: string;
+    /** The live capture RMS level in `[0, 1]`, computed in main, rendered as the overlay audio meter. */
+    audioLevel: number;
 }
 
 /** IPC channel for the read-only, non-secret status push from main (D-05). */

@@ -26,6 +26,8 @@ interface IOverlayTranscript {
     interimText: string;
     /** The coarse STT connection state surfaced on the overlay (TRN-03). */
     connectionState: string;
+    /** The live capture RMS level in `[0, 1]`, computed in main, rendered as the audio meter. */
+    audioLevel: number;
 }
 
 /**
@@ -90,6 +92,10 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
     const connectionStateLabel = transcript?.connectionState ?? '—';
     const finalTextLabel = transcript?.finalText ?? '';
     const interimTextLabel = transcript?.interimText ?? '';
+    // Map the RMS level (0..1, typically peaking ~0.3 for speech) to a 0..100% bar width, with a gain
+    // so normal speech fills a useful range rather than a sliver. Clamped to [0, 100].
+    const audioLevel = transcript?.audioLevel ?? 0;
+    const meterPercent = Math.max(0, Math.min(100, Math.round(audioLevel * 250)));
 
     return (
         <section className="debug-hud" data-testid="card-debug-hud">
@@ -114,6 +120,12 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
                 <dt className="debug-hud__key">Connection</dt>
                 <dd className="debug-hud__value" data-testid="cell-connection-state">
                     {connectionStateLabel}
+                </dd>
+                <dt className="debug-hud__key">Audio</dt>
+                <dd className="debug-hud__value" data-testid="cell-audio-meter">
+                    <span className="debug-hud__meter" data-testid="meter-audio-level">
+                        <span className="debug-hud__meter-fill" style={{ width: `${meterPercent}%` }} />
+                    </span>
                 </dd>
             </dl>
             <p className="debug-hud__transcript" data-testid="card-transcript">

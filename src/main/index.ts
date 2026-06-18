@@ -5,6 +5,7 @@ import { createOverlayWindow, showOverlay, pushStatus, pushTranscript, setHotkey
 import { HotkeyRegistrarService, type HotkeyHandlerMap } from './hotkey-registrar.service';
 import { WindowControlActionsService } from './window-control.actions';
 import { AudioCaptureService } from './audio/audio-capture.service';
+import { computeRmsInt16 } from './audio/rms.utility';
 import { DeepgramSttGateway } from './stt/deepgram-stt.gateway';
 import { TranscriptBuffer } from './stt/transcript-buffer';
 import type { ISttTranscriptEvent, SttConnectionState } from './stt/stt-provider.interface';
@@ -56,7 +57,9 @@ function buildHandlers(actions: WindowControlActionsService, window: BrowserWind
         'hud-toggle': (): void => actions.toggleHud(),
         'clear-transcript': (): void => {
             buffer.clear();
-            pushTranscript(window, { ...buffer.renderable(), connectionState: getConnectionState() });
+            // audioLevel resets to 0 here; the next captured PCM chunk re-pushes the live level within
+            // ~66 ms, so the meter only momentarily dips rather than going stale.
+            pushTranscript(window, { ...buffer.renderable(), connectionState: getConnectionState(), audioLevel: 0 });
         },
         quit: (): void => actions.quit(),
     };
@@ -104,6 +107,10 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer): () =>
     const gateway = new DeepgramSttGateway(process.env.DEEPGRAM_API_KEY ?? '');
     sttGateway = gateway;
 
+    // Latest audio level (RMS, 0..1) computed in main from the captured PCM. Surfaced on the overlay
+    // as a live meter so the user sees capture is alive even during silence between transcripts.
+    let audioLevel = 0;
+
     gateway.on('transcript', (event: ISttTranscriptEvent) => {
         if (event.isFinal) {
             buffer.appendFinal(event.text);
@@ -111,12 +118,12 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer): () =>
             buffer.setInterim(event.text);
         }
 
-        pushTranscript(window, { ...buffer.renderable(), connectionState });
+        pushTranscript(window, { ...buffer.renderable(), connectionState, audioLevel });
     });
 
     gateway.on('connection-state-change', (state: SttConnectionState) => {
         connectionState = state;
-        pushTranscript(window, { ...buffer.renderable(), connectionState: state });
+        pushTranscript(window, { ...buffer.renderable(), connectionState: state, audioLevel });
     });
 
     gateway.on('error', () => {
@@ -125,11 +132,23 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer): () =>
         // with its payload to avoid any risk of leaking key-adjacent detail (D-08).
     });
 
+    // Throttle the level-only push so the meter animates smoothly (~15 fps) without flooding IPC on
+    // every ~10 ms PCM chunk. Transcript/connection pushes carry the level too, so the bar is always
+    // current on those events as well.
+    let lastLevelPushMs = 0;
     const capture = new AudioCaptureService(
-        (pcm) => gateway.sendAudio(pcm),
+        (pcm) => {
+            audioLevel = computeRmsInt16(pcm);
+            const nowMs = Date.now();
+            if (nowMs - lastLevelPushMs >= 66) {
+                lastLevelPushMs = nowMs;
+                pushTranscript(window, { ...buffer.renderable(), connectionState, audioLevel });
+            }
+            gateway.sendAudio(pcm);
+        },
         () => {
             // A capture/device fault must never crash main. It surfaces via the absence of transcript
-            // updates; we keep the app alive rather than throwing (report-don't-throw, WR-01/WR-02).
+            // updates and a flat meter; we keep the app alive rather than throwing (WR-01/WR-02).
         }
     );
     audioCapture = capture;
