@@ -67,6 +67,12 @@ const HOTKEY_CHORDS: readonly IHotkeyChord[] = [
     // (transcriptBuffer.clear()) is wired in index.ts (04-04); a missing handler surfaces in
     // register().failed (CTL-03), exactly like every other chord — no registrar logic changes.
     { label: 'clear-transcript', keycode: UiohookKey.K, accelerator: 'Ctrl+Alt+K', kind: 'discrete' },
+    // Phase 4: keyboard-driven transcript scroll. The overlay never takes focus, so a mouse wheel /
+    // focused scrollbar is unavailable — scrolling MUST be a hotkey. 'repeat' so holding scrolls
+    // continuously line-by-line, like the move/opacity chords. Handlers in index.ts push a
+    // jedi:scroll-transcript signal to the renderer, which scrolls the transcript element.
+    { label: 'scroll-transcript-up', keycode: UiohookKey.PageUp, accelerator: 'Ctrl+Alt+PageUp', kind: 'repeat' },
+    { label: 'scroll-transcript-down', keycode: UiohookKey.PageDown, accelerator: 'Ctrl+Alt+PageDown', kind: 'repeat' },
 ];
 
 /** The ordered list of action labels in the locked set, exported for tests and HUD copy. */

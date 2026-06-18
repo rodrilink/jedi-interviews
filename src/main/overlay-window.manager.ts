@@ -40,6 +40,16 @@ export const STATUS_CHANNEL = 'jedi:status';
 export const TRANSCRIPT_CHANNEL = 'jedi:transcript';
 
 /**
+ * IPC channel for the read-only, one-way scroll-transcript signal (Phase 4). The overlay never takes
+ * focus, so the transcript can only be scrolled by global hotkey: main forwards a coarse 'up'/'down'
+ * direction here and the renderer scrolls its transcript element. Carries a direction string only.
+ */
+export const SCROLL_TRANSCRIPT_CHANNEL = 'jedi:scroll-transcript';
+
+/** The scroll direction forwarded to the renderer over {@link SCROLL_TRANSCRIPT_CHANNEL}. */
+export type ScrollTranscriptDirection = 'up' | 'down';
+
+/**
  * The read-only transcript payload pushed to the HUD over {@link TRANSCRIPT_CHANNEL} (D-04). Carries
  * the renderable transcript snapshot plus the coarse STT connection state — text and state only,
  * never the Deepgram key or any secret (D-08). The renderer is a pure view of this payload.
@@ -184,6 +194,22 @@ export function pushTranscript(window: BrowserWindow, payload: IOverlayTranscrip
 }
 
 /**
+ * Forwards a transcript scroll direction to the renderer over the read-only {@link
+ * SCROLL_TRANSCRIPT_CHANNEL}. Fired by the Ctrl+Alt+PageUp/PageDown hotkeys (the overlay is unfocused,
+ * so this is the only way to scroll). Sends nothing if the renderer is gone (mirrors the other pushes).
+ *
+ * @param window - The overlay window whose webContents receives the signal.
+ * @param direction - Which way to scroll the transcript.
+ */
+export function pushScrollTranscript(window: BrowserWindow, direction: ScrollTranscriptDirection): void {
+    if (window.isDestroyed() || window.webContents.isDestroyed()) {
+        return;
+    }
+
+    window.webContents.send(SCROLL_TRANSCRIPT_CHANNEL, direction);
+}
+
+/**
  * Creates the transparent, frameless, always-on-top overlay window.
  *
  * The window is built `focusable: false` so it can never take *keyboard* focus from the
@@ -204,8 +230,8 @@ export function pushTranscript(window: BrowserWindow, payload: IOverlayTranscrip
  */
 export function createOverlayWindow(): BrowserWindow {
     const window = new BrowserWindow({
-        width: 420,
-        height: 220,
+        width: 460,
+        height: 700,
         show: false,
         transparent: true,
         frame: false,

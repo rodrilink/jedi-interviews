@@ -1,7 +1,7 @@
 import { resolve } from 'path';
 import { app, BrowserWindow } from 'electron';
 import { loadDotenvFile } from './config/load-dotenv.utility';
-import { createOverlayWindow, showOverlay, pushStatus, pushTranscript, setHotkeyStatus, getOverlayVisible } from './overlay-window.manager';
+import { createOverlayWindow, showOverlay, pushStatus, pushTranscript, pushScrollTranscript, setHotkeyStatus, getOverlayVisible } from './overlay-window.manager';
 import { HotkeyRegistrarService, type HotkeyHandlerMap } from './hotkey-registrar.service';
 import { WindowControlActionsService } from './window-control.actions';
 import { AudioCaptureService } from './audio/audio-capture.service';
@@ -61,6 +61,8 @@ function buildHandlers(actions: WindowControlActionsService, window: BrowserWind
             // ~66 ms, so the meter only momentarily dips rather than going stale.
             pushTranscript(window, { ...buffer.renderable(), connectionState: getConnectionState(), audioLevel: 0 });
         },
+        'scroll-transcript-up': (): void => pushScrollTranscript(window, 'up'),
+        'scroll-transcript-down': (): void => pushScrollTranscript(window, 'down'),
         quit: (): void => actions.quit(),
     };
 }

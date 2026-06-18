@@ -1,4 +1,4 @@
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 
 /**
  * The read-only, non-secret status payload received from the main process over the
@@ -44,6 +44,7 @@ const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: stri
     { id: 'opacity', label: 'Opacity', chord: 'Ctrl+Alt+[ / ]' },
     { id: 'hud', label: 'Toggle HUD', chord: 'Ctrl+Alt+H' },
     { id: 'clear', label: 'Clear transcript', chord: 'Ctrl+Alt+K' },
+    { id: 'scroll', label: 'Scroll transcript', chord: 'Ctrl+Alt+PgUp / PgDn' },
     { id: 'quit', label: 'Quit', chord: 'Ctrl+Alt+Q' },
 ];
 
@@ -67,16 +68,43 @@ const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: stri
 export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element | null {
     const [status, setStatus] = useState<IOverlayStatus | null>(null);
     const [transcript, setTranscript] = useState<IOverlayTranscript | null>(null);
+    const transcriptRef = useRef<HTMLParagraphElement | null>(null);
+    // While the user has scrolled up via hotkey, auto-stick is paused so new text doesn't yank them
+    // back to the bottom mid-read. Scrolling back to the bottom re-enables the live follow.
+    const stickToBottomRef = useRef<boolean>(true);
 
     useEffect(() => {
         const offStatus = window.jedi?.onStatus((next: IOverlayStatus) => setStatus(next));
         const offTranscript = window.jedi?.onTranscript((next: IOverlayTranscript) => setTranscript(next));
 
+        // Hotkey-driven scroll (the unfocused overlay cannot be scrolled by mouse). Each press steps
+        // ~3 lines; reaching the bottom re-arms live auto-follow, scrolling up pauses it.
+        const offScroll = window.jedi?.onScrollTranscript((direction) => {
+            const element = transcriptRef.current;
+            if (element === null) {
+                return;
+            }
+
+            const lineStep = 3 * 18;
+            element.scrollTop += direction === 'down' ? lineStep : -lineStep;
+            stickToBottomRef.current = element.scrollTop + element.clientHeight >= element.scrollHeight - 4;
+        });
+
         return (): void => {
             offStatus?.();
             offTranscript?.();
+            offScroll?.();
         };
     }, []);
+
+    // Keep the newest transcript text in view: stick the scroll to the bottom as final/interim text
+    // grows — but only while the user hasn't scrolled up to read earlier text (stickToBottomRef).
+    useEffect(() => {
+        const element = transcriptRef.current;
+        if (element !== null && stickToBottomRef.current) {
+            element.scrollTop = element.scrollHeight;
+        }
+    }, [transcript?.finalText, transcript?.interimText]);
 
     // Main owns HUD-content visibility (D-15): honor the pushed flag once it arrives; before the
     // first push fall back to the prop default so the HUD shows on launch (D-12).
@@ -128,7 +156,7 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
                     </span>
                 </dd>
             </dl>
-            <p className="debug-hud__transcript" data-testid="card-transcript">
+            <p className="debug-hud__transcript" data-testid="card-transcript" ref={transcriptRef}>
                 <span className="debug-hud__transcript-final" data-testid="cell-transcript-final">
                     {finalTextLabel}
                 </span>{' '}

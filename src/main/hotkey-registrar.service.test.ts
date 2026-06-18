@@ -122,6 +122,15 @@ describe('hotkey-registrar.service', () => {
         expect(mockStart).toHaveBeenCalledTimes(1);
     });
 
+    it('should expose hotkey-driven transcript scroll action labels (keyboard-only scrolling)', async () => {
+        // Arrange
+        const { HOTKEY_ACTION_LABELS } = await import('./hotkey-registrar.service');
+
+        // Assert
+        expect(HOTKEY_ACTION_LABELS).toContain('scroll-transcript-up');
+        expect(HOTKEY_ACTION_LABELS).toContain('scroll-transcript-down');
+    });
+
     it('should surface per-chord failures in failed without throwing', async () => {
         // Arrange
         const { HotkeyRegistrarService, HOTKEY_ACTION_LABELS } = await import('./hotkey-registrar.service');

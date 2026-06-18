@@ -145,6 +145,11 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
                 // The HeaderAuthProvider supplies the real auth header from `apiKey`; the per-call
                 // Authorization field is left empty so it merges out (verified against @deepgram/sdk@5.4.0).
                 Authorization: '',
+                // Disable the SDK's built-in ReconnectingWebSocket (defaults to 30 attempts). This
+                // gateway is the SINGLE reconnect authority — leaving the SDK's reconnect on makes the
+                // two engines fight on every close, thrashing connected/connecting/reconnecting and
+                // firing N-API callbacks on a socket we tear down underneath the SDK (DEP0168).
+                reconnectAttempts: 0,
             })) as unknown as IDeepgramLiveSocket;
 
             this.connection = connection;
@@ -178,7 +183,8 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
             this.handleMessage(message);
         });
 
-        connection.on('close', () => {
+        connection.on('close', (event: unknown) => {
+            console.log('[DIAG] socket close:', JSON.stringify(event)?.slice(0, 200));
             if (this.stopped) {
                 return;
             }
@@ -188,6 +194,7 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
         });
 
         connection.on('error', (error: Error) => {
+            console.log('[DIAG] socket error:', error?.message ?? String(error));
             this.emitError(error);
         });
     }

@@ -41,6 +41,12 @@ const STATUS_CHANNEL = 'jedi:status';
 /** IPC channel for the read-only, one-way transcript push from main (D-04). */
 const TRANSCRIPT_CHANNEL = 'jedi:transcript';
 
+/** IPC channel for the read-only, one-way scroll-transcript signal from main (Phase 4, hotkey-driven). */
+const SCROLL_TRANSCRIPT_CHANNEL = 'jedi:scroll-transcript';
+
+/** The scroll direction forwarded from main (mirrors `ScrollTranscriptDirection` in the main process). */
+export type ScrollTranscriptDirection = 'up' | 'down';
+
 /**
  * The single typed, read-only, NON-SECRET namespace exposed on `window.jedi`.
  *
@@ -84,6 +90,22 @@ const jediApi = {
 
         return (): void => {
             ipcRenderer.removeListener(TRANSCRIPT_CHANNEL, listener);
+        };
+    },
+
+    /**
+     * Subscribes to read-only scroll-transcript signals pushed from main when the user presses the
+     * Ctrl+Alt+PageUp/PageDown hotkeys (the unfocused overlay cannot be scrolled by mouse).
+     *
+     * @param callback - Invoked with the scroll direction on each hotkey press.
+     * @returns An unsubscribe function that removes the listener (WR-03).
+     */
+    onScrollTranscript(callback: (direction: ScrollTranscriptDirection) => void): () => void {
+        const listener = (_event: IpcRendererEvent, direction: ScrollTranscriptDirection): void => callback(direction);
+        ipcRenderer.on(SCROLL_TRANSCRIPT_CHANNEL, listener);
+
+        return (): void => {
+            ipcRenderer.removeListener(SCROLL_TRANSCRIPT_CHANNEL, listener);
         };
     },
 };
