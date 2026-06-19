@@ -138,6 +138,16 @@ body {
 }
 
 /*
+ * The mouse-toggle indicator (quick fix 260619-mcv): when interaction mode is engaged (click-through
+ * OFF for drag-select) the "ON" value reads in a bright accent so the relaxed state is obvious — it is
+ * the single sanctioned exception to the click-through default, so the user must always be able to see it.
+ */
+.debug-hud__value[data-mouse-toggle='true'] {
+    color: rgb(74 222 128 / 100%);
+    font-weight: 600;
+}
+
+/*
  * The live audio meter: a thin track with a fill whose width is the capture RMS level (0..100%),
  * pushed from main on every audio frame. The width transition smooths the ~15 fps updates into a
  * fluid bar. Green so "audio is alive" reads at a glance, distinct from the transcript text.

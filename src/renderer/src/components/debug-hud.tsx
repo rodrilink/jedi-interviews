@@ -16,6 +16,8 @@ interface IOverlayStatus {
     hudVisible: boolean;
     /** Which panel is the active keyboard-scroll target (D-08; Phase 7 D-09 adds 'vision'). Main-owned; declared identically in main and preload. */
     activePanel: 'transcript' | 'ai' | 'vision';
+    /** Whether the overlay is interactive (click-through disabled for drag-select, quick fix 260619-mcv). Main-owned; declared identically in main and preload. */
+    overlayInteractive: boolean;
 }
 
 /**
@@ -151,7 +153,10 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
     const positionLabel = status ? `${status.position.x}, ${status.position.y}` : '—';
     const electronVersionLabel = status?.electronVersion ?? '—';
     const hotkeyLabel = status ? (status.hotkeys.failed.length === 0 ? 'OK' : `${status.hotkeys.failed.length} failed`) : '—';
-    const activePanelLabel = status ? (status.activePanel === 'ai' ? 'AI' : status.activePanel === 'vision' ? 'Vision' : 'Transcript') : '—';
+    const activePanelLabel = status ? (status.activePanel === 'ai' ? 'AI' : status.activePanel === 'vision' ? 'Code' : 'Transcript') : '—';
+    // Whether interaction mode (click-through OFF for drag-select) is engaged (quick fix 260619-mcv).
+    // Surfaced so the user can see whether Ctrl+Alt+M is currently ON; also the diagnostic for the chord.
+    const mouseToggleLabel = status ? (status.overlayInteractive ? 'ON' : 'OFF') : '—';
     // Native Date for the renderer wall-clock display is deliberate (presentation, not business
     // logic — Luxon stays in main per project standards). Read once from the mount ref so it is static.
     const sessionStartedLabel = new Date(sessionStartRef.current).toLocaleString();
@@ -207,6 +212,10 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
                 <dt className="debug-hud__key">Active panel</dt>
                 <dd className="debug-hud__value" data-testid="cell-active-panel">
                     {activePanelLabel}
+                </dd>
+                <dt className="debug-hud__key">Mouse</dt>
+                <dd className="debug-hud__value" data-testid="cell-mouse-toggle" data-mouse-toggle={mouseToggleLabel === 'ON'}>
+                    {mouseToggleLabel}
                 </dd>
                 <dt className="debug-hud__key">Session started</dt>
                 <dd className="debug-hud__value" data-testid="cell-session-started">

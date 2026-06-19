@@ -39,6 +39,13 @@ export interface IOverlayStatus {
      * controls it (IN-01: renderer is a pure view).
      */
     activePanel: 'transcript' | 'ai' | 'vision';
+    /**
+     * Whether the overlay is currently INTERACTIVE — click-through disabled so the user can drag-select
+     * code (quick fix 260619-mcv, D-09). Main-owned; the toggle chord (Ctrl+Alt+M) flips it. The renderer
+     * surfaces it read-only in the HUD as a "Mouse: ON/OFF" indicator so the user can see whether the
+     * single sanctioned interactive state is engaged. `false` by default (overlay is click-through, OVL-02).
+     */
+    overlayInteractive: boolean;
 }
 
 /** IPC channel name for the read-only, non-secret status push to the renderer (D-05). */
@@ -206,14 +213,21 @@ let overlayInteractive = false;
 /**
  * Toggles the overlay between click-through (default) and interactive (quick fix 260619-mcv, D-09).
  *
- * This is the ONE sanctioned place {@link BrowserWindow.setIgnoreMouseEvents}`(false)` is called: when
- * `interactive` is `true` the overlay stops swallowing-vs-passing mouse events so the user can click and
- * drag-select code in the Code Challenge panel — an intentional, explicit relaxation of the never-take-
- * focus discipline (OVL-02). When `interactive` is `false` it re-asserts the overlay's load-bearing
- * defaults EXACTLY as {@link showOverlay} does — click-through (`setIgnoreMouseEvents(true, { forward:
- * true })`), content protection, and the `'screen-saver'` always-on-top level (OVL-04 / Pitfall 2) —
- * then pushes status so the HUD reflects the restored content-protection state. Guards `isDestroyed()`
- * because hotkeys fire async, possibly mid-teardown.
+ * This is the ONE sanctioned place the overlay's never-take-focus / click-through discipline (OVL-02) is
+ * relaxed, and it is explicit and user-invoked (the Ctrl+Alt+M chord). When `interactive` is `true`:
+ *   1. `setIgnoreMouseEvents(false)` so clicks/drag-select land on the overlay instead of passing through.
+ *   2. `setFocusable(true)` + `focus()` — REQUIRED for the relaxation to actually work: the window is
+ *      created `focusable: false`, and a non-focusable, transparent, always-on-top window does NOT receive
+ *      mouse-driven focus or text selection even with `setIgnoreMouseEvents(false)` (Electron 35.x). The
+ *      window must be made focusable AND focused so the user can click into the Code Challenge panel and
+ *      drag-select. This is the SINGLE sanctioned `focus()` — same spirit as the `setIgnoreMouseEvents`
+ *      exception — and it is fully reverted on toggle OFF, so the default never-steal-focus invariant
+ *      (OVL-02) holds at all other times.
+ * When `interactive` is `false` it re-asserts the overlay's load-bearing defaults EXACTLY as
+ * {@link showOverlay} does — `setFocusable(false)` (restoring the never-take-focus default), click-through
+ * (`setIgnoreMouseEvents(true, { forward: true })`), content protection, and the `'screen-saver'`
+ * always-on-top level (OVL-04 / Pitfall 2) — then pushes status so the HUD reflects the restored state.
+ * Guards `isDestroyed()` because hotkeys fire async, possibly mid-teardown.
  *
  * @param window - The overlay window to toggle.
  * @param interactive - `true` to disable click-through for drag-select; `false` to restore the defaults.
@@ -226,10 +240,17 @@ export function setOverlayInteractive(window: BrowserWindow, interactive: boolea
     overlayInteractive = interactive;
 
     if (interactive) {
-        // The sole sanctioned setIgnoreMouseEvents(false): let clicks/drag-select land on the overlay.
+        // The sole sanctioned relaxation of OVL-02: let clicks/drag-select land on the overlay AND make
+        // the window focusable + focused so a transparent, always-on-top window actually receives the
+        // mouse interaction (setIgnoreMouseEvents(false) alone is insufficient on a non-focusable window).
         window.setIgnoreMouseEvents(false);
+        window.setFocusable(true);
+        window.focus();
     } else {
         // Restore the load-bearing defaults exactly like showOverlay (the OS can drop these; re-assert).
+        // setFocusable(false) reverts the single sanctioned focus exception so the never-take-focus
+        // invariant (OVL-02) holds again outside the interactive window.
+        window.setFocusable(false);
         window.setIgnoreMouseEvents(true, { forward: true });
         window.setContentProtection(true);
         contentProtectionEnabled = true;
@@ -293,6 +314,7 @@ function buildStatus(window: BrowserWindow): IOverlayStatus {
         hotkeys: lastHotkeyResult,
         hudVisible,
         activePanel,
+        overlayInteractive,
     };
 }
 

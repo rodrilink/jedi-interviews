@@ -17,6 +17,8 @@ export interface IOverlayStatus {
     hudVisible: boolean;
     /** Which panel is the active keyboard-scroll target (D-08; Phase 7 D-09 adds 'vision'). Main-owned; declared identically in main and renderer. */
     activePanel: 'transcript' | 'ai' | 'vision';
+    /** Whether the overlay is interactive (click-through disabled for drag-select, quick fix 260619-mcv). Main-owned; declared identically in main and renderer. */
+    overlayInteractive: boolean;
 }
 
 /**
