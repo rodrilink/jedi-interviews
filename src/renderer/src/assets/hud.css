@@ -24,11 +24,12 @@ body {
 
 #root {
     /*
-     * The overlay root places two sibling surfaces side by side (D-01): the toggleable DebugHud on the
-     * LEFT and the always-on AiPanel on the RIGHT. A ROW flexbox bounded to the viewport height gives
-     * each column its own full height, so the HUD's transcript + cheat-sheet are no longer squeezed by
-     * (or clipped against) the AI panel — they were previously stacked in one narrow column. On the
-     * 900x700 overlay each column gets ~440px. The window is resizable:false.
+     * The overlay root places THREE sibling column surfaces side by side: the toggleable DebugHud
+     * (Transcript) on the LEFT, the always-on AiPanel in the MIDDLE, and the dedicated VisionPanel
+     * (Code Challenge) on the RIGHT. A ROW flexbox bounded to the viewport height gives each column its
+     * own full height. On the 900x700 overlay each column gets ~290px (flex: 1 1 0). The window is
+     * resizable:false. (Previously two columns with the vision panel as a takeover overlay — quick fix
+     * 260619-mcv split it into a real third column.)
      */
     display: flex;
     flex-direction: row;
@@ -41,14 +42,15 @@ body {
 }
 
 .debug-hud {
+    position: relative;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
     /*
-     * Left column of the two-column overlay: equal width to the AI panel, full height. No more
-     * max-height cap (it's no longer stacked above the AI panel), so the transcript gets real vertical
-     * room and the full cheat-sheet fits without clipping. The transcript (flex: 1 1 auto) scrolls
-     * inside this box; overflow: hidden keeps content within the rounded corners.
+     * Left column of the three-column overlay: equal width to the AI + vision panels, full height. No
+     * max-height cap, so the transcript gets real vertical room and the full cheat-sheet fits without
+     * clipping. The transcript (flex: 1 1 auto) scrolls inside this box; overflow: hidden keeps content
+     * within the rounded corners. position: relative anchors the corner active-panel indicator pill.
      */
     flex: 1 1 0;
     min-width: 0;
@@ -72,6 +74,43 @@ body {
     font-weight: 600;
     letter-spacing: 0.02em;
     color: rgb(125 211 252 / 100%);
+}
+
+/*
+ * The corner active-panel indicator (D-09 focus cycle): a small pill in the HUD's top-right mirroring
+ * the AI/vision panel pills, showing the transcript/HUD is the shared Ctrl+Alt+PgUp/PgDn scroll target
+ * and the focus highlight when Ctrl+Alt+F lands here. A pure view of the main-owned activePanel flag.
+ */
+.debug-hud__active-indicator {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    padding: 1px 8px;
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: rgb(148 163 184 / 100%);
+    background: rgb(148 163 184 / 16%);
+    border: 1px solid rgb(148 163 184 / 28%);
+}
+
+.debug-hud__active-indicator[data-active-panel='transcript'] {
+    color: rgb(196 181 253 / 100%);
+    background: rgb(196 181 253 / 18%);
+    border-color: rgb(196 181 253 / 45%);
+}
+
+/*
+ * The visible focus highlight (quick fix 260619-mcv): when Ctrl+Alt+F makes a column the focus-cycle
+ * target, its root gets a brighter border + subtle outer ring so the focus is obvious at a glance
+ * across all three columns. Driven by the data-active attribute each panel sets off the pushed flag.
+ */
+.debug-hud[data-active='true'],
+.ai-panel[data-active='true'],
+.vision-panel[data-active='true'] {
+    border-color: rgb(196 181 253 / 70%);
+    box-shadow: 0 0 0 1px rgb(196 181 253 / 45%);
 }
 
 .debug-hud__grid {
@@ -303,33 +342,18 @@ body {
 }
 
 /*
- * The right column wrapper (Phase 7, D-10). It is the AI panel's column slot; the VisionPanel takes it
- * over as an absolutely-positioned overlay when active/streaming so the AI panel is never permanently
- * shrunk on the fixed 900x700 overlay. `position: relative` anchors that overlay; the AI panel fills the
- * column normally (its own flex: 1 1 0). Equal width to the HUD column, full height.
+ * The dedicated vision panel (D-08/D-09): its OWN distinct, always-present "Code Challenge" column —
+ * the RIGHT third of the three-column overlay (quick fix 260619-mcv replaced the former takeover-overlay
+ * model). Same dark translucent chrome as the AI panel for visual unity, equal width (flex: 1 1 0), full
+ * height. position: relative anchors the corner active-panel indicator pill. Code solutions are long, so
+ * the entry list scrolls internally.
  */
-.overlay-column {
+.vision-panel {
     position: relative;
     display: flex;
     flex-direction: column;
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 0;
-}
-
-/*
- * The dedicated vision panel (D-08/D-10): same dark translucent chrome as the AI panel for visual unity.
- * Absolutely positioned to cover the entire right column so it TAKES OVER the AI-panel region while
- * active/streaming (D-10), rather than splitting the fixed overlay three ways. Code solutions are long,
- * so the entry list scrolls internally.
- */
-.vision-panel {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
     box-sizing: border-box;
+    flex: 1 1 0;
     min-width: 0;
     min-height: 0;
     padding: 12px 16px;
@@ -341,6 +365,13 @@ body {
     line-height: 1.5;
     -webkit-user-select: none;
     user-select: none;
+}
+
+/* The quiet empty-state line shown in the entries area before any code challenge is captured. */
+.vision-panel__placeholder {
+    margin: 0;
+    color: rgb(148 163 184 / 85%);
+    font-style: italic;
 }
 
 .vision-panel__title {
