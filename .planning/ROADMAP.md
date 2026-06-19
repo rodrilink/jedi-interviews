@@ -171,7 +171,7 @@ Plans:
 
 **Wave 2** *(blocked on 05-01)*
 
-- [ ] 05-02-PLAN.md — Talking-points mode (Ctrl+Alt+T → Opus, 3-5 bullets), clear-AI chord (Ctrl+Alt+G), full new-chord 02-03 conflict re-test vs Teams/Zoom/VS Code (AI-02)
+- [x] 05-02-PLAN.md — Talking-points mode (Ctrl+Alt+T → Opus, 3-5 bullets), clear-AI chord (Ctrl+Alt+G), full new-chord 02-03 conflict re-test vs Teams/Zoom/VS Code (AI-02)
 
 **Wave 3** *(blocked on 05-01 + 05-02)*
 
@@ -241,6 +241,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. Global Hotkeys + Window Control | 3/3 | Complete   | 2026-06-17 |
 | 3. Audio Loopback Spike | 2/2 | Complete   | 2026-06-17 |
 | 4. STT Pipeline + Live Transcript | 4/4 | Complete   | 2026-06-18 |
-| 5. AI Orchestration (Answer + Talking Points) | 1/3 | In Progress|  |
+| 5. AI Orchestration (Answer + Talking Points) | 2/3 | In Progress|  |
 | 6. Session Context + Settings Window | 0/4 | Not started | - |
 | 7. Screenshot Vision + Packaging & Hardening | 0/3 | Not started | - |
