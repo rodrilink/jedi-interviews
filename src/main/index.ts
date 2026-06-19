@@ -258,7 +258,10 @@ app.whenReady().then(() => {
     // D-08 precedence for the Anthropic key too: a saved safeStorage key overrides a stale .env value.
     aiGateway = new AnthropicGateway(resolveApiKey(apiKeyStore.getAnthropic(), process.env.ANTHROPIC_API_KEY));
     aiHistory = new AiHistory();
-    aiOrchestrator = new AiOrchestrator(aiGateway, buffer, aiHistory, (event) => pushAi(window, event));
+    // D-10 pull-on-trigger: the orchestrator's 5th arg is the active-context provider. Wired to the
+    // SessionContextRepository in 06-04 Task 3; until then it is the Phase-5 fail-safe (`undefined` →
+    // formatContext '' → byte-for-byte Phase-5 prompt).
+    aiOrchestrator = new AiOrchestrator(aiGateway, buffer, aiHistory, (event) => pushAi(window, event), () => undefined);
 
     // Register the settings window's dedicated two-way IPC surface (D-04). These four named channels are
     // the ENTIRE settings renderer->main write surface; the overlay's one-way jedi:* channels are

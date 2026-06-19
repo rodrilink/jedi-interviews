@@ -15,7 +15,7 @@
  */
 
 import type { AiMode, IAiGateway, IAiStream } from './ai-gateway.interface';
-import { assemblePrompt, RECENT_SPAN_MS } from './prompt-assembler';
+import { assemblePrompt, RECENT_SPAN_MS, type IGroundingContext } from './prompt-assembler';
 import { AiHistory } from './ai-history';
 import { TranscriptBuffer } from '../stt/transcript-buffer';
 
@@ -111,12 +111,18 @@ export class AiOrchestrator {
      * @param transcriptBuffer - The shared main-owned transcript buffer (the span source, D-09).
      * @param history - The shared bounded AI history; MUST be the same instance the clear-AI handler binds to.
      * @param pushAi - Pushes an {@link IAiPushEvent} to the renderer (a closure over the overlay window).
+     * @param getActiveContext - Pulls the active session context to ground the prompt (D-10). Called
+     *   FRESH on every {@link trigger} (pull-on-trigger) so a mid-session context Save is picked up on
+     *   the very next AI request with no restart and no cached orchestrator state. Returns `undefined`
+     *   when there is no active context, which keeps the assembled prompt byte-for-byte Phase-5-identical
+     *   (the seam fails safe via `formatContext` → `''`).
      */
     public constructor(
         private readonly gateway: IAiGateway,
         private readonly transcriptBuffer: TranscriptBuffer,
         private readonly history: AiHistory,
-        private readonly pushAi: (event: IAiPushEvent) => void
+        private readonly pushAi: (event: IAiPushEvent) => void,
+        private readonly getActiveContext: () => IGroundingContext | undefined
     ) {
         this.wireGatewayHandlers();
     }
@@ -162,7 +168,9 @@ export class AiOrchestrator {
         const id = String(requestId);
         const at = Date.now();
         const model = mode === 'answer' ? ANSWER_MODEL : TALKING_POINTS_MODEL;
-        const { system, userContent } = assemblePrompt({ mode, span, context: undefined });
+        // D-10 pull-on-trigger: read the active context FRESH here (never cached) so a mid-session
+        // context Save grounds the very next trigger. `undefined` → Phase-5-identical prompt (fail-safe).
+        const { system, userContent } = assemblePrompt({ mode, span, context: this.getActiveContext() });
 
         // Capture the monotonic start NOW — immediately before the stream is created — so the logged
         // latency measures the hotkey-to-first-token interval the user actually feels (D-10).
