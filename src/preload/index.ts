@@ -15,6 +15,8 @@ export interface IOverlayStatus {
     hotkeys: { active: string; failed: string[] };
     /** Whether the HUD content is shown (D-14/D-15). Main-owned; declared identically in main and renderer. */
     hudVisible: boolean;
+    /** Which panel is the active keyboard-scroll target (D-08). Main-owned; declared identically in main and renderer. */
+    activePanel: 'transcript' | 'ai';
 }
 
 /**

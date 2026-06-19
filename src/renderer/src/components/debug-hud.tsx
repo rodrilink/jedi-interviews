@@ -13,6 +13,8 @@ interface IOverlayStatus {
     hotkeys: { active: string; failed: string[] };
     /** Whether the HUD content is shown (D-14/D-15). Main-owned; declared identically in main and preload. */
     hudVisible: boolean;
+    /** Which panel is the active keyboard-scroll target (D-08). Main-owned; declared identically in main and preload. */
+    activePanel: 'transcript' | 'ai';
 }
 
 /**
@@ -36,7 +38,9 @@ interface IOverlayTranscript {
  * 02-03 conflict-tested them against Teams/Zoom/VS Code and shipped the suggested set
  * unchanged (no collisions). The clear-transcript chord (Ctrl+Alt+K, D-07) is appended here;
  * its on-machine conflict re-check is scheduled for 04-04's manual verify (fall back to
- * Ctrl+Alt+X if it collides). See `02-HOTKEY-CONFLICT-TEST.md`.
+ * Ctrl+Alt+X if it collides). The Phase 5 focus-cycle chord (Ctrl+Alt+F, D-08) is appended too; its
+ * on-machine conflict re-check is scheduled for 05-03's manual verify (fall back to a reserved letter
+ * if it collides). See `02-HOTKEY-CONFLICT-TEST.md` / `05-HOTKEY-CONFLICT-TEST.md`.
  */
 const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: string }> = [
     { id: 'showhide', label: 'Show / Hide', chord: 'Ctrl+Alt+J' },
@@ -44,7 +48,8 @@ const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: stri
     { id: 'opacity', label: 'Opacity', chord: 'Ctrl+Alt+[ / ]' },
     { id: 'hud', label: 'Toggle HUD', chord: 'Ctrl+Alt+H' },
     { id: 'clear', label: 'Clear transcript', chord: 'Ctrl+Alt+K' },
-    { id: 'scroll', label: 'Scroll transcript', chord: 'Ctrl+Alt+PgUp / PgDn' },
+    { id: 'focus', label: 'Focus panel', chord: 'Ctrl+Alt+F' },
+    { id: 'scroll', label: 'Scroll active panel', chord: 'Ctrl+Alt+PgUp / PgDn' },
     { id: 'answer', label: 'Answer', chord: 'Ctrl+Alt+A' },
     { id: 'talking-points', label: 'Talking points', chord: 'Ctrl+Alt+T' },
     { id: 'clear-ai', label: 'Clear AI', chord: 'Ctrl+Alt+G' },
@@ -75,14 +80,27 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
     // While the user has scrolled up via hotkey, auto-stick is paused so new text doesn't yank them
     // back to the bottom mid-read. Scrolling back to the bottom re-enables the live follow.
     const stickToBottomRef = useRef<boolean>(true);
+    // The scroll subscription is wired once (empty-deps useEffect), so it would close over a stale
+    // `status`. Mirror the latest active-panel flag into a ref so the handler reads the live value and
+    // only scrolls the transcript when the transcript is the active panel (D-08 routing).
+    const activePanelRef = useRef<'transcript' | 'ai'>('ai');
 
     useEffect(() => {
-        const offStatus = window.jedi?.onStatus((next: IOverlayStatus) => setStatus(next));
+        const offStatus = window.jedi?.onStatus((next: IOverlayStatus) => {
+            activePanelRef.current = next.activePanel;
+            setStatus(next);
+        });
         const offTranscript = window.jedi?.onTranscript((next: IOverlayTranscript) => setTranscript(next));
 
         // Hotkey-driven scroll (the unfocused overlay cannot be scrolled by mouse). Each press steps
-        // ~3 lines; reaching the bottom re-arms live auto-follow, scrolling up pauses it.
+        // ~3 lines; reaching the bottom re-arms live auto-follow, scrolling up pauses it. The single
+        // scroll channel is shared with the AI panel, so we only act when the transcript is the active
+        // panel (D-08) — otherwise the AI panel handles the same signal.
         const offScroll = window.jedi?.onScrollTranscript((direction) => {
+            if (activePanelRef.current !== 'transcript') {
+                return;
+            }
+
             const element = transcriptRef.current;
             if (element === null) {
                 return;

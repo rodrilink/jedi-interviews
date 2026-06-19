@@ -177,6 +177,7 @@ body {
  * pushes the panel off the fixed overlay. Same dark translucent chrome as the HUD for visual unity.
  */
 .ai-panel {
+    position: relative;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
@@ -204,6 +205,32 @@ body {
     font-weight: 600;
     letter-spacing: 0.02em;
     color: rgb(196 181 253 / 100%);
+}
+
+/*
+ * The corner active-panel indicator (D-08): a small pill in the AI panel's top-right showing which
+ * panel the shared Ctrl+Alt+PgUp/PgDn scroll chord targets. It is a pure view of the main-owned
+ * activePanel flag; Ctrl+Alt+F flips it. The `data-active-panel` attribute lets the highlighted state
+ * read brighter when the AI panel itself is active, so the focus is obvious at a glance.
+ */
+.ai-panel__active-indicator {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    padding: 1px 8px;
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: rgb(148 163 184 / 100%);
+    background: rgb(148 163 184 / 16%);
+    border: 1px solid rgb(148 163 184 / 28%);
+}
+
+.ai-panel__active-indicator[data-active-panel='ai'] {
+    color: rgb(196 181 253 / 100%);
+    background: rgb(196 181 253 / 18%);
+    border-color: rgb(196 181 253 / 45%);
 }
 
 /* The scrollable stack of entries, newest at the bottom (D-02), auto-following while streaming (D-03). */

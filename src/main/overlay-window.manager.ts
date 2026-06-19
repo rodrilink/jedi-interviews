@@ -30,6 +30,14 @@ export interface IOverlayStatus {
      * its HUD content visibility purely from this pushed flag (D-15: renderer is a pure view).
      */
     hudVisible: boolean;
+    /**
+     * Which panel is the keyboard-scroll target (D-08). Main-owned, distinct from {@link hudVisible}:
+     * the focus-cycle chord (Ctrl+Alt+F) flips it between the transcript (HUD) and the AI panel, and the
+     * single Ctrl+Alt+PgUp/PgDn scroll channel is routed in the renderer purely by this pushed flag. The
+     * launch default is `'ai'` (D-08). The renderer renders a corner indicator off this flag and never
+     * controls it (IN-01: renderer is a pure view).
+     */
+    activePanel: 'transcript' | 'ai';
 }
 
 /** IPC channel name for the read-only, non-secret status push to the renderer (D-05). */
@@ -127,6 +135,34 @@ export function getHudVisible(): boolean {
 }
 
 /**
+ * Which panel is the active keyboard-scroll target (D-08). Tracked at module level (mirroring
+ * {@link hudVisible}) because it is main-owned and the focus-cycle chord flips it independently of
+ * window/HUD visibility. The launch default is `'ai'` (D-08): a freshly triggered AI answer is the
+ * most likely thing the user wants to scroll first. The renderer routes the single scroll channel and
+ * renders the corner indicator purely from this pushed flag.
+ */
+let activePanel: 'transcript' | 'ai' = 'ai';
+
+/**
+ * Sets the main-owned active-panel flag (D-08). The next {@link pushStatus} carries it to the
+ * renderer, which routes Ctrl+Alt+PgUp/PgDn scroll to the matching panel and flips the indicator.
+ *
+ * @param panel - The panel to make the active scroll target.
+ */
+export function setActivePanel(panel: 'transcript' | 'ai'): void {
+    activePanel = panel;
+}
+
+/**
+ * Reads the main-owned active-panel flag so the focus-cycle chord can toggle it.
+ *
+ * @returns The currently active scroll-target panel.
+ */
+export function getActivePanel(): 'transcript' | 'ai' {
+    return activePanel;
+}
+
+/**
  * Whether the overlay *window* itself is currently visible (D-12: starts shown on launch).
  * Owned here in one place (mirroring {@link contentProtectionEnabled}) rather than fragmented
  * into index.ts, so the single show/hide chord can branch on it: {@link showOverlay} sets it
@@ -170,6 +206,7 @@ function buildStatus(window: BrowserWindow): IOverlayStatus {
         position: { x, y },
         hotkeys: lastHotkeyResult,
         hudVisible,
+        activePanel,
     };
 }
 

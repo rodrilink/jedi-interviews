@@ -1,7 +1,18 @@
 import { resolve } from 'path';
 import { app, BrowserWindow } from 'electron';
 import { loadDotenvFile } from './config/load-dotenv.utility';
-import { createOverlayWindow, showOverlay, pushStatus, pushTranscript, pushScrollTranscript, pushAi, setHotkeyStatus, getOverlayVisible } from './overlay-window.manager';
+import {
+    createOverlayWindow,
+    showOverlay,
+    pushStatus,
+    pushTranscript,
+    pushScrollTranscript,
+    pushAi,
+    setHotkeyStatus,
+    getOverlayVisible,
+    setActivePanel,
+    getActivePanel,
+} from './overlay-window.manager';
 import { HotkeyRegistrarService, type HotkeyHandlerMap } from './hotkey-registrar.service';
 import { WindowControlActionsService } from './window-control.actions';
 import { AudioCaptureService } from './audio/audio-capture.service';
@@ -86,6 +97,14 @@ function buildHandlers(
         },
         'scroll-transcript-up': (): void => pushScrollTranscript(window, 'up'),
         'scroll-transcript-down': (): void => pushScrollTranscript(window, 'down'),
+        // Phase 5 (D-08): Focus-cycle. Flips the main-owned activePanel flag (AI default) and re-pushes
+        // status; the renderer routes the single Ctrl+Alt+PgUp/PgDn scroll channel and flips the corner
+        // indicator off the pushed flag. Mirrors the getOverlayVisible() branch (read the main-owned
+        // flag, toggle, push) — there is no second scroll channel; routing lives in the renderer (D-08).
+        'focus-cycle': (): void => {
+            setActivePanel(getActivePanel() === 'ai' ? 'transcript' : 'ai');
+            pushStatus(window);
+        },
         // Phase 5 (AI-01/D-05): Answer mode. The orchestrator owns the whole lifecycle — empty-span
         // guard (D-11), single-in-flight cancel on re-press (D-06), and the debounced jedi:ai push —
         // so the handler is a one-liner.
