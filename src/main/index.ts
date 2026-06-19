@@ -27,6 +27,7 @@ import { AnthropicGateway } from './ai/anthropic-ai.gateway';
 import { AiOrchestrator } from './ai/ai-orchestrator';
 import { AiHistory } from './ai/ai-history';
 import { SessionContextRepository } from './context/session-context.repository';
+import { parseLinks } from './context/parse-links.utility';
 
 /**
  * The single hotkey registrar for the app's lifetime. Instantiated once after the overlay
@@ -368,8 +369,10 @@ app.whenReady().then(() => {
     // Tampering): the inbound DTO is untrusted renderer input, so VALIDATE its shape before persisting —
     // reject a non-object, and coerce each field defensively (a wrong-typed field is dropped, never
     // forwarded into the prompt). Only the four grounding fields are written; id/source/createdAt are
-    // owned by the repository. The renderer already sends `links` as a parsed string[] (preload contract),
-    // so no newline parsing is needed here.
+    // owned by the repository. LINK PARSING AUTHORITY (D-05): the ContextTab editor sends `links` as the
+    // RAW newline-joined textarea string; MAIN is the single parsing authority, so apply `parseLinks` here
+    // to produce the persisted `string[]`. A pre-parsed `string[]` is also accepted defensively. Any other
+    // type is dropped, never forwarded into the prompt.
     ipcMain.handle('settings:save-context', (_event, dto: unknown): void => {
         if (typeof dto !== 'object' || dto === null) {
             return;
@@ -379,7 +382,12 @@ app.whenReady().then(() => {
         const notes = typeof candidate.notes === 'string' ? candidate.notes : undefined;
         const ticketText = typeof candidate.ticketText === 'string' ? candidate.ticketText : undefined;
         const repoSnippets = typeof candidate.repoSnippets === 'string' ? candidate.repoSnippets : undefined;
-        const links = Array.isArray(candidate.links) ? candidate.links.filter((link): link is string => typeof link === 'string') : undefined;
+        const links =
+            typeof candidate.links === 'string'
+                ? parseLinks(candidate.links)
+                : Array.isArray(candidate.links)
+                  ? candidate.links.filter((link): link is string => typeof link === 'string')
+                  : undefined;
 
         contextRepo.saveActive({ notes, ticketText, repoSnippets, links });
     });
