@@ -214,20 +214,26 @@ let overlayInteractive = false;
  * Toggles the overlay between click-through (default) and interactive (quick fix 260619-mcv, D-09).
  *
  * This is the ONE sanctioned place the overlay's never-take-focus / click-through discipline (OVL-02) is
- * relaxed, and it is explicit and user-invoked (the Ctrl+Alt+M chord). When `interactive` is `true`:
- *   1. `setIgnoreMouseEvents(false)` so clicks/drag-select land on the overlay instead of passing through.
- *   2. `setFocusable(true)` + `focus()` — REQUIRED for the relaxation to actually work: the window is
- *      created `focusable: false`, and a non-focusable, transparent, always-on-top window does NOT receive
- *      mouse-driven focus or text selection even with `setIgnoreMouseEvents(false)` (Electron 35.x). The
- *      window must be made focusable AND focused so the user can click into the Code Challenge panel and
- *      drag-select. This is the SINGLE sanctioned `focus()` — same spirit as the `setIgnoreMouseEvents`
- *      exception — and it is fully reverted on toggle OFF, so the default never-steal-focus invariant
- *      (OVL-02) holds at all other times.
+ * relaxed, and it is explicit and user-invoked (the Ctrl+Alt+M chord). Three things must ALL be true for
+ * the user to actually click + drag-select code, and earlier rounds proved each is necessary but not
+ * sufficient on its own. When `interactive` is `true`:
+ *   1. `setIgnoreMouseEvents(false)` — plain (NOT `{ forward: true }`) so clicks land on the overlay
+ *      instead of passing through.
+ *   2. `setFocusable(true)` + `focus()` — the window is created `focusable: false`, and a non-focusable
+ *      window does not receive mouse-driven focus or text selection (Electron 35.x). This is the SINGLE
+ *      sanctioned `focus()`, fully reverted on toggle OFF.
+ *   3. Renderer hit-test partner (the real root cause of "clicks still don't land"): the window is
+ *      `transparent: true` with `backgroundColor: '#00000000'`, and fully-transparent (zero-alpha) pixels
+ *      are NOT hit-tested by the OS/Chromium — so even a focusable window receives no mouse events over
+ *      its transparent regions. The pushed `overlayInteractive` flag (below) drives the renderer to add a
+ *      `.overlay-root--interactive` class that paints a near-invisible but NON-zero-alpha background,
+ *      making the surface hit-testable. That class reverts to fully transparent on toggle OFF, so the
+ *      overlay returns to true click-through.
  * When `interactive` is `false` it re-asserts the overlay's load-bearing defaults EXACTLY as
  * {@link showOverlay} does — `setFocusable(false)` (restoring the never-take-focus default), click-through
  * (`setIgnoreMouseEvents(true, { forward: true })`), content protection, and the `'screen-saver'`
- * always-on-top level (OVL-04 / Pitfall 2) — then pushes status so the HUD reflects the restored state.
- * Guards `isDestroyed()` because hotkeys fire async, possibly mid-teardown.
+ * always-on-top level (OVL-04 / Pitfall 2) — then pushes status so the renderer drops the interactive
+ * background and the HUD reflects the restored state. Guards `isDestroyed()` because hotkeys fire async.
  *
  * @param window - The overlay window to toggle.
  * @param interactive - `true` to disable click-through for drag-select; `false` to restore the defaults.

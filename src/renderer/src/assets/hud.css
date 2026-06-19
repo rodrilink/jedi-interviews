@@ -1,8 +1,11 @@
 /*
  * HUD styling for the transparent overlay renderer.
  *
- * The body and root MUST stay fully transparent so the frameless window is click-through
- * and shows only the HUD chrome — never an opaque rectangle (OVL-01 / Pitfall 6).
+ * The body and root MUST stay fully transparent by default so the frameless window is click-through and
+ * shows only the HUD chrome — never an opaque rectangle (OVL-01 / Pitfall 6). The ONE exception is the
+ * `.overlay-root--interactive` state (Ctrl+Alt+M): a fully-transparent window is not hit-tested, so while
+ * interaction mode is engaged the root gets a near-transparent-but-non-zero-alpha background to make the
+ * surface clickable for drag-select, reverting to fully transparent on toggle off (quick fix 260619-mcv).
  */
 
 :root {
@@ -23,18 +26,18 @@ body {
 }
 
 #root {
-    /*
-     * The overlay root places THREE sibling column surfaces side by side: the toggleable DebugHud
-     * (Transcript) on the LEFT, the always-on AiPanel in the MIDDLE, and the dedicated VisionPanel
-     * (Code Challenge) on the RIGHT. A ROW flexbox bounded to the viewport height gives each column its
-     * own full height. On the 900x700 overlay the HUD and AI panels each take `flex-grow: 1` (~27%) while
-     * the Code Challenge column takes `flex-grow: 1.8` (~46%) because code is wider than prose. The window
-     * is resizable:false. (Previously two columns with the vision panel as a takeover overlay — quick fix
-     * 260619-mcv split it into a real third, wider column.)
-     */
+    height: 100vh;
+    background: transparent;
+}
+
+/*
+ * The overlay root (quick fix 260619-mcv, layout refactor B): a COLUMN flexbox with a full-width HUD
+ * status HEADER on top and a ROW of three peer panels below it. Bounded to the viewport height so the
+ * panel row fills the remaining space under the header and each panel scrolls internally.
+ */
+.overlay-root {
     display: flex;
-    flex-direction: row;
-    align-items: stretch;
+    flex-direction: column;
     box-sizing: border-box;
     height: 100vh;
     background: transparent;
@@ -42,23 +45,46 @@ body {
     padding: 8px;
 }
 
-.debug-hud {
-    position: relative;
+/*
+ * Item C — make the surface hit-testable while interaction mode is ON. A fully-transparent (zero-alpha)
+ * window receives no mouse events even when focusable, so clicks/drag-select never land. While
+ * `overlayInteractive` is true the root paints a near-invisible but NON-zero-alpha background so the OS
+ * hit-tests it and the user can click + drag-select code. Reverts to fully transparent (click-through
+ * default) on toggle off. The alpha is intentionally tiny so the overlay still reads as see-through.
+ */
+.overlay-root--interactive {
+    background: rgb(0 0 0 / 1%);
+}
+
+/*
+ * The row of three peer panels below the header: Q/A (left), AI (middle), Code (right, widest). Takes the
+ * remaining height under the header (flex: 1 1 auto) so all three are the same tall, peer-looking panels.
+ */
+.overlay-panels {
     display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    /*
-     * Left column of the three-column overlay: equal width to the AI + vision panels, full height. No
-     * max-height cap, so the transcript gets real vertical room and the full cheat-sheet fits without
-     * clipping. The transcript (flex: 1 1 auto) scrolls inside this box; overflow: hidden keeps content
-     * within the rounded corners. position: relative anchors the corner active-panel indicator pill.
-     */
-    flex: 1 1 0;
-    min-width: 0;
+    flex-direction: row;
+    align-items: stretch;
+    flex: 1 1 auto;
     min-height: 0;
-    overflow: hidden;
-    padding: 12px 16px;
-    border-radius: 18px;
+    gap: 8px;
+}
+
+/*
+ * The full-width HUD status HEADER across the top (quick fix 260619-mcv, layout refactor B). It is no
+ * longer a column; it lays its title, the status grid, and the cheat-sheet out left-to-right and wraps,
+ * spanning the full overlay width. The live transcript TEXT moved out to the Q/A TranscriptPanel below.
+ */
+.debug-hud {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 20px;
+    row-gap: 4px;
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    padding: 8px 16px;
+    border-radius: 14px;
     background: rgb(12 14 20 / 72%);
     color: rgb(226 232 240 / 100%);
     border: 1px solid rgb(148 163 184 / 28%);
@@ -70,7 +96,7 @@ body {
 
 .debug-hud__title {
     flex: 0 0 auto;
-    margin: 0 0 6px;
+    margin: 0;
     font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -78,57 +104,35 @@ body {
 }
 
 /*
- * The corner active-panel indicator (D-09 focus cycle): a small pill in the HUD's top-right mirroring
- * the AI/vision panel pills, showing the transcript/HUD is the shared Ctrl+Alt+PgUp/PgDn scroll target
- * and the focus highlight when Ctrl+Alt+F lands here. A pure view of the main-owned activePanel flag.
+ * The status grid in the header: a horizontal run of key/value cells. `grid-auto-flow: column` keeps the
+ * key above its value and lays successive cells out across the header. The cheat-sheet variant below
+ * overrides this to wrap its own rows.
  */
-.debug-hud__active-indicator {
-    position: absolute;
-    top: 10px;
-    right: 14px;
-    padding: 1px 8px;
-    border-radius: 9px;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    color: rgb(148 163 184 / 100%);
-    background: rgb(148 163 184 / 16%);
-    border: 1px solid rgb(148 163 184 / 28%);
-}
-
-.debug-hud__active-indicator[data-active-panel='transcript'] {
-    color: rgb(196 181 253 / 100%);
-    background: rgb(196 181 253 / 18%);
-    border-color: rgb(196 181 253 / 45%);
-}
-
-/*
- * The visible focus highlight (quick fix 260619-mcv): when Ctrl+Alt+F makes a column the focus-cycle
- * target, its root gets a brighter border + subtle outer ring so the focus is obvious at a glance
- * across all three columns. Driven by the data-active attribute each panel sets off the pushed flag.
- */
-.debug-hud[data-active='true'],
-.ai-panel[data-active='true'],
-.vision-panel[data-active='true'] {
-    border-color: rgb(196 181 253 / 70%);
-    box-shadow: 0 0 0 1px rgb(196 181 253 / 45%);
-}
-
 .debug-hud__grid {
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     display: grid;
-    grid-template-columns: auto auto;
-    gap: 2px 12px;
+    grid-auto-flow: column;
+    grid-template-rows: auto auto;
+    grid-auto-columns: max-content;
+    gap: 0 16px;
     margin: 0;
 }
 
-/* The cheat-sheet is also a grid; restore its grid display since the rule above sets the status grid. */
+/* The cheat-sheet is a wrapping row of its own labeled chords; it sits at the far right of the header. */
 .debug-hud__grid.debug-hud__cheatsheet {
-    display: grid;
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    grid-auto-flow: initial;
+    column-gap: 12px;
+    row-gap: 2px;
 }
 
 .debug-hud__key {
     color: rgb(148 163 184 / 100%);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .debug-hud__value {
@@ -150,11 +154,11 @@ body {
 /*
  * The live audio meter: a thin track with a fill whose width is the capture RMS level (0..100%),
  * pushed from main on every audio frame. The width transition smooths the ~15 fps updates into a
- * fluid bar. Green so "audio is alive" reads at a glance, distinct from the transcript text.
+ * fluid bar. Green so "audio is alive" reads at a glance.
  */
 .debug-hud__meter {
     display: inline-block;
-    width: 160px;
+    width: 120px;
     height: 8px;
     border-radius: 4px;
     background: rgb(148 163 184 / 24%);
@@ -170,71 +174,25 @@ body {
     transition: width 80ms linear;
 }
 
-/*
- * The live transcript block (D-04): finalized text reads in the normal value color; the current
- * interim (partial) result is rendered dimmed + italic directly after it so the in-progress guess is
- * visually distinct from committed text. The block sits below the status grid and wraps freely.
- */
-.debug-hud__transcript {
-    flex: 1 1 auto;
-    min-height: 60px;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid rgb(148 163 184 / 24%);
-    word-break: break-word;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgb(148 163 184 / 50%) transparent;
-}
-
-.debug-hud__transcript::-webkit-scrollbar {
-    width: 6px;
-}
-
-.debug-hud__transcript::-webkit-scrollbar-thumb {
-    background: rgb(148 163 184 / 50%);
-    border-radius: 3px;
-}
-
-.debug-hud__transcript-final {
-    color: rgb(226 232 240 / 100%);
-}
-
-.debug-hud__interim {
-    color: rgb(148 163 184 / 85%);
-    font-style: italic;
-}
-
-/*
- * The hotkey cheat-sheet block (D-13): a compact reference of the bound chords below the status
- * rows. Separated by a hairline rule; each row reuses the __key/__value styling so the chords
- * line up with the status grid above.
- */
-.debug-hud__cheatsheet {
-    flex: 0 0 auto;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid rgb(148 163 184 / 24%);
-}
-
+/* Each cheat-sheet entry: a compact "Label  Chord" pair laid out inline within the wrapping cheat-sheet. */
 .debug-hud__cheatsheet-row {
-    display: contents;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
 }
 
 /*
- * The always-on AI panel (D-01): a sibling surface below the HUD, NOT gated on hudVisible. It takes
- * the remaining column height and scrolls its entry list internally so a long streamed answer never
- * pushes the panel off the fixed overlay. Same dark translucent chrome as the HUD for visual unity.
+ * The three peer panels share one chrome (quick fix 260619-mcv): Q/A, AI, and Code each render as a
+ * rounded translucent card that fills the panel row's height and scrolls its content internally.
+ * position: relative anchors each panel's corner active-panel indicator pill.
  */
-.ai-panel {
+.transcript-panel,
+.ai-panel,
+.vision-panel {
     position: relative;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    /* Right column of the two-column overlay: equal width to the HUD, full height. The entry list
-     * (.ai-panel__entries, flex: 1 1 auto) scrolls internally so a long streamed answer never grows
-     * the column. min-width: 0 lets the flex item shrink so long unbroken tokens don't widen it. */
-    flex: 1 1 0;
     min-width: 0;
     min-height: 0;
     padding: 12px 16px;
@@ -248,7 +206,46 @@ body {
     user-select: none;
 }
 
-.ai-panel__title {
+/*
+ * Per-panel width (locked decision B — NOT equal): Code is the widest, Q/A and AI narrower. flex-grow
+ * 1 / 1 / 1.8 → roughly ~27% / ~27% / ~46% of the row.
+ */
+.transcript-panel,
+.ai-panel {
+    flex: 1 1 0;
+}
+
+.vision-panel {
+    flex: 1.8 1 0;
+    /* The Code panel reads on a slightly stronger chrome so the wider code column stands out. */
+    background: rgb(12 14 20 / 86%);
+    border-color: rgb(196 181 253 / 40%);
+}
+
+/*
+ * The visible focus highlight (quick fix 260619-mcv): when Ctrl+Alt+F makes a panel the focus-cycle
+ * target, its root gets a brighter border + subtle outer ring so the focus is obvious at a glance across
+ * all three panels. Driven by the data-active attribute each panel sets off the pushed activePanel flag.
+ */
+.transcript-panel[data-active='true'],
+.ai-panel[data-active='true'],
+.vision-panel[data-active='true'] {
+    border-color: rgb(196 181 253 / 70%);
+    box-shadow: 0 0 0 1px rgb(196 181 253 / 45%);
+}
+
+/* When interaction mode is ON, allow text selection inside the panels (the rest of the UI stays no-select). */
+.overlay-root--interactive .transcript-panel,
+.overlay-root--interactive .ai-panel,
+.overlay-root--interactive .vision-panel {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+/* Shared panel title + corner active-panel indicator chrome across the three peer panels. */
+.transcript-panel__title,
+.ai-panel__title,
+.vision-panel__title {
     flex: 0 0 auto;
     margin: 0 0 6px;
     font-size: 13px;
@@ -257,13 +254,13 @@ body {
     color: rgb(196 181 253 / 100%);
 }
 
-/*
- * The corner active-panel indicator (D-08): a small pill in the AI panel's top-right showing which
- * panel the shared Ctrl+Alt+PgUp/PgDn scroll chord targets. It is a pure view of the main-owned
- * activePanel flag; Ctrl+Alt+F flips it. The `data-active-panel` attribute lets the highlighted state
- * read brighter when the AI panel itself is active, so the focus is obvious at a glance.
- */
-.ai-panel__active-indicator {
+.transcript-panel__title {
+    color: rgb(125 211 252 / 100%);
+}
+
+.transcript-panel__active-indicator,
+.ai-panel__active-indicator,
+.vision-panel__active-indicator {
     position: absolute;
     top: 10px;
     right: 14px;
@@ -277,13 +274,48 @@ body {
     border: 1px solid rgb(148 163 184 / 28%);
 }
 
-.ai-panel__active-indicator[data-active-panel='ai'] {
+.transcript-panel__active-indicator[data-active-panel='transcript'],
+.ai-panel__active-indicator[data-active-panel='ai'],
+.vision-panel__active-indicator[data-active-panel='vision'] {
     color: rgb(196 181 253 / 100%);
     background: rgb(196 181 253 / 18%);
     border-color: rgb(196 181 253 / 45%);
 }
 
-/* The scrollable stack of entries, newest at the bottom (D-02), auto-following while streaming (D-03). */
+/*
+ * The Q/A transcript body (D-04): finalized text reads in the normal value color; the current interim
+ * (partial) result is rendered dimmed + italic directly after it so the in-progress guess is visually
+ * distinct from committed text. Scrolls internally and wraps freely.
+ */
+.transcript-panel__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 0;
+    word-break: break-word;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 50%) transparent;
+}
+
+.transcript-panel__body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.transcript-panel__body::-webkit-scrollbar-thumb {
+    background: rgb(148 163 184 / 50%);
+    border-radius: 3px;
+}
+
+.transcript-panel__final {
+    color: rgb(226 232 240 / 100%);
+}
+
+.transcript-panel__interim {
+    color: rgb(148 163 184 / 85%);
+    font-style: italic;
+}
+
+/* The scrollable stack of AI entries, newest at the bottom (D-02), auto-following while streaming (D-03). */
 .ai-panel__entries {
     flex: 1 1 auto;
     min-height: 0;
@@ -352,68 +384,11 @@ body {
     color: rgb(248 180 180 / 100%);
 }
 
-/*
- * The dedicated vision panel (D-08/D-09): its OWN distinct, always-present "Code Challenge" column —
- * the RIGHT column of the three-column overlay (quick fix 260619-mcv replaced the former takeover-overlay
- * model). Same dark translucent chrome as the AI panel for visual unity, full height. position: relative
- * anchors the corner active-panel indicator pill. Code solutions are long, so the entry list scrolls
- * internally. Code is WIDER than prose, so this column gets the largest share of the fixed 900px width
- * (`flex-grow: 1.8` vs the HUD/AI panels' `1`) — roughly ~46% vs ~27% each — to leave room to read and
- * drag-select code (quick fix 260619-mcv item 3). All three columns stay visible.
- */
-.vision-panel {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    flex: 1.8 1 0;
-    min-width: 0;
-    min-height: 0;
-    padding: 12px 16px;
-    border-radius: 18px;
-    background: rgb(12 14 20 / 86%);
-    color: rgb(226 232 240 / 100%);
-    border: 1px solid rgb(196 181 253 / 40%);
-    font-size: 12px;
-    line-height: 1.5;
-    -webkit-user-select: none;
-    user-select: none;
-}
-
-/* The quiet empty-state line shown in the entries area before any code challenge is captured. */
+/* The quiet empty-state line shown in the Code panel's entries area before any code challenge is captured. */
 .vision-panel__placeholder {
     margin: 0;
     color: rgb(148 163 184 / 85%);
     font-style: italic;
-}
-
-.vision-panel__title {
-    flex: 0 0 auto;
-    margin: 0 0 6px;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: rgb(196 181 253 / 100%);
-}
-
-.vision-panel__active-indicator {
-    position: absolute;
-    top: 10px;
-    right: 14px;
-    padding: 1px 8px;
-    border-radius: 9px;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    color: rgb(148 163 184 / 100%);
-    background: rgb(148 163 184 / 16%);
-    border: 1px solid rgb(148 163 184 / 28%);
-}
-
-.vision-panel__active-indicator[data-active-panel='vision'] {
-    color: rgb(196 181 253 / 100%);
-    background: rgb(196 181 253 / 18%);
-    border-color: rgb(196 181 253 / 45%);
 }
 
 .vision-panel__entries {

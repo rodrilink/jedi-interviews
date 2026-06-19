@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
+import { PANEL_LABEL, type ActivePanel } from './panel-labels';
 
 /**
  * The AI mode that produced an entry (D-03 header label). Declared locally because the renderer is
@@ -144,7 +145,7 @@ export function AiPanel(): JSX.Element {
     const [nowMs, setNowMs] = useState<number>(() => Date.now());
     // The corner active-panel indicator (D-08) reads off the pushed flag; default 'ai' before the first
     // status push (matching main's launch default) so the indicator renders correctly on launch.
-    const [activePanel, setActivePanel] = useState<'transcript' | 'ai' | 'vision'>('ai');
+    const [activePanel, setActivePanel] = useState<ActivePanel>('ai');
     const listRef = useRef<HTMLDivElement | null>(null);
     // While the user has scrolled up via hotkey, auto-stick is paused so a new streaming entry doesn't
     // yank them back to the bottom mid-read. Scrolling back to the bottom re-arms the live follow.
@@ -152,7 +153,7 @@ export function AiPanel(): JSX.Element {
     // The scroll subscription is wired once (empty-deps useEffect), so it would close over a stale
     // `activePanel`. Mirror the latest flag into a ref so the handler reads the live value and only
     // scrolls the AI panel when the AI panel is the active panel (D-08 routing).
-    const activePanelRef = useRef<'transcript' | 'ai' | 'vision'>('ai');
+    const activePanelRef = useRef<ActivePanel>('ai');
 
     useEffect(() => {
         const offAi = window.jedi?.onAi((event: IAiPushEvent) => {
@@ -211,9 +212,9 @@ export function AiPanel(): JSX.Element {
                 A pure view of the main-owned activePanel flag; Ctrl+Alt+F flips it in main. The
                 data-active attribute on the root drives the focus highlight (brighter border + ring). */}
             <span className="ai-panel__active-indicator" data-testid="icon-active-panel" data-active-panel={activePanel}>
-                {activePanel === 'ai' ? 'AI' : 'Transcript'}
+                {PANEL_LABEL.ai}
             </span>
-            <h2 className="ai-panel__title">AI</h2>
+            <h2 className="ai-panel__title">{PANEL_LABEL.ai}</h2>
             <div className="ai-panel__entries" data-testid="list-ai-entries" ref={listRef}>
                 {entries.map((entry) => (
                     <article className={`ai-panel__entry ai-panel__entry--${entry.state}`} key={entry.id} data-testid={`row-ai-entry-${entry.id}`}>

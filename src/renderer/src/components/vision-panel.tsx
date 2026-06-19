@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
+import { PANEL_LABEL, type ActivePanel } from './panel-labels';
 
 /**
  * The AI mode that produced an entry. Declared locally because the renderer is bundled separately from
@@ -135,12 +136,12 @@ function renderEntryBody(entry: IVisionPanelEntry): string {
 export function VisionPanel(): JSX.Element {
     const [entries, setEntries] = useState<IVisionPanelEntry[]>([]);
     const [nowMs, setNowMs] = useState<number>(() => Date.now());
-    const [activePanel, setActivePanel] = useState<'transcript' | 'ai' | 'vision'>('ai');
+    const [activePanel, setActivePanel] = useState<ActivePanel>('ai');
     const listRef = useRef<HTMLDivElement | null>(null);
     const stickToBottomRef = useRef<boolean>(true);
     // The scroll subscription is wired once (empty-deps useEffect), so mirror the live active-panel flag
     // into a ref so the handler only scrolls the vision panel when vision is the active panel (D-09).
-    const activePanelRef = useRef<'transcript' | 'ai' | 'vision'>('ai');
+    const activePanelRef = useRef<ActivePanel>('ai');
 
     useEffect(() => {
         const offAi = window.jedi?.onAi((event: IAiPushEvent) => {
@@ -194,9 +195,9 @@ export function VisionPanel(): JSX.Element {
     return (
         <section className="vision-panel" data-testid="card-vision-panel" data-active={activePanel === 'vision'}>
             <span className="vision-panel__active-indicator" data-testid="icon-active-panel-vision" data-active-panel={activePanel}>
-                {activePanel === 'vision' ? 'Code' : 'AI'}
+                {PANEL_LABEL.vision}
             </span>
-            <h2 className="vision-panel__title">Code challenge</h2>
+            <h2 className="vision-panel__title">{PANEL_LABEL.vision} challenge</h2>
             <div className="vision-panel__entries" data-testid="list-vision-entries" ref={listRef}>
                 {entries.length === 0 ? (
                     <p className="vision-panel__placeholder" data-testid="cell-vision-placeholder">
