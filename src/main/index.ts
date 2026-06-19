@@ -22,7 +22,7 @@ import {
     markCopyOk,
     type IAiPushEvent,
 } from './overlay-window.manager';
-import { HotkeyRegistrarService, type HotkeyHandlerMap } from './hotkey-registrar.service';
+import { HotkeyRegistrarService, HOTKEY_ACTION_LABELS, type HotkeyHandlerMap } from './hotkey-registrar.service';
 import { WindowControlActionsService } from './window-control.actions';
 import { AudioCaptureService } from './audio/audio-capture.service';
 import { computeRmsInt16 } from './audio/rms.utility';
@@ -37,9 +37,9 @@ import { parseLinks } from './context/parse-links.utility';
 import { ScreenshotService } from './vision/screenshot.service';
 
 // Phase 7 (D-15, Pitfall 6): opt-in hardware-acceleration fallback for transparent-window rendering
-// glitches in the packaged build. MUST run synchronously at the top level, BEFORE app.whenReady() — it
-// is a no-op once the app is ready. Gated behind an env var so the fallback is opt-in (documented in the
-// SmartScreen/hardening doc, 07-03).
+// glitches in the packaged build. MUST run synchronously at the top level, BEFORE the app is ready (it
+// is a no-op once the app.ready event has fired). Gated behind an env var so the fallback is opt-in
+// (documented in the SmartScreen/hardening doc, docs/HARDENING.md, 07-03).
 if (process.env.JEDI_DISABLE_GPU === '1') {
     app.disableHardwareAcceleration();
 }
@@ -519,6 +519,19 @@ app.whenReady().then(() => {
     hotkeyRegistrar = new HotkeyRegistrarService(buildHandlers(windowControlActions, window, buffer, getConnectionState, aiOrchestrator, aiHistory));
     const result = hotkeyRegistrar.register();
     setHotkeyStatus(result);
+    // Phase 7 (D-15/CTL-03 hardening): a hotkey can register fine in dev but fail in the packaged build
+    // (a chord collides with another running app, or uiohook cannot attach). The HUD status row already
+    // surfaces this via setHotkeyStatus, but in the packaged build the HUD is easy to dismiss, so ALSO log
+    // the outcome to the main process so a registration failure of ANY chord — including the post-Phase-2
+    // additions (capture-code-challenge / copy-code-challenge / toggle-interaction / focus-cycle) — is
+    // visible in the logs and never silently dropped. SECURITY (T-7-IL2): the registrar's `failed` carries
+    // only stable action LABELS; we log the active layer + the failed labels ONLY — never a transcript, a
+    // key, or an error payload (mirrors the [ai] first-token log discipline).
+    if (result.failed.length > 0) {
+        console.warn(`[hotkey] registration FAILED layer=${result.active} chords=${result.failed.join(',')} — these actions are unavailable; check the HUD status row`);
+    } else {
+        console.log(`[hotkey] registration ok layer=${result.active} chords=${HOTKEY_ACTION_LABELS.length}`);
+    }
     pushStatus(window);
 
     app.on('activate', () => {
