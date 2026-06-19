@@ -1,5 +1,6 @@
+import type Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it } from 'vitest';
-import { ANSWER_SYSTEM_PROMPT, TALKING_POINTS_SYSTEM_PROMPT, assemblePrompt, type IAssembledPrompt } from './prompt-assembler';
+import { ANSWER_SYSTEM_PROMPT, TALKING_POINTS_SYSTEM_PROMPT, VISION_SYSTEM_PROMPT, assemblePrompt, type IAssembledPrompt } from './prompt-assembler';
 
 /**
  * Unit coverage for the pure {@link assemblePrompt} (AI-01/AI-02/D-13).
@@ -117,6 +118,69 @@ describe('prompt-assembler', () => {
 
             // Assert
             expect(assembled.userContent).toBe(`Recent transcript (last ~60s):\n${span}`);
+        });
+    });
+
+    describe('vision image branch (Phase 7 AI-03/D-04/D-07)', () => {
+        it('should return userContent as a string for the text modes (no image) — byte-for-byte unchanged', () => {
+            // Arrange
+            const span = 'How would you design a URL shortener?';
+
+            // Act
+            const assembled: IAssembledPrompt = assemblePrompt({ mode: 'answer', span });
+
+            // Assert
+            expect(typeof assembled.userContent).toBe('string');
+            expect(assembled.userContent).toBe(`Recent transcript (last ~60s):\n${span}`);
+        });
+
+        it('should select the vision system prompt and return a block array when an image is present', () => {
+            // Arrange
+            const span = 'Solve for O(n) time.';
+            const image = { base64: 'AAAABBBBCCCC', mediaType: 'image/png' };
+
+            // Act
+            const assembled: IAssembledPrompt = assemblePrompt({ mode: 'code-challenge', span, image });
+
+            // Assert
+            expect(assembled.system).toBe(VISION_SYSTEM_PROMPT);
+            expect(Array.isArray(assembled.userContent)).toBe(true);
+        });
+
+        it('should place the image block BEFORE the text block and carry the raw base64 (no data: prefix)', () => {
+            // Arrange
+            const span = 'Use a hash map.';
+            const image = { base64: 'RAWBASE64NOPREFIX', mediaType: 'image/png' };
+
+            // Act
+            const assembled: IAssembledPrompt = assemblePrompt({ mode: 'code-challenge', span, image });
+            const blocks = assembled.userContent as Anthropic.ContentBlockParam[];
+
+            // Assert
+            expect(blocks[0].type).toBe('image');
+            expect(blocks[1].type).toBe('text');
+            const imageBlock = blocks[0] as Anthropic.ImageBlockParam;
+            const source = imageBlock.source as Anthropic.Base64ImageSource;
+            expect(source.type).toBe('base64');
+            expect(source.media_type).toBe('image/png');
+            expect(source.data).toBe('RAWBASE64NOPREFIX');
+            expect(source.data).not.toContain('data:');
+        });
+
+        it('should reuse the same grounded context + transcript span in the vision text block (D-07)', () => {
+            // Arrange
+            const span = 'The interviewer said inputs fit in memory.';
+            const image = { base64: 'IMG', mediaType: 'image/png' };
+            const context = { notes: 'Prefer iterative over recursive.' };
+
+            // Act
+            const assembled: IAssembledPrompt = assemblePrompt({ mode: 'code-challenge', span, image, context });
+            const blocks = assembled.userContent as Anthropic.ContentBlockParam[];
+            const textBlock = blocks[1] as Anthropic.TextBlockParam;
+
+            // Assert
+            expect(textBlock.text).toContain('Prefer iterative over recursive.');
+            expect(textBlock.text).toContain(span);
         });
     });
 });

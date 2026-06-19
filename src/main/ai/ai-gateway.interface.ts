@@ -10,14 +10,19 @@
  *
  * The shape is event-emitter style to mirror the `ISttProvider`/`DeepgramSttGateway` precedent
  * (event-driven, report-don't-throw), so a future provider re-uses the same contract. This is a
- * pure contract file: no implementation and no `@anthropic-ai/sdk` import live here.
+ * pure contract file: no implementation lives here. A `type`-only import of
+ * `Anthropic.ContentBlockParam` is used purely to type the vision content-block array (D-04) — it is
+ * a compile-time type, not a runtime `@anthropic-ai/sdk` dependency.
  */
 
+import type Anthropic from '@anthropic-ai/sdk';
+
 /**
- * The AI modes this phase ships (D-05/D-10/D-12). String-union `type` mirrors the local
- * `HotkeyLayer` precedent in `hotkey-registrar.service.ts`. Extensible: Phase 7 adds a vision mode.
+ * The AI modes this phase ships (D-05/D-10/D-12, Phase 7 D-11). String-union `type` mirrors the local
+ * `HotkeyLayer` precedent in `hotkey-registrar.service.ts`. Phase 7 added `'code-challenge'` (the
+ * screenshot vision mode) as a third mode under the SAME single-in-flight orchestrator (D-11).
  */
-export type AiMode = 'answer' | 'talking-points';
+export type AiMode = 'answer' | 'talking-points' | 'code-challenge';
 
 /** A single in-flight AI stream handle. The orchestrator holds exactly one at a time (D-07). */
 export interface IAiStream {
@@ -31,10 +36,21 @@ export interface IAiPromptRequest {
     model: string;
     /** Hard output-token cap (Pitfall 6). */
     maxTokens: number;
-    /** The mode's system prompt (D-12). */
+    /** The mode's system prompt (D-12; the vision system prompt for code-challenge, D-07). */
     system: string;
-    /** The user turn: the labeled transcript span (+ the empty Phase-5 context slot, D-13). */
-    userContent: string;
+    /**
+     * The user turn. A plain string for the text modes (answer/talking-points — byte-for-byte
+     * unchanged from Phase 5), OR an Anthropic content-block array for the vision mode (D-04): an
+     * image block followed by a text block. The gateway passes this straight through to
+     * `messages.stream({ messages: [{ role: 'user', content: userContent }] })`, which accepts both.
+     */
+    userContent: string | Anthropic.ContentBlockParam[];
+    /**
+     * The optional captured screenshot for the code-challenge vision mode (D-04). Carries RAW base64
+     * (NO `data:` prefix — Pitfall 2) plus its media type. Absent for the text modes, which keeps their
+     * `userContent` a plain string and their request byte-for-byte Phase-5-identical.
+     */
+    image?: { base64: string; mediaType: string };
 }
 
 /**

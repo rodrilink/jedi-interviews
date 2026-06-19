@@ -11,6 +11,8 @@
  * `userContent` is just the labeled transcript span.
  */
 
+import type Anthropic from '@anthropic-ai/sdk';
+
 import type { AiMode } from './ai-gateway.interface';
 
 /**
@@ -46,6 +48,20 @@ You are given the last ~60 seconds of the conversation transcript.
 Produce 3 to 5 short talking points the user could raise about the project work being discussed. Each point is one concise line (a sentence or fragment), phrased so the user could say it aloud. Lead with the most relevant point. Be specific to what was actually discussed in the transcript; do not invent details that are not implied. Output only the bullet points, one per line, each prefixed with "- ". No preamble, no headers, no closing summary.`;
 
 /**
+ * The code-challenge (vision) system prompt (AI-03/D-06/D-07).
+ *
+ * Drafted from D-07's shape (solve the coding challenge shown in the screenshot; use the project
+ * context + recent transcript only as supporting constraints; lead with a one-line approach, then the
+ * code, then a brief complexity note; no preamble). Same DRAFT-wording caveat as
+ * {@link ANSWER_SYSTEM_PROMPT}: the `claude-api` skill is consulted at the build-time decision gate to
+ * confirm the model id and image block shape — this wording is tunable post on-machine verify.
+ */
+export const VISION_SYSTEM_PROMPT = `You are helping the user solve a coding challenge shown in a screenshot during a live interview.
+Read the problem from the image. Use the provided project context and recent transcript only as supporting context — the interviewer may have stated constraints aloud that are not in the screenshot.
+
+Produce a correct, idiomatic solution the user could speak through and type. Lead with a one-line description of the approach, then the code, then a brief note on time and space complexity. Do not add preamble like "Sure" or "Here is". Do not restate the full problem.`;
+
+/**
  * The structured grounding context injected into the prompt. Phase 6 fills these (CTX-01..04);
  * Phase 5 passes `undefined` or an empty object so {@link formatContext} yields no context block (D-13).
  */
@@ -68,14 +84,24 @@ export interface IAssembleInput {
     span: string;
     /** EMPTY in Phase 5; the SAME parameter Phase 6 fills with no call-site change (D-13). */
     context?: IGroundingContext;
+    /**
+     * The optional captured screenshot for the code-challenge vision mode (D-04/D-07). When present,
+     * {@link assemblePrompt} selects {@link VISION_SYSTEM_PROMPT} and returns `userContent` as an
+     * image-then-text content-block array; when absent, the function is byte-for-byte Phase-5-identical
+     * (a plain-string `userContent` for the text modes). Carries RAW base64 (NO `data:` prefix).
+     */
+    image?: { base64: string; mediaType: string };
 }
 
 /** The assembler output: the selected system prompt and the assembled user turn. */
 export interface IAssembledPrompt {
-    /** The mode's system prompt (D-12). */
+    /** The mode's system prompt (D-12; the vision prompt for code-challenge, D-07). */
     system: string;
-    /** The user turn: the (optional) context block followed by the labeled transcript span. */
-    userContent: string;
+    /**
+     * The user turn. A plain string for the text modes (byte-for-byte Phase-5-identical), OR an
+     * Anthropic content-block array `[{ image }, { text }]` for the vision mode (D-04, image first).
+     */
+    userContent: string | Anthropic.ContentBlockParam[];
 }
 
 /**
@@ -125,9 +151,27 @@ export function formatContext(context?: IGroundingContext): string {
  * @returns The selected system prompt and the assembled user turn.
  */
 export function assemblePrompt(input: IAssembleInput): IAssembledPrompt {
-    const system = input.mode === 'answer' ? ANSWER_SYSTEM_PROMPT : TALKING_POINTS_SYSTEM_PROMPT;
     const contextBlock = formatContext(input.context);
-    const userContent = `${contextBlock}Recent transcript (last ~60s):\n${input.span}`;
+    const text = `${contextBlock}Recent transcript (last ~60s):\n${input.span}`;
 
-    return { system, userContent };
+    // Vision branch (D-04/D-07): an image present selects the vision system prompt and returns an
+    // image-then-text content-block array (image BEFORE text, per the Anthropic docs). The text block
+    // reuses the EXACT same `contextBlock + transcript span` string the text modes build, so the
+    // screenshot solution stays grounded in the active session context + transcript (D-07).
+    if (input.image !== undefined) {
+        const userContent: Anthropic.ContentBlockParam[] = [
+            {
+                type: 'image',
+                source: { type: 'base64', media_type: input.image.mediaType as 'image/png', data: input.image.base64 },
+            },
+            { type: 'text', text },
+        ];
+
+        return { system: VISION_SYSTEM_PROMPT, userContent };
+    }
+
+    // Text modes (answer/talking-points): byte-for-byte Phase-5-identical — a plain-string user turn.
+    const system = input.mode === 'answer' ? ANSWER_SYSTEM_PROMPT : TALKING_POINTS_SYSTEM_PROMPT;
+
+    return { system, userContent: text };
 }

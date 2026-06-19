@@ -70,6 +70,10 @@ export class AnthropicGateway extends EventEmitter implements IAiGateway {
      */
     public stream(request: IAiPromptRequest): IAiStream {
         try {
+            // `content` is a plain string for the text modes and an image+text content-block array for
+            // the vision mode (D-04); `messages.stream` accepts both, so the call is otherwise unchanged.
+            // SECURITY: the array can carry the screenshot base64 — like the key, it is NEVER logged,
+            // emitted, or surfaced in an error payload (extends the T-5-02 no-payload discipline).
             const stream = this.client.messages.stream({
                 model: request.model,
                 max_tokens: request.maxTokens,

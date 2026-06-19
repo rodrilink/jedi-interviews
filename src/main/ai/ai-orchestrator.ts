@@ -25,15 +25,19 @@ import { TranscriptBuffer } from '../stt/transcript-buffer';
  */
 export const ANSWER_MODEL = 'claude-haiku-4-5';
 export const TALKING_POINTS_MODEL = 'claude-opus-4-8';
+/** Code-challenge (vision) model (Phase 7 D-06). Opus for hard solving; a re-tierable named constant. */
+export const CODE_CHALLENGE_MODEL = 'claude-opus-4-8';
 
 /**
  * Per-mode hard output-token caps (Pitfall 6). The system prompt enforces brevity; these are the
- * safety caps, tunable during 05-03 latency logging. Answers are a few sentences; talking points are
- * 3–5 short bullets.
+ * safety caps, tunable during the 07-02 on-machine latency gate. Answers are a few sentences; talking
+ * points are 3–5 short bullets; a code-challenge solution is longer (code + a brief complexity note),
+ * so it gets a higher cap (RESEARCH A2 — tune at the latency gate).
  */
 export const MAX_TOKENS: Record<AiMode, number> = {
     answer: 400,
     'talking-points': 500,
+    'code-challenge': 1500,
 };
 
 /**
@@ -116,13 +120,20 @@ export class AiOrchestrator {
      *   the very next AI request with no restart and no cached orchestrator state. Returns `undefined`
      *   when there is no active context, which keeps the assembled prompt byte-for-byte Phase-5-identical
      *   (the seam fails safe via `formatContext` → `''`).
+     * @param captureImage - Captures + downscales the overlay's monitor for the code-challenge vision
+     *   mode (Phase 7 D-01/D-05). A closure over the `ScreenshotService` + overlay window, threaded the
+     *   SAME way `getActiveContext` was (constructed once in `index.ts`). Defaults to a rejecting stub so
+     *   a code-challenge trigger without a wired capture seam surfaces an inline error rather than
+     *   crashing — the text modes never call it.
      */
     public constructor(
         private readonly gateway: IAiGateway,
         private readonly transcriptBuffer: TranscriptBuffer,
         private readonly history: AiHistory,
         private readonly pushAi: (event: IAiPushEvent) => void,
-        private readonly getActiveContext: () => IGroundingContext | undefined
+        private readonly getActiveContext: () => IGroundingContext | undefined,
+        private readonly captureImage: () => Promise<{ base64: string; mediaType: string }> = () =>
+            Promise.reject(new Error('screenshot capture is not wired'))
     ) {
         this.wireGatewayHandlers();
     }
@@ -140,8 +151,10 @@ export class AiOrchestrator {
     public trigger(mode: AiMode): void {
         const span = this.transcriptBuffer.recentSince(RECENT_SPAN_MS);
 
-        // D-11 empty-span guard — BEFORE any gateway call.
-        if (span.trim().length === 0) {
+        // D-11 empty-span guard — BEFORE any gateway call. Phase 7 D-07: code-challenge BYPASSES this —
+        // the captured screenshot alone is actionable, so an empty transcript span must NOT short-circuit
+        // it (the image is the problem; the span is only supporting narration). Text modes still guard.
+        if (mode !== 'code-challenge' && span.trim().length === 0) {
             const requestId = ++this.requestSeq;
             const id = String(requestId);
             const at = Date.now();
@@ -159,9 +172,22 @@ export class AiOrchestrator {
             return;
         }
 
-        // D-07: the OTHER mode mid-stream -> cancel the current, then start the new one.
+        // D-07: the OTHER mode mid-stream -> cancel the current, then start the new one. Holds across all
+        // THREE modes (Phase 7 D-11): pressing answer/talking-points mid-vision cancels vision and starts
+        // the new one; re-pressing vision mid-stream is the same-mode cancel above. One active request, ever.
         if (this.active !== undefined) {
             this.cancelActive();
+        }
+
+        // Capture the monotonic start NOW so the logged latency measures the hotkey-to-first-token
+        // interval the user actually feels (D-10). For code-challenge this is captured BEFORE the async
+        // screenshot capture so capture time is included in the measured latency (RESEARCH §6).
+        const startMs = Date.now();
+
+        if (mode === 'code-challenge') {
+            this.triggerCodeChallenge(span, startMs);
+
+            return;
         }
 
         const requestId = ++this.requestSeq;
@@ -172,14 +198,74 @@ export class AiOrchestrator {
         // context Save grounds the very next trigger. `undefined` → Phase-5-identical prompt (fail-safe).
         const { system, userContent } = assemblePrompt({ mode, span, context: this.getActiveContext() });
 
-        // Capture the monotonic start NOW — immediately before the stream is created — so the logged
-        // latency measures the hotkey-to-first-token interval the user actually feels (D-10).
-        const startMs = Date.now();
         const stream = this.gateway.stream({ model, maxTokens: MAX_TOKENS[mode], system, userContent });
         this.active = { mode, requestId, id, stream, text: '', debounceTimer: undefined, pendingDelta: false, model, startMs, firstTokenLogged: false };
 
         // Surface the in-flight 'thinking…' state immediately so the entry appears before the first token (D-04).
         this.pushAi({ type: 'thinking', requestId, id, mode, at });
+    }
+
+    /**
+     * The code-challenge (vision) branch of {@link trigger} (Phase 7 D-01/D-04/D-05/D-07).
+     *
+     * Reserves the request id + surfaces `thinking…` SYNCHRONOUSLY (so re-pressing the chord during the
+     * async capture cancels this in-flight request, holding the single-in-flight invariant), then
+     * captures + downscales the overlay's monitor, assembles the image+text prompt grounded in the active
+     * context + transcript span (D-07), and starts the Opus stream. A capture fault is surfaced as an
+     * inline `error` entry (report-don't-throw) rather than crashing main. The request-id guard means a
+     * capture that resolves after the request was cancelled/superseded is dropped — its stream never starts.
+     *
+     * @param span - The recent transcript span (may be empty for vision — D-07).
+     * @param startMs - The monotonic start captured at the chord press (before capture — RESEARCH §6).
+     */
+    private triggerCodeChallenge(span: string, startMs: number): void {
+        const requestId = ++this.requestSeq;
+        const id = String(requestId);
+        const at = Date.now();
+
+        // Reserve the request synchronously WITHOUT a stream yet: `thinking…` appears immediately and a
+        // re-press / cross-mode press during the async capture cancels this pending request (the abort
+        // is a no-op until the stream exists, but clearing `active` drops the resolved capture below).
+        this.active = {
+            mode: 'code-challenge',
+            requestId,
+            id,
+            stream: { abort: (): void => undefined },
+            text: '',
+            debounceTimer: undefined,
+            pendingDelta: false,
+            model: CODE_CHALLENGE_MODEL,
+            startMs,
+            firstTokenLogged: false,
+        };
+        this.pushAi({ type: 'thinking', requestId, id, mode: 'code-challenge', at });
+
+        void this.captureImage()
+            .then((image) => {
+                // Request-id guard: if this request was cancelled/superseded during the async capture, the
+                // active request changed — drop the resolved capture, do NOT start a stream (Pitfall 1).
+                if (this.active === undefined || this.active.requestId !== requestId) {
+                    return;
+                }
+
+                const { system, userContent } = assemblePrompt({ mode: 'code-challenge', span, context: this.getActiveContext(), image });
+                this.active.stream = this.gateway.stream({ model: CODE_CHALLENGE_MODEL, maxTokens: MAX_TOKENS['code-challenge'], system, userContent });
+            })
+            .catch((error: unknown) => {
+                // Report-don't-throw: a capture fault surfaces as an inline error entry (reusing the
+                // AI-error push path) rather than crashing main. Guarded so a fault from a superseded
+                // request never overwrites a newer entry.
+                if (this.active === undefined || this.active.requestId !== requestId) {
+                    return;
+                }
+
+                const reason = error instanceof Error ? error.message : 'screenshot capture failed';
+                const text = `AI error: ${reason}`;
+                this.clearActive();
+                this.history.append({ id, mode: 'code-challenge', text, kind: 'error' });
+                this.pushAi({ type: 'error', requestId, id, text });
+                this.pushHistorySnapshot();
+            });
     }
 
     /**

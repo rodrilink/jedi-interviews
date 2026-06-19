@@ -32,6 +32,8 @@ describe('ai-orchestrator', () => {
     let orchestrator: AiOrchestrator;
     /** The pull-on-trigger provider's current return value; reassign per test to simulate a mid-session Save. */
     let activeContext: IGroundingContext | undefined;
+    /** The capture seam (Phase 7 D-01/D-05); a spy resolving to a fake image so code-challenge tests run. */
+    let captureImage: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         // Arrange (shared): fresh fakes, fake timers for the trailing-edge debounce assertions.
@@ -44,7 +46,16 @@ describe('ai-orchestrator', () => {
         // Default: no active context (the Phase-5 fail-safe path). Individual tests reassign `activeContext`
         // BEFORE trigger() to assert pull-on-trigger — the orchestrator reads the provider at each trigger.
         activeContext = undefined;
-        orchestrator = new AiOrchestrator(gateway, buffer, history, (event: IAiPushEvent) => pushed.push(event), () => activeContext);
+        // Default capture seam resolves to a fake downscaled image (no data: prefix).
+        captureImage = vi.fn(() => Promise.resolve({ base64: 'FAKEBASE64', mediaType: 'image/png' }));
+        orchestrator = new AiOrchestrator(
+            gateway,
+            buffer,
+            history,
+            (event: IAiPushEvent) => pushed.push(event),
+            () => activeContext,
+            () => captureImage()
+        );
     });
 
     afterEach(() => {
@@ -271,6 +282,84 @@ describe('ai-orchestrator', () => {
             expect(firstRequest.userContent).not.toContain('write-through Redis cache');
             const secondRequest = gateway.stream.mock.calls[1]?.[0] as IAiPromptRequest;
             expect(secondRequest.userContent).toContain('We use a write-through Redis cache.');
+        });
+    });
+
+    describe('code-challenge vision mode (Phase 7 AI-03/D-07/D-11)', () => {
+        it('should trigger even when the transcript span is empty (D-07 bypasses the empty-span guard)', async () => {
+            // Arrange — buffer left empty; vision is actionable from the image alone.
+
+            // Act
+            orchestrator.trigger('code-challenge');
+            await vi.runAllTimersAsync();
+
+            // Assert — capture ran and a stream started (no empty short-circuit).
+            expect(captureImage).toHaveBeenCalledTimes(1);
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+        });
+
+        it('should still short-circuit the text modes on an empty span (guard intact for non-vision)', () => {
+            // Arrange — buffer left empty.
+
+            // Act
+            orchestrator.trigger('answer');
+
+            // Assert
+            expect(gateway.stream).not.toHaveBeenCalled();
+            expect(captureImage).not.toHaveBeenCalled();
+        });
+
+        it('should route code-challenge to the Opus model with the vision image block', async () => {
+            // Arrange — empty span is fine for vision.
+
+            // Act
+            orchestrator.trigger('code-challenge');
+            await vi.runAllTimersAsync();
+
+            // Assert
+            const request = gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest;
+            expect(request.model).toBe('claude-opus-4-8');
+            expect(Array.isArray(request.userContent)).toBe(true);
+        });
+
+        it('should cancel an in-flight vision stream when code-challenge is re-pressed (D-06)', async () => {
+            // Arrange
+            orchestrator.trigger('code-challenge');
+            await vi.runAllTimersAsync();
+
+            // Act
+            orchestrator.trigger('code-challenge');
+
+            // Assert
+            expect(gateway.abort).toHaveBeenCalledTimes(1);
+        });
+
+        it('should cancel vision and start the new mode when a text mode is pressed mid-vision (3-mode single-in-flight, D-11)', async () => {
+            // Arrange
+            seedSpan(buffer, 'The interviewer wants O(n).');
+            orchestrator.trigger('code-challenge');
+            await vi.runAllTimersAsync();
+
+            // Act
+            orchestrator.trigger('answer');
+
+            // Assert — exactly one active request: vision aborted, answer started.
+            expect(gateway.abort).toHaveBeenCalledTimes(1);
+            expect(gateway.stream).toHaveBeenCalledTimes(2);
+        });
+
+        it('should surface an inline error entry when capture fails (report-don\'t-throw)', async () => {
+            // Arrange
+            captureImage = vi.fn(() => Promise.reject(new Error('No screen source available.')));
+
+            // Act
+            orchestrator.trigger('code-challenge');
+            await vi.runAllTimersAsync();
+
+            // Assert — no stream started; an error entry was pushed.
+            expect(gateway.stream).not.toHaveBeenCalled();
+            const errors = pushed.filter((event) => event.type === 'error');
+            expect(errors.length).toBeGreaterThan(0);
         });
     });
 
