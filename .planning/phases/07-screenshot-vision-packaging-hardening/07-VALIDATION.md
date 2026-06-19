@@ -38,11 +38,11 @@ created: 2026-06-19
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 07-01-xx | 01 | 1 | AI-03 | — | Downscale ≤1568 long edge, only-if-larger, aspect preserved | unit | `npx vitest run src/main/vision/test/downscale.utility.test.ts` | ❌ W0 | ⬜ pending |
-| 07-01-xx | 01 | 1 | AI-03 | T-7-IL | base64 has NO `data:` prefix | unit | `npx vitest run src/main/vision/test/downscale.utility.test.ts` | ❌ W0 | ⬜ pending |
-| 07-01-xx | 01 | 1 | AI-03 | — | `assemblePrompt` emits block array iff `image` present; string otherwise (text modes byte-identical) | unit | `npx vitest run src/main/ai/test/prompt-assembler.test.ts` | ⚠️ extend | ⬜ pending |
-| 07-01-xx | 01 | 1 | AI-03 | — | Active-monitor source-select: match `desktopCapturer` source by `display_id` (pure helper) | unit | `npx vitest run src/main/vision/test/screenshot.service.test.ts` | ❌ W0 | ⬜ pending |
-| 07-01-xx | 01 | 1 | AI-03 | — | Orchestrator: code-challenge bypasses empty-span guard; single-in-flight cancel across 3 modes | unit | `npx vitest run src/main/ai/test/ai-orchestrator.test.ts` | ⚠️ extend | ⬜ pending |
+| 07-01-xx | 01 | 1 | AI-03 | — | Downscale ≤1568 long edge, only-if-larger, aspect preserved | unit | `npx vitest run src/main/vision/downscale.utility.test.ts` | ❌ W0 | ⬜ pending |
+| 07-01-xx | 01 | 1 | AI-03 | T-7-IL | base64 has NO `data:` prefix | unit | `npx vitest run src/main/vision/downscale.utility.test.ts` | ❌ W0 | ⬜ pending |
+| 07-01-xx | 01 | 1 | AI-03 | — | `assemblePrompt` emits block array iff `image` present; string otherwise (text modes byte-identical) | unit | `npx vitest run src/main/ai/prompt-assembler.test.ts` | ⚠️ extend | ⬜ pending |
+| 07-01-xx | 01 | 1 | AI-03 | — | Active-monitor source-select: match `desktopCapturer` source by `display_id` (pure helper) | unit | `npx vitest run src/main/vision/screenshot.service.test.ts` | ❌ W0 | ⬜ pending |
+| 07-01-xx | 01 | 1 | AI-03 | — | Orchestrator: code-challenge bypasses empty-span guard; single-in-flight cancel across 3 modes | unit | `npx vitest run src/main/ai/ai-orchestrator.test.ts` | ⚠️ extend | ⬜ pending |
 | 07-01-xx | 01 | 1 | AI-03 | — | Live capture → stream → vision panel | manual | on-machine (see Manual-Only) | — | ⬜ pending |
 | 07-02-xx | 02 | 2 | PKG-01 | T-7-TM | Packaged `.exe`: transparency + never-steal-focus + content-protection + screenshot-solve | manual | run `release/*.exe` on target machine | `07-VERIFICATION.md` | ⬜ pending |
 | 07-02-xx | 02 | 2 | PKG-01 | T-7-TM | Native modules load in package (hotkeys + audio alive) | manual | observe in packaged `.exe` | `07-VERIFICATION.md` | ⬜ pending |
@@ -53,10 +53,10 @@ created: 2026-06-19
 
 ## Wave 0 Requirements
 
-- [ ] `src/main/vision/test/downscale.utility.test.ts` — AI-03 (downscale math + no-`data:`-prefix assertion)
-- [ ] `src/main/vision/test/screenshot.service.test.ts` — AI-03 (pure source-select/match logic; `desktopCapturer` mocked)
-- [ ] Extend `src/main/ai/test/prompt-assembler.test.ts` — image branch + text-mode-byte-identical assertions
-- [ ] Extend `src/main/ai/test/ai-orchestrator.test.ts` — code-challenge empty-span bypass + 3-mode single-in-flight cancel
+- [ ] `src/main/vision/downscale.utility.test.ts` — AI-03 (downscale math + no-`data:`-prefix assertion) — co-located, no `test/` subdir
+- [ ] `src/main/vision/screenshot.service.test.ts` — AI-03 (pure source-select/match logic; `desktopCapturer` mocked) — co-located
+- [ ] Extend `src/main/ai/prompt-assembler.test.ts` — image branch + text-mode-byte-identical assertions
+- [ ] Extend `src/main/ai/ai-orchestrator.test.ts` — code-challenge empty-span bypass + 3-mode single-in-flight cancel
 - [ ] `07-VERIFICATION.md` — on-machine GO/NO-GO record (mirror Phase 1 `01-04` gate)
 
 ---

@@ -509,17 +509,17 @@ the *chord press* (before the async capture+downscale), so the logged latency in
 |----------|-------|
 | Framework | Vitest `3.2.4` (co-located `*.test.ts`, `npm test` → `vitest run`) `[VERIFIED: package.json]` |
 | Config file | electron-vite/vite-driven; tests run via `vitest run` |
-| Quick run command | `npx vitest run src/main/vision/test/downscale.utility.test.ts` |
+| Quick run command | `npx vitest run src/main/vision/downscale.utility.test.ts` |
 | Full suite command | `npm test` |
 
 ### Phase Requirements → Test Map
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
-| AI-03 | Downscale math: ≤1568 long edge, only-if-larger, aspect preserved | unit | `npx vitest run src/main/vision/test/downscale.utility.test.ts` | ❌ Wave 0 |
+| AI-03 | Downscale math: ≤1568 long edge, only-if-larger, aspect preserved | unit | `npx vitest run src/main/vision/downscale.utility.test.ts` | ❌ Wave 0 |
 | AI-03 | base64 has NO `data:` prefix | unit | (assert in downscale test) | ❌ Wave 0 |
-| AI-03 | `assemblePrompt` emits block array iff `image` present; string otherwise (text modes byte-identical) | unit | `npx vitest run src/main/ai/test/prompt-assembler.test.ts` | partial (extend existing) |
-| AI-03 | Active-monitor resolution: `getDisplayMatching` → matching source by `display_id` (pure match logic extracted) | unit | `npx vitest run src/main/vision/test/screenshot.service.test.ts` | ❌ Wave 0 (test the pure match/select helper; mock desktopCapturer) |
-| AI-03 | Orchestrator: code-challenge bypasses empty-span guard; single-in-flight cancel across 3 modes | unit | `npx vitest run src/main/ai/test/ai-orchestrator.test.ts` | extend existing |
+| AI-03 | `assemblePrompt` emits block array iff `image` present; string otherwise (text modes byte-identical) | unit | `npx vitest run src/main/ai/prompt-assembler.test.ts` | partial (extend existing) |
+| AI-03 | Active-monitor resolution: `getDisplayMatching` → matching source by `display_id` (pure match logic extracted) | unit | `npx vitest run src/main/vision/screenshot.service.test.ts` | ❌ Wave 0 (test the pure match/select helper; mock desktopCapturer) |
+| AI-03 | Orchestrator: code-challenge bypasses empty-span guard; single-in-flight cancel across 3 modes | unit | `npx vitest run src/main/ai/ai-orchestrator.test.ts` | extend existing |
 | AI-03 | Live capture → stream → vision panel | manual/integration | — (on-machine, D-13d) | manual gate |
 | PKG-01 | Packaged `.exe`: transparency, never-steal-focus, content-protection, screenshot-solve | manual gate | run `release/*.exe` on target machine | `07-VERIFICATION.md` (D-13) |
 | PKG-01 | Native modules load in package (hotkeys + audio alive) | manual gate | observe in packaged `.exe` | part of `07-VERIFICATION.md` |
@@ -530,10 +530,10 @@ the *chord press* (before the async capture+downscale), so the logged latency in
 - **Phase gate:** Full suite green + `07-VERIFICATION.md` GO before `/gsd:verify-work`
 
 ### Wave 0 Gaps
-- [ ] `src/main/vision/test/downscale.utility.test.ts` — covers AI-03 (downscale math + no-`data:`-prefix)
-- [ ] `src/main/vision/test/screenshot.service.test.ts` — covers AI-03 (pure source-select/match logic; `desktopCapturer` mocked)
-- [ ] Extend `src/main/ai/test/prompt-assembler.test.ts` — image branch + text-mode-unchanged assertions
-- [ ] Extend `src/main/ai/test/ai-orchestrator.test.ts` — code-challenge empty-span bypass + 3-mode single-in-flight
+- [ ] `src/main/vision/downscale.utility.test.ts` — covers AI-03 (downscale math + no-`data:`-prefix)
+- [ ] `src/main/vision/screenshot.service.test.ts` — covers AI-03 (pure source-select/match logic; `desktopCapturer` mocked)
+- [ ] Extend `src/main/ai/prompt-assembler.test.ts` — image branch + text-mode-unchanged assertions
+- [ ] Extend `src/main/ai/ai-orchestrator.test.ts` — code-challenge empty-span bypass + 3-mode single-in-flight
 - [ ] `07-VERIFICATION.md` template (mirror `01-04` gate) — manual GO/NO-GO record
 
 *Live capture, streaming, and the packaged build are integration/manual-gate level — not unit-testable
