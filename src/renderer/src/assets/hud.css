@@ -105,8 +105,8 @@ body {
 
 /*
  * The status grid in the header: a horizontal run of key/value cells. `grid-auto-flow: column` keeps the
- * key above its value and lays successive cells out across the header. The cheat-sheet variant below
- * overrides this to wrap its own rows.
+ * key above its value and lays successive cells out across the header. It wraps to a second band of cells
+ * if the window is narrow. (The hotkey cheat-sheet moved out to the CommandsPanel — item 1 declutter.)
  */
 .debug-hud__grid {
     flex: 1 1 auto;
@@ -116,16 +116,6 @@ body {
     grid-auto-columns: max-content;
     gap: 0 16px;
     margin: 0;
-}
-
-/* The cheat-sheet is a wrapping row of its own labeled chords; it sits at the far right of the header. */
-.debug-hud__grid.debug-hud__cheatsheet {
-    flex: 0 0 auto;
-    display: flex;
-    flex-wrap: wrap;
-    grid-auto-flow: initial;
-    column-gap: 12px;
-    row-gap: 2px;
 }
 
 .debug-hud__key {
@@ -147,6 +137,16 @@ body {
  * the single sanctioned exception to the click-through default, so the user must always be able to see it.
  */
 .debug-hud__value[data-mouse-toggle='true'] {
+    color: rgb(74 222 128 / 100%);
+    font-weight: 600;
+}
+
+/*
+ * The transient "Copied ✓" indicator (quick fix 260619-mcv item 2): flashes green in the header for ~1.5s
+ * after a copy-on-mouse-release auto-copy succeeds, so the user gets visible confirmation without pressing
+ * Ctrl+C. Main owns the flash timing (copyOk flag); this just styles the lit state.
+ */
+.debug-hud__value[data-copy-ok='true'] {
     color: rgb(74 222 128 / 100%);
     font-weight: 600;
 }
@@ -174,21 +174,15 @@ body {
     transition: width 80ms linear;
 }
 
-/* Each cheat-sheet entry: a compact "Label  Chord" pair laid out inline within the wrapping cheat-sheet. */
-.debug-hud__cheatsheet-row {
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-}
-
 /*
- * The three peer panels share one chrome (quick fix 260619-mcv): Q/A, AI, and Code each render as a
- * rounded translucent card that fills the panel row's height and scrolls its content internally.
- * position: relative anchors each panel's corner active-panel indicator pill.
+ * The four peer panels share one chrome (quick fix 260619-mcv): Q/A, AI, Code, and Commands each render
+ * as a rounded translucent card that fills the panel row's height and scrolls its content internally.
+ * position: relative anchors each panel's corner active-panel indicator pill (Commands has none).
  */
 .transcript-panel,
 .ai-panel,
-.vision-panel {
+.vision-panel,
+.commands-panel {
     position: relative;
     display: flex;
     flex-direction: column;
@@ -207,8 +201,8 @@ body {
 }
 
 /*
- * Per-panel width (locked decision B — NOT equal): Code is the widest, Q/A and AI narrower. flex-grow
- * 1 / 1 / 1.8 → roughly ~27% / ~27% / ~46% of the row.
+ * Per-panel width (locked decision B — NOT equal): Code widest, Q/A and AI narrower, Commands narrowest.
+ * flex-grow 1 / 1 / 1.8 / 0.6 → roughly ~22% / ~22% / ~40% / ~13% of the four-column row.
  */
 .transcript-panel,
 .ai-panel {
@@ -220,6 +214,10 @@ body {
     /* The Code panel reads on a slightly stronger chrome so the wider code column stands out. */
     background: rgb(12 14 20 / 86%);
     border-color: rgb(196 181 253 / 40%);
+}
+
+.commands-panel {
+    flex: 0.6 1 0;
 }
 
 /*
@@ -452,4 +450,57 @@ body {
 
 .vision-panel__entry--error .vision-panel__entry-body {
     color: rgb(248 180 180 / 100%);
+}
+
+/*
+ * The Commands reference panel (quick fix 260619-mcv item 1): the narrowest, far-right column holding the
+ * hotkey cheat-sheet that used to clutter the header. A static, scannable list — no focus highlight (it's
+ * outside the Ctrl+Alt+F cycle). Scrolls internally if the list outgrows the column.
+ */
+.commands-panel__title {
+    flex: 0 0 auto;
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgb(148 163 184 / 100%);
+}
+
+.commands-panel__list {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 50%) transparent;
+}
+
+.commands-panel__list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.commands-panel__list::-webkit-scrollbar-thumb {
+    background: rgb(148 163 184 / 50%);
+    border-radius: 3px;
+}
+
+/* Each command row: the action label on top, its chord below, compact for a glanceable reference. */
+.commands-panel__row {
+    padding: 3px 0;
+}
+
+.commands-panel__row + .commands-panel__row {
+    border-top: 1px solid rgb(148 163 184 / 14%);
+}
+
+.commands-panel__label {
+    color: rgb(148 163 184 / 100%);
+    font-size: 11px;
+}
+
+.commands-panel__chord {
+    margin: 0;
+    color: rgb(226 232 240 / 100%);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
 }

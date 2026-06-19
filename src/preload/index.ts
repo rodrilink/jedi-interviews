@@ -19,6 +19,8 @@ export interface IOverlayStatus {
     activePanel: 'transcript' | 'ai' | 'vision';
     /** Whether the overlay is interactive (click-through disabled for drag-select, quick fix 260619-mcv). Main-owned; declared identically in main and renderer. */
     overlayInteractive: boolean;
+    /** Transient "Copied ✓" flash flag after a copy-on-mouse-release auto-copy (quick fix 260619-mcv). Main-owned; declared identically in main and renderer. */
+    copyOk: boolean;
 }
 
 /**
@@ -51,6 +53,13 @@ const SCROLL_TRANSCRIPT_CHANNEL = 'jedi:scroll-transcript';
 /** IPC channel for the read-only, one-way AI push from main (Phase 5, AI-04). */
 const AI_CHANNEL = 'jedi:ai';
 
+/**
+ * IPC channel for the ONE renderer->main write on the jedi:* surface (quick fix 260619-mcv item 2):
+ * copy-on-mouse-release. The renderer sends the current text selection; main validates it is interactive
+ * + non-empty and writes the system clipboard (the renderer never imports electron). One-way send only.
+ */
+const COPY_SELECTION_CHANNEL = 'jedi:copy-selection';
+
 /** The scroll direction forwarded from main (mirrors `ScrollTranscriptDirection` in the main process). */
 export type ScrollTranscriptDirection = 'up' | 'down';
 
@@ -77,13 +86,14 @@ export type IAiPushEvent =
 /**
  * The single typed, read-only, NON-SECRET namespace exposed on `window.jedi`.
  *
- * The boundary is strictly one-way main → renderer (D-06): `onStatus` and `onTranscript` are
- * subscriptions carrying proof-of-life data and the live transcript respectively. As of Phase 4
- * (IN-01) the renderer → main write surface is ZERO — the Phase 3 `reportAudioLevel` exception was
- * removed when the renderer audio path was retired (D-02), so no control channel is exposed.
+ * The boundary is overwhelmingly one-way main → renderer (D-06): `onStatus`, `onTranscript`, `onAi`, and
+ * `onScrollTranscript` are subscriptions carrying proof-of-life data, the live transcript, AI events, and
+ * scroll signals. The renderer → main write surface is a SINGLE narrow exception (quick fix 260619-mcv
+ * item 2): `copySelection`, used only by copy-on-mouse-release while interaction mode is engaged. It
+ * carries a text string to main, which validates + writes the clipboard; no secret or control state.
  *
- * Both subscriptions return an unsubscribe function (WR-03) so the consuming `useEffect` can remove
- * its listener on cleanup, preventing leaked listeners under React Strict Mode.
+ * Subscriptions return an unsubscribe function (WR-03) so the consuming `useEffect` can remove its
+ * listener on cleanup, preventing leaked listeners under React Strict Mode.
  */
 const jediApi = {
     /** Marks the structural boundary as live. */
@@ -151,6 +161,18 @@ const jediApi = {
         return (): void => {
             ipcRenderer.removeListener(AI_CHANNEL, listener);
         };
+    },
+
+    /**
+     * Sends the current text selection to main to be copied to the system clipboard (quick fix
+     * 260619-mcv item 2, copy-on-mouse-release). The renderer calls this on mouseup while interaction
+     * mode is ON; main validates the interactive state + non-empty text and writes the clipboard (the
+     * renderer never imports electron). The ONLY renderer->main write on this surface; one-way send.
+     *
+     * @param selection - The selected text to copy. Main ignores empty strings (plain click = no-op).
+     */
+    copySelection(selection: string): void {
+        ipcRenderer.send(COPY_SELECTION_CHANNEL, selection);
     },
 };
 

@@ -19,6 +19,7 @@ import {
     getLatestCodeChallengeText,
     setOverlayInteractive,
     getOverlayInteractive,
+    markCopyOk,
     type IAiPushEvent,
 } from './overlay-window.manager';
 import { HotkeyRegistrarService, type HotkeyHandlerMap } from './hotkey-registrar.service';
@@ -237,7 +238,14 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, apiKey
     // Attach the three gateway lifecycle bindings. Extracted so re-keying Deepgram (a fresh gateway
     // instance) re-attaches the SAME bindings (Pitfall 3) — otherwise a re-keyed socket would emit
     // transcripts/state with no listener and the live transcript would freeze.
-    attachSttGatewayHandlers(gateway, window, buffer, () => connectionState, (state) => (connectionState = state), getAudioLevel);
+    attachSttGatewayHandlers(
+        gateway,
+        window,
+        buffer,
+        () => connectionState,
+        (state) => (connectionState = state),
+        getAudioLevel
+    );
 
     // Throttle the level-only push so the meter animates smoothly (~15 fps) without flooding IPC on
     // every ~10 ms PCM chunk. Transcript/connection pushes carry the level too, so the bar is always
@@ -273,7 +281,14 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, apiKey
     rekeyDeepgram = async (newKey: string): Promise<void> => {
         await sttGateway?.stop();
         const next = new DeepgramSttGateway(newKey);
-        attachSttGatewayHandlers(next, window, buffer, () => connectionState, (state) => (connectionState = state), getAudioLevel);
+        attachSttGatewayHandlers(
+            next,
+            window,
+            buffer,
+            () => connectionState,
+            (state) => (connectionState = state),
+            getAudioLevel
+        );
         sttGateway = next;
         await next.start();
     };
@@ -418,6 +433,26 @@ app.whenReady().then(() => {
     // crosses IPC outbound; save-keys trims + string-validates input (T-06-05) and never logs the key
     // (T-06-02). Live re-key of the running gateways lands in 06-04; here save just persists. The two
     // context channels are declared now and fully wired (the editor UI + persistence) in 06-03/06-04.
+    // Quick fix 260619-mcv (item 2): copy-on-mouse-release. While interaction mode is ON the renderer
+    // reads window.getSelection() on mouseup and sends the text here (one-way send — the only renderer->
+    // main write on the jedi:* surface; the settings window has its own separate handle channels). Main
+    // owns ALL clipboard access (the renderer never imports electron). SECURITY/correctness: only copy
+    // when overlayInteractive is true (ignore stale/spoofed sends while click-through) AND the text is a
+    // non-empty string (empty selection / plain click is a no-op, so no false "Copied ✓"). On success,
+    // flash the header indicator via markCopyOk. Reuses the same clipboard.writeText path as Ctrl+Alt+Y.
+    ipcMain.on('jedi:copy-selection', (_event, selection: unknown): void => {
+        if (!getOverlayInteractive()) {
+            return;
+        }
+
+        if (typeof selection !== 'string' || selection.length === 0) {
+            return;
+        }
+
+        clipboard.writeText(selection);
+        markCopyOk(window);
+    });
+
     ipcMain.handle('settings:get-keys', (): { deepgram: boolean; anthropic: boolean } => ({
         deepgram: apiKeyStore.hasDeepgram(),
         anthropic: apiKeyStore.hasAnthropic(),

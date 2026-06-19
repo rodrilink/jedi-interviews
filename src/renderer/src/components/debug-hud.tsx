@@ -19,6 +19,8 @@ interface IOverlayStatus {
     activePanel: ActivePanel;
     /** Whether the overlay is interactive (click-through disabled for drag-select, quick fix 260619-mcv). Main-owned; declared identically in main and preload. */
     overlayInteractive: boolean;
+    /** Transient "Copied ✓" flash flag after a copy-on-mouse-release auto-copy (quick fix 260619-mcv). Main-owned; declared identically in main and preload. */
+    copyOk: boolean;
 }
 
 /**
@@ -36,38 +38,12 @@ interface IOverlayTranscript {
 }
 
 /**
- * The compact hotkey cheat-sheet shown in the HUD header (D-13) so it doubles as an on-screen
- * reference while the user learns the chords. These are the finalized default chords —
- * 02-03 conflict-tested them against Teams/Zoom/VS Code and shipped the suggested set
- * unchanged (no collisions). The clear-transcript chord (Ctrl+Alt+K, D-07) is appended here;
- * its on-machine conflict re-check is scheduled for 04-04's manual verify (fall back to
- * Ctrl+Alt+X if it collides). The Phase 5 focus-cycle chord (Ctrl+Alt+F, D-08) is appended too; its
- * on-machine conflict re-check is scheduled for 05-03's manual verify (fall back to a reserved letter
- * if it collides). See `02-HOTKEY-CONFLICT-TEST.md` / `05-HOTKEY-CONFLICT-TEST.md`.
- */
-const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: string }> = [
-    { id: 'showhide', label: 'Show / Hide', chord: 'Ctrl+Alt+J' },
-    { id: 'move', label: 'Move', chord: 'Ctrl+Alt+Arrows' },
-    { id: 'opacity', label: 'Opacity', chord: 'Ctrl+Alt+[ / ]' },
-    { id: 'hud', label: 'Toggle HUD', chord: 'Ctrl+Alt+H' },
-    { id: 'clear', label: 'Clear transcript', chord: 'Ctrl+Alt+K' },
-    { id: 'focus', label: 'Focus panel', chord: 'Ctrl+Alt+F' },
-    { id: 'scroll', label: 'Scroll active panel', chord: 'Ctrl+Alt+PgUp / PgDn' },
-    { id: 'answer', label: 'Answer', chord: 'Ctrl+Alt+A' },
-    { id: 'talking-points', label: 'Talking points', chord: 'Ctrl+Alt+T' },
-    { id: 'clear-ai', label: 'Clear AI', chord: 'Ctrl+Alt+G' },
-    { id: 'copy-code', label: 'Copy code', chord: 'Ctrl+Alt+Y' },
-    { id: 'toggle-mouse', label: 'Toggle mouse', chord: 'Ctrl+Alt+M' },
-    { id: 'quit', label: 'Quit', chord: 'Ctrl+Alt+Q' },
-];
-
-/**
- * The full-width debug HUD HEADER bar across the TOP of the overlay (quick fix 260619-mcv, layout
- * refactor B). It renders the overlay's proof-of-life status (Electron version, content-protection,
- * window position, hotkey status), the live STT connection state + audio meter, the active-panel
- * readout, the Mouse interaction-mode indicator, and a compact hotkey cheat-sheet. The live transcript
- * TEXT is no longer here — it moved to the dedicated {@link import('./transcript-panel').TranscriptPanel}
- * Q/A column below this header.
+ * The full-width debug HUD HEADER bar across the TOP of the overlay (quick fix 260619-mcv). It renders the
+ * overlay's proof-of-life status (Electron version, content-protection, window position, hotkey status),
+ * the live STT connection state + audio meter, the active-panel readout, the Mouse interaction-mode
+ * indicator, and the transient "Copied ✓" flash. The live transcript TEXT lives in the dedicated Q/A
+ * {@link import('./transcript-panel').TranscriptPanel}; the hotkey cheat-sheet moved out to the dedicated
+ * {@link import('./commands-panel').CommandsPanel} (item 1 declutter) so this header stays compact.
  *
  * It subscribes to the read-only `window.jedi.onStatus` and `window.jedi.onTranscript` channels
  * (D-05/D-04), capturing each subscription's unsubscribe function and calling both on cleanup so no
@@ -120,6 +96,9 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
     // Whether interaction mode (click-through OFF for drag-select) is engaged (quick fix 260619-mcv).
     // Surfaced so the user can see whether Ctrl+Alt+M is currently ON; also the diagnostic for the chord.
     const mouseToggleLabel = status ? (status.overlayInteractive ? 'ON' : 'OFF') : '—';
+    // Transient copy-on-mouse-release confirmation (quick fix 260619-mcv item 2): main flashes copyOk for
+    // ~1.5s after a successful auto-copy, so the header shows "Copied ✓" only when a copy actually landed.
+    const copyOk: boolean = status?.copyOk === true;
     // Native Date for the renderer wall-clock display is deliberate (presentation, not business
     // logic — Luxon stays in main per project standards). Read once from the mount ref so it is static.
     const sessionStartedLabel = new Date(sessionStartRef.current).toLocaleString();
@@ -168,6 +147,10 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
                 <dd className="debug-hud__value" data-testid="cell-mouse-toggle" data-mouse-toggle={mouseToggleLabel === 'ON'}>
                     {mouseToggleLabel}
                 </dd>
+                <dt className="debug-hud__key">Copy</dt>
+                <dd className="debug-hud__value" data-testid="cell-copy-ok" data-copy-ok={copyOk}>
+                    {copyOk ? 'Copied ✓' : '—'}
+                </dd>
                 <dt className="debug-hud__key">Session started</dt>
                 <dd className="debug-hud__value" data-testid="cell-session-started">
                     {sessionStartedLabel}
@@ -176,14 +159,6 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
                 <dd className="debug-hud__value" data-testid="cell-uptime">
                     {uptimeLabel}
                 </dd>
-            </dl>
-            <dl className="debug-hud__grid debug-hud__cheatsheet" data-testid="card-hotkey-cheatsheet">
-                {HOTKEY_CHEAT_SHEET.map((entry) => (
-                    <div className="debug-hud__cheatsheet-row" key={entry.id} data-testid={`row-hotkey-${entry.id}`}>
-                        <dt className="debug-hud__key">{entry.label}</dt>
-                        <dd className="debug-hud__value">{entry.chord}</dd>
-                    </div>
-                ))}
             </dl>
         </header>
     );

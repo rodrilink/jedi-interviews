@@ -46,6 +46,12 @@ export interface IOverlayStatus {
      * single sanctioned interactive state is engaged. `false` by default (overlay is click-through, OVL-02).
      */
     overlayInteractive: boolean;
+    /**
+     * Transient flag: `true` for ~1.5s right after a copy-on-mouse-release auto-copy succeeded (quick fix
+     * 260619-mcv item 2), so the HUD header can flash a "Copied ✓" indicator. Main-owned; set true on a
+     * successful selection copy, then cleared and re-pushed. `false` the rest of the time.
+     */
+    copyOk: boolean;
 }
 
 /** IPC channel name for the read-only, non-secret status push to the renderer (D-05). */
@@ -235,6 +241,12 @@ let overlayInteractive = false;
  * always-on-top level (OVL-04 / Pitfall 2) — then pushes status so the renderer drops the interactive
  * background and the HUD reflects the restored state. Guards `isDestroyed()` because hotkeys fire async.
  *
+ * TASKBAR/TITLE FIX (quick fix 260619-mcv item 3): on Windows, `setFocusable(true)` on a `frame:false`
+ * `skipTaskbar:true` window re-introduces a taskbar entry / window title, and `setFocusable(false)` does
+ * NOT reliably re-hide it (it sticks). So BOTH branches explicitly re-assert `setSkipTaskbar(true)` and
+ * `setTitle('')` (the window is also created with `title: ''`), so the window becomes click/selection-
+ * capable with ZERO visible chrome in either state and the taskbar entry/title is gone on revert.
+ *
  * @param window - The overlay window to toggle.
  * @param interactive - `true` to disable click-through for drag-select; `false` to restore the defaults.
  */
@@ -249,14 +261,21 @@ export function setOverlayInteractive(window: BrowserWindow, interactive: boolea
         // The sole sanctioned relaxation of OVL-02: let clicks/drag-select land on the overlay AND make
         // the window focusable + focused so a transparent, always-on-top window actually receives the
         // mouse interaction (setIgnoreMouseEvents(false) alone is insufficient on a non-focusable window).
+        // setSkipTaskbar(true) + setTitle('') BEFORE focus() so making it focusable never surfaces a
+        // taskbar entry or window title on Windows (item 3).
         window.setIgnoreMouseEvents(false);
         window.setFocusable(true);
+        window.setSkipTaskbar(true);
+        window.setTitle('');
         window.focus();
     } else {
         // Restore the load-bearing defaults exactly like showOverlay (the OS can drop these; re-assert).
         // setFocusable(false) reverts the single sanctioned focus exception so the never-take-focus
-        // invariant (OVL-02) holds again outside the interactive window.
+        // invariant (OVL-02) holds again outside the interactive window. setSkipTaskbar(true) + setTitle('')
+        // kill the taskbar entry/title that setFocusable(true) introduced (Windows leaves it stuck — item 3).
         window.setFocusable(false);
+        window.setSkipTaskbar(true);
+        window.setTitle('');
         window.setIgnoreMouseEvents(true, { forward: true });
         window.setContentProtection(true);
         contentProtectionEnabled = true;
@@ -273,6 +292,42 @@ export function setOverlayInteractive(window: BrowserWindow, interactive: boolea
  */
 export function getOverlayInteractive(): boolean {
     return overlayInteractive;
+}
+
+/**
+ * Transient "Copied ✓" flag (quick fix 260619-mcv item 2). True for {@link COPY_OK_FLASH_MS} right after a
+ * copy-on-mouse-release auto-copy succeeds, so the HUD header can flash a confirmation. The timer is tracked
+ * so a rapid second copy resets the window rather than clearing early.
+ */
+let copyOk = false;
+let copyOkTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** How long the "Copied ✓" header indicator stays lit after an auto-copy (quick fix 260619-mcv item 2). */
+const COPY_OK_FLASH_MS = 1500;
+
+/**
+ * Flashes the main-owned "Copied ✓" flag on the HUD header for {@link COPY_OK_FLASH_MS} (quick fix
+ * 260619-mcv item 2). Sets {@link copyOk} true and pushes status immediately, then clears it and re-pushes
+ * after the flash window. Called by the copy-selection IPC handler in index.ts ONLY after a successful
+ * clipboard write, so the indicator never lies. A second copy mid-flash resets the timer.
+ *
+ * @param window - The overlay window whose HUD shows the transient indicator.
+ */
+export function markCopyOk(window: BrowserWindow): void {
+    copyOk = true;
+    pushStatus(window);
+
+    if (copyOkTimer !== undefined) {
+        clearTimeout(copyOkTimer);
+    }
+
+    copyOkTimer = setTimeout(() => {
+        copyOk = false;
+        copyOkTimer = undefined;
+        if (!window.isDestroyed()) {
+            pushStatus(window);
+        }
+    }, COPY_OK_FLASH_MS);
 }
 
 /**
@@ -321,6 +376,7 @@ function buildStatus(window: BrowserWindow): IOverlayStatus {
         hudVisible,
         activePanel,
         overlayInteractive,
+        copyOk,
     };
 }
 
@@ -424,6 +480,10 @@ export function createOverlayWindow(): BrowserWindow {
         resizable: false,
         hasShadow: false,
         backgroundColor: '#00000000',
+        // Empty title so no Windows window title/chrome string exists to surface even transiently when
+        // the window is made focusable for the interaction toggle (quick fix 260619-mcv item 3). The HTML
+        // <title> can later re-set document.title; we also re-assert setTitle('') in setOverlayInteractive.
+        title: '',
         webPreferences: {
             preload: join(currentDirectory, '../preload/index.cjs'),
             contextIsolation: true,
