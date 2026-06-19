@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 Phase: 05 (ai-orchestration-answer-talking-points) — EXECUTING
 Plan: 1 of 3
 Status: Executing Phase 05
-Last activity: 2026-06-18 -- Phase 05 execution started
+Last activity: 2026-06-19 -- Completed quick task 260618-r2x: HUD status rows (active panel / session started / uptime)
 
 Progress: [█████████░] 92%
 
@@ -118,6 +118,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260616-w65 | Fix overlay click-through bug — overlay swallowed mouse clicks (OVL-02 gap from Phase 1 gate) | 2026-06-17 | 4115f62 | [260616-w65-fix-overlay-click-through-bug-overlay-wi](./quick/260616-w65-fix-overlay-click-through-bug-overlay-wi/) |
+| 260618-r2x | Add HUD status rows: Active panel (AI/Transcript), Session started, Uptime (1s tick); pure formatUptime utility | 2026-06-19 | fd35627 | [260618-r2x-add-active-panel-session-started-uptime-](./quick/260618-r2x-add-active-panel-session-started-uptime-/) |
 
 ## Deferred Items
 
