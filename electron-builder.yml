@@ -1,5 +1,8 @@
-# Minimal Windows packaging config for the Phase 1 transparency smoke test (D-10).
-# Installer/signing and full re-verification of the packaged build are deferred to Phase 7 (PKG-01).
+# Windows packaging config for PKG-01 (Phase 7 D-12/D-14).
+# Portable single-file .exe (no NSIS for v1, D-12). The load-bearing requirement is asarUnpack:
+# both native .node modules load via require(<absolute path>) and fs.existsSync, which cannot
+# read a file trapped inside app.asar (RESEARCH Pitfall 4). The Electron-ABI rebuild is a near-no-op
+# for these N-API prebuilds — asarUnpack is the real fix; the on-machine gate proves the package loads them.
 appId: com.rodrigo.jedi-interviews
 productName: Jedi Interviews
 directories:
@@ -8,6 +11,14 @@ directories:
 files:
     - out/**/*
     - package.json
+asarUnpack:
+    - '**/*.node'
+    - '**/node_modules/uiohook-napi/**'
+    - '**/node_modules/native-recorder-nodejs/**'
+    - '**/node_modules/node-gyp-build/**'
 win:
+    icon: build/icon.ico
     target:
         - portable
+portable:
+    artifactName: ${productName}-${version}-portable.exe
