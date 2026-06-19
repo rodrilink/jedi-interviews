@@ -24,6 +24,7 @@
         "test": "vitest run",
         "package": "electron-vite build && electron-builder --win",
         "verify:secret": "electron-vite build --config electron.vite.verify.config.ts && electron out/verify/verify-secret.js",
+        "verify:keys": "electron-vite build --config electron.vite.verify-keys.config.ts && electron out/verify-keys/verify-api-keys.js",
         "rebuild": "electron-rebuild -f -w uiohook-napi"
     },
     "dependencies": {
