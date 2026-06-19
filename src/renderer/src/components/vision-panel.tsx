@@ -194,7 +194,7 @@ export function VisionPanel(): JSX.Element {
     return (
         <section className="vision-panel" data-testid="card-vision-panel" data-active={activePanel === 'vision'}>
             <span className="vision-panel__active-indicator" data-testid="icon-active-panel-vision" data-active-panel={activePanel}>
-                {activePanel === 'vision' ? 'Vision' : 'AI'}
+                {activePanel === 'vision' ? 'Code' : 'AI'}
             </span>
             <h2 className="vision-panel__title">Code challenge</h2>
             <div className="vision-panel__entries" data-testid="list-vision-entries" ref={listRef}>
