@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Audio Loopback Spike** - Isolated go/no-go proof that system-audio loopback produces real, non-silent audio on the target machine. (completed 2026-06-17)
 - [x] **Phase 4: STT Pipeline + Live Transcript** - Live rolling transcript with interim/final results, auto-reconnect, bounded buffer, and a swappable STT provider seam.
  (completed 2026-06-18)
-- [ ] **Phase 5: AI Orchestration (Answer + Talking Points)** - Streaming, keyboard-scrollable AI answers and talking points drawn from the recent transcript.
+- [x] **Phase 5: AI Orchestration (Answer + Talking Points)** - Streaming, keyboard-scrollable AI answers and talking points drawn from the recent transcript.
 - [ ] **Phase 6: Session Context + Settings Window** - A focusable settings window for API keys and a persisted context editor that grounds every AI prompt.
 - [ ] **Phase 7: Screenshot Vision + Packaging & Hardening** - Screenshot-driven code-challenge solving and a runnable Windows .exe with transparency, focus discipline, and content protection intact.
 
@@ -175,7 +175,7 @@ Plans:
 
 **Wave 3** *(blocked on 05-01 + 05-02)*
 
-- [ ] 05-03-PLAN.md — Focused-panel scrollback: main-owned activePanel flag + corner indicator + Ctrl+Alt+F cycle + active-panel-routed PgUp/PgDn, cross-mode cancel-current-start-new, hotkey→first-token latency logging (AI-05, D-07, D-08, D-10)
+- [x] 05-03-PLAN.md — Focused-panel scrollback: main-owned activePanel flag + corner indicator + Ctrl+Alt+F cycle + active-panel-routed PgUp/PgDn, cross-mode cancel-current-start-new, hotkey→first-token latency logging (AI-05, D-07, D-08, D-10)
 
 **Notes**: Confirm current claude-haiku-4-5 / claude-opus-4-8 model IDs and the streaming API shape via the claude-api skill at implementation time (research flag: Phase 5 API shape). AI-06 (grounding) is partially exercised here via the transcript span but is only fully satisfied once the Session Context store exists in Phase 6 — AI-06 is mapped to Phase 6. Trigger on a bounded recent finalized window to control latency and context bloat.
 **UI hint**: yes
