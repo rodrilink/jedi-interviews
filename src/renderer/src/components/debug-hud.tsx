@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
+import { formatUptime } from './format-uptime.utility';
 
 /**
  * The read-only, non-secret status payload received from the main process over the
@@ -76,6 +77,11 @@ const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: stri
 export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element | null {
     const [status, setStatus] = useState<IOverlayStatus | null>(null);
     const [transcript, setTranscript] = useState<IOverlayTranscript | null>(null);
+    // The overlay launch instant, captured once on mount and fixed for the component's life so the
+    // "Session started" row stays static and the uptime counts up from a stable origin.
+    const sessionStartRef = useRef<number>(Date.now());
+    // Drives the once-per-second uptime re-render, mirroring the ai-panel relative-time tick pattern.
+    const [nowMs, setNowMs] = useState<number>(() => Date.now());
     const transcriptRef = useRef<HTMLParagraphElement | null>(null);
     // While the user has scrolled up via hotkey, auto-stick is paused so new text doesn't yank them
     // back to the bottom mid-read. Scrolling back to the bottom re-enables the live follow.
@@ -111,10 +117,15 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
             stickToBottomRef.current = element.scrollTop + element.clientHeight >= element.scrollHeight - 4;
         });
 
+        // Advance the uptime row on a coarse 1s cadence (mirrors ai-panel) — ample for a glanceable
+        // session-health readout and avoids a per-frame timer.
+        const tick = window.setInterval(() => setNowMs(Date.now()), 1000);
+
         return (): void => {
             offStatus?.();
             offTranscript?.();
             offScroll?.();
+            window.clearInterval(tick);
         };
     }, []);
 
@@ -138,6 +149,11 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
     const positionLabel = status ? `${status.position.x}, ${status.position.y}` : '—';
     const electronVersionLabel = status?.electronVersion ?? '—';
     const hotkeyLabel = status ? (status.hotkeys.failed.length === 0 ? 'OK' : `${status.hotkeys.failed.length} failed`) : '—';
+    const activePanelLabel = status ? (status.activePanel === 'ai' ? 'AI' : 'Transcript') : '—';
+    // Native Date for the renderer wall-clock display is deliberate (presentation, not business
+    // logic — Luxon stays in main per project standards). Read once from the mount ref so it is static.
+    const sessionStartedLabel = new Date(sessionStartRef.current).toLocaleString();
+    const uptimeLabel = formatUptime(nowMs - sessionStartRef.current);
     const connectionStateLabel = transcript?.connectionState ?? '—';
     const finalTextLabel = transcript?.finalText ?? '';
     const interimTextLabel = transcript?.interimText ?? '';
@@ -175,6 +191,18 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
                     <span className="debug-hud__meter" data-testid="meter-audio-level">
                         <span className="debug-hud__meter-fill" style={{ width: `${meterPercent}%` }} />
                     </span>
+                </dd>
+                <dt className="debug-hud__key">Active panel</dt>
+                <dd className="debug-hud__value" data-testid="cell-active-panel">
+                    {activePanelLabel}
+                </dd>
+                <dt className="debug-hud__key">Session started</dt>
+                <dd className="debug-hud__value" data-testid="cell-session-started">
+                    {sessionStartedLabel}
+                </dd>
+                <dt className="debug-hud__key">Uptime</dt>
+                <dd className="debug-hud__value" data-testid="cell-uptime">
+                    {uptimeLabel}
                 </dd>
             </dl>
             <p className="debug-hud__transcript" data-testid="card-transcript" ref={transcriptRef}>
