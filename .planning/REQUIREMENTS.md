@@ -39,13 +39,13 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **AI-03**: By hotkey, the user takes a screenshot and gets an AI solution to a code challenge shown in it
 - [ ] **AI-04**: AI responses stream token-by-token to the overlay and are readable in the flow of conversation
 - [ ] **AI-05**: AI output is keyboard-scrollable so responses longer than the overlay are fully readable
-- [ ] **AI-06**: Every AI call is grounded in the active Session Context (pasted project notes, ticket text, repo snippets, links) plus the relevant transcript span
+- [x] **AI-06**: Every AI call is grounded in the active Session Context (pasted project notes, ticket text, repo snippets, links) plus the relevant transcript span
 
 ### Session Context
 
 - [x] **CTX-01**: The user can paste and edit project context — notes, ticket text, repo snippets, and reference links — in a dedicated editor
 - [x] **CTX-02**: Session Context persists locally across app restarts
-- [ ] **CTX-03**: The active Session Context is injected into AI prompts for all three modes
+- [x] **CTX-03**: The active Session Context is injected into AI prompts for all three modes
 - [x] **CTX-04**: The context store is structured so a future URL-fetcher (Jira/Azure/GitHub) can populate it without redesign
 
 ### Settings & Secrets
@@ -53,7 +53,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SET-01**: A separate, normal (focusable) window hosts settings — required because the overlay is `focusable:false` and cannot host text inputs
 - [x] **SET-02**: The user can enter and save Deepgram and Anthropic API keys via the settings window
 - [x] **SET-03**: API keys are stored encrypted at rest (Electron `safeStorage`/DPAPI) and never written to logs, the renderer, or committed files
-- [ ] **SET-04**: The Session Context editor (CTX-01) is reachable from this settings window, opened by hotkey
+- [x] **SET-04**: The Session Context editor (CTX-01) is reachable from this settings window, opened by hotkey
 
 ### Packaging
 
@@ -124,12 +124,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AI-05 | Phase 5 | Pending |
 | CTX-01 | Phase 6 | Complete |
 | CTX-02 | Phase 6 | Complete |
-| CTX-03 | Phase 6 | Pending |
+| CTX-03 | Phase 6 | Complete |
 | CTX-04 | Phase 6 | Complete |
 | SET-01 | Phase 6 | Complete |
 | SET-02 | Phase 6 | Complete |
-| SET-04 | Phase 6 | Pending |
-| AI-06 | Phase 6 | Pending |
+| SET-04 | Phase 6 | Complete |
+| AI-06 | Phase 6 | Complete |
 | AI-03 | Phase 7 | Pending |
 | PKG-01 | Phase 7 | Pending |
 
