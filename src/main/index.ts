@@ -26,6 +26,7 @@ import type { ISttTranscriptEvent, SttConnectionState } from './stt/stt-provider
 import { AnthropicGateway } from './ai/anthropic-ai.gateway';
 import { AiOrchestrator } from './ai/ai-orchestrator';
 import { AiHistory } from './ai/ai-history';
+import { SessionContextRepository } from './context/session-context.repository';
 
 /**
  * The single hotkey registrar for the app's lifetime. Instantiated once after the overlay
@@ -41,6 +42,15 @@ let hotkeyRegistrar: HotkeyRegistrarService | undefined;
  */
 let audioCapture: AudioCaptureService | undefined;
 let sttGateway: DeepgramSttGateway | undefined;
+
+/**
+ * Live re-key entry point for the Deepgram STT gateway (D-07, instance-swap). Created inside
+ * {@link wireSttPipeline} (which owns the overlay window, buffer, and connection-state) and stored
+ * here at module level so the `settings:save-keys` IPC handler can invoke it. Undefined until the STT
+ * pipeline is wired at boot. See {@link wireSttPipeline} for the swap discipline (stop → new instance →
+ * re-attach handlers → re-point sttGateway → start).
+ */
+let rekeyDeepgram: ((newKey: string) => Promise<void>) | undefined;
 
 /**
  * The single AI stack for the app's lifetime (Phase 5), instantiated once in `app.whenReady()`.
@@ -181,26 +191,14 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, apiKey
     // as a live meter so the user sees capture is alive even during silence between transcripts.
     let audioLevel = 0;
 
-    gateway.on('transcript', (event: ISttTranscriptEvent) => {
-        if (event.isFinal) {
-            buffer.appendFinal(event.text);
-        } else {
-            buffer.setInterim(event.text);
-        }
+    // Reads the current audio level for handler pushes; closed over so re-attached handlers (on re-key)
+    // always read the live value rather than a stale capture.
+    const getAudioLevel = (): number => audioLevel;
 
-        pushTranscript(window, { ...buffer.renderable(), connectionState, audioLevel });
-    });
-
-    gateway.on('connection-state-change', (state: SttConnectionState) => {
-        connectionState = state;
-        pushTranscript(window, { ...buffer.renderable(), connectionState: state, audioLevel });
-    });
-
-    gateway.on('error', () => {
-        // The gateway never throws — it surfaces transport faults here. We keep running; the
-        // connection-state row already reflects reconnecting/disconnected. The error is NOT logged
-        // with its payload to avoid any risk of leaking key-adjacent detail (D-08).
-    });
+    // Attach the three gateway lifecycle bindings. Extracted so re-keying Deepgram (a fresh gateway
+    // instance) re-attaches the SAME bindings (Pitfall 3) — otherwise a re-keyed socket would emit
+    // transcripts/state with no listener and the live transcript would freeze.
+    attachSttGatewayHandlers(gateway, window, buffer, () => connectionState, (state) => (connectionState = state), getAudioLevel);
 
     // Throttle the level-only push so the meter animates smoothly (~15 fps) without flooding IPC on
     // every ~10 ms PCM chunk. Transcript/connection pushes carry the level too, so the bar is always
@@ -214,7 +212,10 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, apiKey
                 lastLevelPushMs = nowMs;
                 pushTranscript(window, { ...buffer.renderable(), connectionState, audioLevel });
             }
-            gateway.sendAudio(pcm);
+            // Feed the CURRENT gateway instance via the module-level re-pointable ref (NOT the local
+            // `gateway` const) so a live Deepgram re-key keeps the running capture pumping into the new
+            // socket without restarting AudioCaptureService (D-07).
+            sttGateway?.sendAudio(pcm);
         },
         () => {
             // A capture/device fault must never crash main. It surfaces via the absence of transcript
@@ -225,7 +226,67 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, apiKey
 
     void gateway.start().then(() => capture.start());
 
+    // D-07 live re-key (instance swap): the Deepgram gateway holds `apiKey` privately with no setter, so
+    // re-keying = tear down the running socket, construct a fresh gateway with the new key, re-attach the
+    // SAME lifecycle handlers (Pitfall 3 — else the new socket emits to no listener and the transcript
+    // freezes), re-point the module-level `sttGateway` (the capture callback feeds whatever it points at),
+    // then start. The running AudioCaptureService is untouched, so capture never pauses. Never logs the key.
+    rekeyDeepgram = async (newKey: string): Promise<void> => {
+        await sttGateway?.stop();
+        const next = new DeepgramSttGateway(newKey);
+        attachSttGatewayHandlers(next, window, buffer, () => connectionState, (state) => (connectionState = state), getAudioLevel);
+        sttGateway = next;
+        await next.start();
+    };
+
     return (): SttConnectionState => connectionState;
+}
+
+/**
+ * Attaches the three Deepgram gateway lifecycle bindings (`transcript`, `connection-state-change`,
+ * `error`) to the overlay-push pipeline. Defined ONCE and called from both the boot path
+ * ({@link wireSttPipeline}) and the live re-key path ({@link rekeyDeepgram}) so a re-keyed gateway
+ * instance is wired identically and the transcript resumes (Pitfall 3 — a fresh socket with no
+ * listeners would freeze the live transcript).
+ *
+ * The handlers read/write the connection state through the supplied accessors so the single
+ * authoritative state variable (owned by {@link wireSttPipeline}) is shared across re-keys.
+ *
+ * @param gateway - The gateway instance to wire (the boot instance or a re-keyed one).
+ * @param window - The overlay window the transcript snapshot is pushed to.
+ * @param buffer - The shared transcript buffer (interim replaced, finals committed).
+ * @param getConnectionState - Reads the current connection state for the transcript push.
+ * @param setConnectionState - Writes the current connection state on a state-change event.
+ * @param getAudioLevel - Reads the latest computed audio level for the transcript push.
+ */
+function attachSttGatewayHandlers(
+    gateway: DeepgramSttGateway,
+    window: BrowserWindow,
+    buffer: TranscriptBuffer,
+    getConnectionState: () => SttConnectionState,
+    setConnectionState: (state: SttConnectionState) => void,
+    getAudioLevel: () => number
+): void {
+    gateway.on('transcript', (event: ISttTranscriptEvent) => {
+        if (event.isFinal) {
+            buffer.appendFinal(event.text);
+        } else {
+            buffer.setInterim(event.text);
+        }
+
+        pushTranscript(window, { ...buffer.renderable(), connectionState: getConnectionState(), audioLevel: getAudioLevel() });
+    });
+
+    gateway.on('connection-state-change', (state: SttConnectionState) => {
+        setConnectionState(state);
+        pushTranscript(window, { ...buffer.renderable(), connectionState: state, audioLevel: getAudioLevel() });
+    });
+
+    gateway.on('error', () => {
+        // The gateway never throws — it surfaces transport faults here. We keep running; the
+        // connection-state row already reflects reconnecting/disconnected. The error is NOT logged
+        // with its payload to avoid any risk of leaking key-adjacent detail (D-08).
+    });
 }
 
 app.whenReady().then(() => {
@@ -238,6 +299,11 @@ app.whenReady().then(() => {
     // safeStorage.isEncryptionAvailable() is true (Pitfall 2). By-convention singleton — no TSyringe.
     // A key saved via the settings window overrides a stale .env value at boot (resolveApiKey).
     const apiKeyStore = new ApiKeyStoreService();
+
+    // The session-context persistence layer (06-02, D-09). By-convention singleton resolved here at the
+    // entry point only (no service-locator mid-method). Backs the orchestrator's pull-on-trigger context
+    // provider (D-10) and the two settings:*-context IPC handlers below.
+    const contextRepo = new SessionContextRepository();
 
     const window = bootOverlay();
 
@@ -258,7 +324,10 @@ app.whenReady().then(() => {
     // D-08 precedence for the Anthropic key too: a saved safeStorage key overrides a stale .env value.
     aiGateway = new AnthropicGateway(resolveApiKey(apiKeyStore.getAnthropic(), process.env.ANTHROPIC_API_KEY));
     aiHistory = new AiHistory();
-    aiOrchestrator = new AiOrchestrator(aiGateway, buffer, aiHistory, (event) => pushAi(window, event));
+    // D-10 pull-on-trigger: the orchestrator's 5th arg pulls the active grounding context FRESH at each
+    // trigger, so a mid-session context Save grounds the very next AI call with no restart. An absent
+    // context returns `undefined` → formatContext '' → byte-for-byte Phase-5 prompt (fail-safe).
+    aiOrchestrator = new AiOrchestrator(aiGateway, buffer, aiHistory, (event) => pushAi(window, event), () => contextRepo.activeAsGrounding());
 
     // Register the settings window's dedicated two-way IPC surface (D-04). These four named channels are
     // the ENTIRE settings renderer->main write surface; the overlay's one-way jedi:* channels are
@@ -271,22 +340,49 @@ app.whenReady().then(() => {
         anthropic: apiKeyStore.hasAnthropic(),
     }));
 
-    ipcMain.handle('settings:save-keys', (_event, keys: { deepgram?: string; anthropic?: string }): void => {
+    ipcMain.handle('settings:save-keys', async (_event, keys: { deepgram?: string; anthropic?: string }): Promise<void> => {
         // Validate each field is a non-empty string before persisting (T-06-05). The plaintext is
         // encrypted at rest by the store and is NEVER logged here.
         if (typeof keys?.deepgram === 'string' && keys.deepgram.trim().length > 0) {
-            apiKeyStore.saveDeepgram(keys.deepgram.trim());
+            const trimmed = keys.deepgram.trim();
+            apiKeyStore.saveDeepgram(trimmed);
+            // D-07 live re-key: tear down + reconnect the running STT socket with the new key, no restart.
+            await rekeyDeepgram?.(trimmed);
         }
 
         if (typeof keys?.anthropic === 'string' && keys.anthropic.trim().length > 0) {
-            apiKeyStore.saveAnthropic(keys.anthropic.trim());
+            const trimmed = keys.anthropic.trim();
+            apiKeyStore.saveAnthropic(trimmed);
+            // D-07 live re-key: rebuild the Anthropic SDK client in place so the next AI call uses the
+            // new key, no restart. The orchestrator's gateway reference + wired handlers are untouched.
+            aiGateway?.rekey(trimmed);
         }
     });
 
-    // TODO(06-03/06-04): back these with SessionContextRepository (get the active context / persist it).
-    // Declared now so the settings preload's contract is complete and 06-03 only needs to fill the body.
-    ipcMain.handle('settings:get-context', (): undefined => undefined);
-    ipcMain.handle('settings:save-context', (): void => undefined);
+    // settings:get-context (06-04): the editor pre-fills from the active context DTO (CTX-02). Returns
+    // `undefined` when no context exists yet (the editor renders empty fields). No key/secret crosses here.
+    ipcMain.handle('settings:get-context', (): ReturnType<typeof contextRepo.getActive> => contextRepo.getActive());
+
+    // settings:save-context (06-04, CTX-02/D-06): persist-and-activate the four grounding fields so the
+    // NEXT AI trigger pulls them via the orchestrator's provider — no restart. SECURITY (T-06-14,
+    // Tampering): the inbound DTO is untrusted renderer input, so VALIDATE its shape before persisting —
+    // reject a non-object, and coerce each field defensively (a wrong-typed field is dropped, never
+    // forwarded into the prompt). Only the four grounding fields are written; id/source/createdAt are
+    // owned by the repository. The renderer already sends `links` as a parsed string[] (preload contract),
+    // so no newline parsing is needed here.
+    ipcMain.handle('settings:save-context', (_event, dto: unknown): void => {
+        if (typeof dto !== 'object' || dto === null) {
+            return;
+        }
+
+        const candidate = dto as Record<string, unknown>;
+        const notes = typeof candidate.notes === 'string' ? candidate.notes : undefined;
+        const ticketText = typeof candidate.ticketText === 'string' ? candidate.ticketText : undefined;
+        const repoSnippets = typeof candidate.repoSnippets === 'string' ? candidate.repoSnippets : undefined;
+        const links = Array.isArray(candidate.links) ? candidate.links.filter((link): link is string => typeof link === 'string') : undefined;
+
+        contextRepo.saveActive({ notes, ticketText, repoSnippets, links });
+    });
 
     // Register the global hotkey layer after the overlay boots. The aggregated outcome is
     // fed to the HUD over the read-only jedi:status channel (D-06) — startup-only (D-07), and

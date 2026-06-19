@@ -6,6 +6,7 @@ import { AiOrchestrator } from './ai-orchestrator';
 import type { IAiPushEvent } from './ai-orchestrator';
 import { AiHistory } from './ai-history';
 import { TranscriptBuffer } from '../stt/transcript-buffer';
+import { assemblePrompt, type IGroundingContext } from './prompt-assembler';
 
 /**
  * In-memory stand-in for the {@link IAiGateway}, mirroring the FakeV1Socket pattern used for the
@@ -29,6 +30,8 @@ describe('ai-orchestrator', () => {
     let history: AiHistory;
     let pushed: IAiPushEvent[];
     let orchestrator: AiOrchestrator;
+    /** The pull-on-trigger provider's current return value; reassign per test to simulate a mid-session Save. */
+    let activeContext: IGroundingContext | undefined;
 
     beforeEach(() => {
         // Arrange (shared): fresh fakes, fake timers for the trailing-edge debounce assertions.
@@ -38,7 +41,10 @@ describe('ai-orchestrator', () => {
         buffer = new TranscriptBuffer(() => 0);
         history = new AiHistory(() => 0);
         pushed = [];
-        orchestrator = new AiOrchestrator(gateway, buffer, history, (event: IAiPushEvent) => pushed.push(event));
+        // Default: no active context (the Phase-5 fail-safe path). Individual tests reassign `activeContext`
+        // BEFORE trigger() to assert pull-on-trigger — the orchestrator reads the provider at each trigger.
+        activeContext = undefined;
+        orchestrator = new AiOrchestrator(gateway, buffer, history, (event: IAiPushEvent) => pushed.push(event), () => activeContext);
     });
 
     afterEach(() => {
@@ -209,6 +215,62 @@ describe('ai-orchestrator', () => {
             expect(firstTokenLines[0]).toContain('mode=talking-points');
 
             logSpy.mockRestore();
+        });
+    });
+
+    describe('active-context injection (D-10, pull-on-trigger)', () => {
+        it('should inject the four grounding blocks into the assembled userContent when context is filled', () => {
+            // Arrange
+            seedSpan(buffer, 'What database are we using for the ledger?');
+            activeContext = {
+                notes: 'Use Postgres for the ledger.',
+                ticketText: 'JIRA-42: ledger persistence.',
+                repoSnippets: 'class LedgerRepository {}',
+                links: ['https://example.com/ledger-doc'],
+            };
+
+            // Act
+            orchestrator.trigger('answer');
+
+            // Assert
+            const request = gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest;
+            expect(request.userContent).toContain('Use Postgres for the ledger.');
+            expect(request.userContent).toContain('JIRA-42: ledger persistence.');
+            expect(request.userContent).toContain('class LedgerRepository {}');
+            expect(request.userContent).toContain('https://example.com/ledger-doc');
+        });
+
+        it('should produce a byte-for-byte Phase-5-identical prompt when the active context is undefined', () => {
+            // Arrange
+            const span = 'How would you shard the events table?';
+            seedSpan(buffer, span);
+            activeContext = undefined;
+            const phase5 = assemblePrompt({ mode: 'answer', span, context: undefined });
+
+            // Act
+            orchestrator.trigger('answer');
+
+            // Assert
+            const request = gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest;
+            expect(request.system).toBe(phase5.system);
+            expect(request.userContent).toBe(phase5.userContent);
+        });
+
+        it('should pull the active context at EACH trigger so a value change between triggers is reflected (no cached state)', () => {
+            // Arrange — first trigger with no context.
+            seedSpan(buffer, 'Tell me about the caching layer.');
+            activeContext = undefined;
+            orchestrator.trigger('answer');
+            const firstRequest = gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest;
+
+            // Act — a mid-session Save changes the provider's return, then the next trigger pulls it.
+            activeContext = { notes: 'We use a write-through Redis cache.' };
+            orchestrator.trigger('talking-points');
+
+            // Assert — the first trigger saw no context; the second pulled the freshly-saved context.
+            expect(firstRequest.userContent).not.toContain('write-through Redis cache');
+            const secondRequest = gateway.stream.mock.calls[1]?.[0] as IAiPromptRequest;
+            expect(secondRequest.userContent).toContain('We use a write-through Redis cache.');
         });
     });
 
