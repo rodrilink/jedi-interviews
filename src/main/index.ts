@@ -28,6 +28,15 @@ import { AiOrchestrator } from './ai/ai-orchestrator';
 import { AiHistory } from './ai/ai-history';
 import { SessionContextRepository } from './context/session-context.repository';
 import { parseLinks } from './context/parse-links.utility';
+import { ScreenshotService } from './vision/screenshot.service';
+
+// Phase 7 (D-15, Pitfall 6): opt-in hardware-acceleration fallback for transparent-window rendering
+// glitches in the packaged build. MUST run synchronously at the top level, BEFORE app.whenReady() — it
+// is a no-op once the app is ready. Gated behind an env var so the fallback is opt-in (documented in the
+// SmartScreen/hardening doc, 07-03).
+if (process.env.JEDI_DISABLE_GPU === '1') {
+    app.disableHardwareAcceleration();
+}
 
 /**
  * The single hotkey registrar for the app's lifetime. Instantiated once after the overlay
@@ -115,8 +124,13 @@ function buildHandlers(
         // status; the renderer routes the single Ctrl+Alt+PgUp/PgDn scroll channel and flips the corner
         // indicator off the pushed flag. Mirrors the getOverlayVisible() branch (read the main-owned
         // flag, toggle, push) — there is no second scroll channel; routing lives in the renderer (D-08).
+        // Phase 7 (D-09): the focus cycle now steps through THREE panels — transcript → ai → vision →
+        // transcript — so the single Ctrl+Alt+PgUp/PgDn scroll channel and the corner indicator route to
+        // whichever of the three is active. Still a pure read-toggle-push of the main-owned flag (D-08).
         'focus-cycle': (): void => {
-            setActivePanel(getActivePanel() === 'ai' ? 'transcript' : 'ai');
+            const current = getActivePanel();
+            const next = current === 'transcript' ? 'ai' : current === 'ai' ? 'vision' : 'transcript';
+            setActivePanel(next);
             pushStatus(window);
         },
         // Phase 5 (AI-01/D-05): Answer mode. The orchestrator owns the whole lifecycle — empty-span
@@ -138,6 +152,10 @@ function buildHandlers(
         // settings window is a normal focusable window — opening it deliberately takes focus, unlike the
         // overlay; it never touches the overlay's focus discipline.
         'open-settings': (): void => openOrFocusSettingsWindow(),
+        // Phase 7 (AI-03/D-03): Capture the overlay's monitor and stream an Opus code solution into the
+        // vision panel. The orchestrator owns the whole lifecycle — capture + downscale + single-in-flight
+        // cancel + the debounced jedi:ai push — so the handler is a one-liner mirroring the other AI chords.
+        'capture-code-challenge': (): void => aiOrchestrator.trigger('code-challenge'),
         quit: (): void => actions.quit(),
     };
 }
@@ -325,10 +343,23 @@ app.whenReady().then(() => {
     // D-08 precedence for the Anthropic key too: a saved safeStorage key overrides a stale .env value.
     aiGateway = new AnthropicGateway(resolveApiKey(apiKeyStore.getAnthropic(), process.env.ANTHROPIC_API_KEY));
     aiHistory = new AiHistory();
+    // Phase 7 (AI-03/D-01/D-05): the screenshot capture service. By-convention singleton constructed once
+    // here at the entry point (no service-locator mid-method); threaded into the orchestrator as a capture
+    // closure over the overlay `window` (its bounds drive getDisplayMatching, D-01), the SAME way the
+    // active-context provider was threaded. All image work stays main-side (IN-01).
+    const screenshotService = new ScreenshotService();
     // D-10 pull-on-trigger: the orchestrator's 5th arg pulls the active grounding context FRESH at each
     // trigger, so a mid-session context Save grounds the very next AI call with no restart. An absent
-    // context returns `undefined` → formatContext '' → byte-for-byte Phase-5 prompt (fail-safe).
-    aiOrchestrator = new AiOrchestrator(aiGateway, buffer, aiHistory, (event) => pushAi(window, event), () => contextRepo.activeAsGrounding());
+    // context returns `undefined` → formatContext '' → byte-for-byte Phase-5 prompt (fail-safe). The 6th
+    // arg (Phase 7) captures the overlay's monitor for the code-challenge vision mode.
+    aiOrchestrator = new AiOrchestrator(
+        aiGateway,
+        buffer,
+        aiHistory,
+        (event) => pushAi(window, event),
+        () => contextRepo.activeAsGrounding(),
+        () => screenshotService.captureForOverlay(window)
+    );
 
     // Register the settings window's dedicated two-way IPC surface (D-04). These four named channels are
     // the ENTIRE settings renderer->main write surface; the overlay's one-way jedi:* channels are

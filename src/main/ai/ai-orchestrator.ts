@@ -132,8 +132,7 @@ export class AiOrchestrator {
         private readonly history: AiHistory,
         private readonly pushAi: (event: IAiPushEvent) => void,
         private readonly getActiveContext: () => IGroundingContext | undefined,
-        private readonly captureImage: () => Promise<{ base64: string; mediaType: string }> = () =>
-            Promise.reject(new Error('screenshot capture is not wired'))
+        private readonly captureImage: () => Promise<{ base64: string; mediaType: string }> = () => Promise.reject(new Error('screenshot capture is not wired'))
     ) {
         this.wireGatewayHandlers();
     }

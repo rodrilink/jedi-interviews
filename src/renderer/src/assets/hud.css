@@ -301,3 +301,136 @@ body {
 .ai-panel__entry--error .ai-panel__entry-body {
     color: rgb(248 180 180 / 100%);
 }
+
+/*
+ * The right column wrapper (Phase 7, D-10). It is the AI panel's column slot; the VisionPanel takes it
+ * over as an absolutely-positioned overlay when active/streaming so the AI panel is never permanently
+ * shrunk on the fixed 900x700 overlay. `position: relative` anchors that overlay; the AI panel fills the
+ * column normally (its own flex: 1 1 0). Equal width to the HUD column, full height.
+ */
+.overlay-column {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+}
+
+/*
+ * The dedicated vision panel (D-08/D-10): same dark translucent chrome as the AI panel for visual unity.
+ * Absolutely positioned to cover the entire right column so it TAKES OVER the AI-panel region while
+ * active/streaming (D-10), rather than splitting the fixed overlay three ways. Code solutions are long,
+ * so the entry list scrolls internally.
+ */
+.vision-panel {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 0;
+    padding: 12px 16px;
+    border-radius: 18px;
+    background: rgb(12 14 20 / 86%);
+    color: rgb(226 232 240 / 100%);
+    border: 1px solid rgb(196 181 253 / 40%);
+    font-size: 12px;
+    line-height: 1.5;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.vision-panel__title {
+    flex: 0 0 auto;
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgb(196 181 253 / 100%);
+}
+
+.vision-panel__active-indicator {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    padding: 1px 8px;
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: rgb(148 163 184 / 100%);
+    background: rgb(148 163 184 / 16%);
+    border: 1px solid rgb(148 163 184 / 28%);
+}
+
+.vision-panel__active-indicator[data-active-panel='vision'] {
+    color: rgb(196 181 253 / 100%);
+    background: rgb(196 181 253 / 18%);
+    border-color: rgb(196 181 253 / 45%);
+}
+
+.vision-panel__entries {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 50%) transparent;
+}
+
+.vision-panel__entries::-webkit-scrollbar {
+    width: 6px;
+}
+
+.vision-panel__entries::-webkit-scrollbar-thumb {
+    background: rgb(148 163 184 / 50%);
+    border-radius: 3px;
+}
+
+.vision-panel__entry {
+    padding: 6px 0;
+    border-top: 1px solid rgb(148 163 184 / 18%);
+}
+
+.vision-panel__entry:first-child {
+    border-top: none;
+}
+
+.vision-panel__entry-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2px;
+    font-size: 11px;
+}
+
+.vision-panel__entry-mode {
+    color: rgb(196 181 253 / 100%);
+    font-weight: 600;
+}
+
+.vision-panel__entry-time {
+    color: rgb(148 163 184 / 100%);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Code output: monospace, wrapped, scrollable. Escaped text only (no dangerouslySetInnerHTML). */
+.vision-panel__entry-body {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 12px;
+    color: rgb(226 232 240 / 100%);
+}
+
+.vision-panel__entry--thinking .vision-panel__entry-body,
+.vision-panel__entry--cancelled .vision-panel__entry-body {
+    color: rgb(148 163 184 / 85%);
+    font-style: italic;
+}
+
+.vision-panel__entry--error .vision-panel__entry-body {
+    color: rgb(248 180 180 / 100%);
+}

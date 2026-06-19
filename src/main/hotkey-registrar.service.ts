@@ -109,6 +109,15 @@ const HOTKEY_CHORDS: readonly IHotkeyChord[] = [
     // so a held key opens once per press. The 'open-settings' handler (openOrFocusSettingsWindow()) is
     // wired in index.ts; a missing handler surfaces in register().failed (CTL-03) — no registrar change.
     { label: 'open-settings', keycode: UiohookKey.S, accelerator: 'Ctrl+Alt+S', kind: 'discrete' },
+    // Phase 7 (D-03/AI-03): Capture a screenshot and solve the code challenge in it. 'C' ("capture" /
+    // "code challenge") is OUTSIDE the locked, conflict-tested set {J, arrows, [, ], H, Q, K, PgUp,
+    // PgDn, A, T, G, F, S}; the on-machine Teams/Zoom/VS Code conflict re-check is pending for the 07-02
+    // packaged-build manual verify per the 02-03 protocol (fall back to a reserved letter — e.g. 'V' for
+    // "vision" — if a collision surfaces, and update this TSDoc). 'discrete' so a held key triggers once
+    // per press; re-pressing mid-stream cancels the in-flight vision stream (D-11), handled entirely in
+    // the AiOrchestrator. The 'capture-code-challenge' handler (aiOrchestrator.trigger('code-challenge'))
+    // is wired in index.ts; a missing handler surfaces in register().failed (CTL-03) — no registrar change.
+    { label: 'capture-code-challenge', keycode: UiohookKey.C, accelerator: 'Ctrl+Alt+C', kind: 'discrete' },
 ];
 
 /** The ordered list of action labels in the locked set, exported for tests and HUD copy. */

@@ -34,10 +34,11 @@ export interface IOverlayStatus {
      * Which panel is the keyboard-scroll target (D-08). Main-owned, distinct from {@link hudVisible}:
      * the focus-cycle chord (Ctrl+Alt+F) flips it between the transcript (HUD) and the AI panel, and the
      * single Ctrl+Alt+PgUp/PgDn scroll channel is routed in the renderer purely by this pushed flag. The
-     * launch default is `'ai'` (D-08). The renderer renders a corner indicator off this flag and never
+     * launch default is `'ai'` (D-08). Phase 7 (D-09) adds `'vision'` as a THIRD focus-cycle target
+     * (transcript → ai → vision). The renderer renders a corner indicator off this flag and never
      * controls it (IN-01: renderer is a pure view).
      */
-    activePanel: 'transcript' | 'ai';
+    activePanel: 'transcript' | 'ai' | 'vision';
 }
 
 /** IPC channel name for the read-only, non-secret status push to the renderer (D-05). */
@@ -141,24 +142,26 @@ export function getHudVisible(): boolean {
  * most likely thing the user wants to scroll first. The renderer routes the single scroll channel and
  * renders the corner indicator purely from this pushed flag.
  */
-let activePanel: 'transcript' | 'ai' = 'ai';
+let activePanel: 'transcript' | 'ai' | 'vision' = 'ai';
 
 /**
- * Sets the main-owned active-panel flag (D-08). The next {@link pushStatus} carries it to the
- * renderer, which routes Ctrl+Alt+PgUp/PgDn scroll to the matching panel and flips the indicator.
+ * Sets the main-owned active-panel flag (D-08; Phase 7 D-09 adds `'vision'`). The next
+ * {@link pushStatus} carries it to the renderer, which routes Ctrl+Alt+PgUp/PgDn scroll to the matching
+ * panel and flips the indicator.
  *
  * @param panel - The panel to make the active scroll target.
  */
-export function setActivePanel(panel: 'transcript' | 'ai'): void {
+export function setActivePanel(panel: 'transcript' | 'ai' | 'vision'): void {
     activePanel = panel;
 }
 
 /**
- * Reads the main-owned active-panel flag so the focus-cycle chord can toggle it.
+ * Reads the main-owned active-panel flag so the focus-cycle chord can cycle it (transcript → ai →
+ * vision → transcript, Phase 7 D-09).
  *
  * @returns The currently active scroll-target panel.
  */
-export function getActivePanel(): 'transcript' | 'ai' {
+export function getActivePanel(): 'transcript' | 'ai' | 'vision' {
     return activePanel;
 }
 

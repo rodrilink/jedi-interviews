@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type JSX } from 'react';
  * The AI mode that produced an entry (D-03 header label). Declared locally because the renderer is
  * bundled separately from the preload; structurally mirrors `AiMode` in main/preload.
  */
-type AiMode = 'answer' | 'talking-points';
+type AiMode = 'answer' | 'talking-points' | 'code-challenge';
 
 /**
  * The read-only AI push event received over the `window.jedi.onAi` bridge (Phase 5, AI-04). Declared
@@ -37,6 +37,7 @@ interface IAiPanelEntry {
 const MODE_LABEL: Record<AiMode, string> = {
     answer: 'Answer',
     'talking-points': 'Talking points',
+    'code-challenge': 'Code challenge',
 };
 
 /**
@@ -73,8 +74,19 @@ function formatRelativeTime(at: number, nowMs: number): string {
 function reduceEntries(entries: IAiPanelEntry[], event: IAiPushEvent): IAiPanelEntry[] {
     switch (event.type) {
         case 'thinking':
+            // D-08: code-challenge entries belong to the dedicated VisionPanel, not the AI panel. Skipping
+            // the start here means this panel never creates a code-challenge entry, so the later
+            // delta/done/error/cancelled (keyed by that id) are no-ops in the `.map` branches below.
+            if (event.mode === 'code-challenge') {
+                return entries;
+            }
+
             return [...entries, { id: event.id, mode: event.mode, text: '', state: 'thinking', at: event.at }];
         case 'empty':
+            if (event.mode === 'code-challenge') {
+                return entries;
+            }
+
             return [...entries, { id: event.id, mode: event.mode, text: event.text, state: 'empty', at: event.at }];
         case 'delta':
             return entries.map((entry) => (entry.id === event.id ? { ...entry, text: event.text, state: 'streaming' } : entry));
@@ -132,7 +144,7 @@ export function AiPanel(): JSX.Element {
     const [nowMs, setNowMs] = useState<number>(() => Date.now());
     // The corner active-panel indicator (D-08) reads off the pushed flag; default 'ai' before the first
     // status push (matching main's launch default) so the indicator renders correctly on launch.
-    const [activePanel, setActivePanel] = useState<'transcript' | 'ai'>('ai');
+    const [activePanel, setActivePanel] = useState<'transcript' | 'ai' | 'vision'>('ai');
     const listRef = useRef<HTMLDivElement | null>(null);
     // While the user has scrolled up via hotkey, auto-stick is paused so a new streaming entry doesn't
     // yank them back to the bottom mid-read. Scrolling back to the bottom re-arms the live follow.
@@ -140,7 +152,7 @@ export function AiPanel(): JSX.Element {
     // The scroll subscription is wired once (empty-deps useEffect), so it would close over a stale
     // `activePanel`. Mirror the latest flag into a ref so the handler reads the live value and only
     // scrolls the AI panel when the AI panel is the active panel (D-08 routing).
-    const activePanelRef = useRef<'transcript' | 'ai'>('ai');
+    const activePanelRef = useRef<'transcript' | 'ai' | 'vision'>('ai');
 
     useEffect(() => {
         const offAi = window.jedi?.onAi((event: IAiPushEvent) => {

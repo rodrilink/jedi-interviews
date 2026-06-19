@@ -14,8 +14,8 @@ interface IOverlayStatus {
     hotkeys: { active: string; failed: string[] };
     /** Whether the HUD content is shown (D-14/D-15). Main-owned; declared identically in main and preload. */
     hudVisible: boolean;
-    /** Which panel is the active keyboard-scroll target (D-08). Main-owned; declared identically in main and preload. */
-    activePanel: 'transcript' | 'ai';
+    /** Which panel is the active keyboard-scroll target (D-08; Phase 7 D-09 adds 'vision'). Main-owned; declared identically in main and preload. */
+    activePanel: 'transcript' | 'ai' | 'vision';
 }
 
 /**
@@ -89,7 +89,7 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
     // The scroll subscription is wired once (empty-deps useEffect), so it would close over a stale
     // `status`. Mirror the latest active-panel flag into a ref so the handler reads the live value and
     // only scrolls the transcript when the transcript is the active panel (D-08 routing).
-    const activePanelRef = useRef<'transcript' | 'ai'>('ai');
+    const activePanelRef = useRef<'transcript' | 'ai' | 'vision'>('ai');
 
     useEffect(() => {
         const offStatus = window.jedi?.onStatus((next: IOverlayStatus) => {
@@ -149,7 +149,7 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
     const positionLabel = status ? `${status.position.x}, ${status.position.y}` : '—';
     const electronVersionLabel = status?.electronVersion ?? '—';
     const hotkeyLabel = status ? (status.hotkeys.failed.length === 0 ? 'OK' : `${status.hotkeys.failed.length} failed`) : '—';
-    const activePanelLabel = status ? (status.activePanel === 'ai' ? 'AI' : 'Transcript') : '—';
+    const activePanelLabel = status ? (status.activePanel === 'ai' ? 'AI' : status.activePanel === 'vision' ? 'Vision' : 'Transcript') : '—';
     // Native Date for the renderer wall-clock display is deliberate (presentation, not business
     // logic — Luxon stays in main per project standards). Read once from the mount ref so it is static.
     const sessionStartedLabel = new Date(sessionStartRef.current).toLocaleString();

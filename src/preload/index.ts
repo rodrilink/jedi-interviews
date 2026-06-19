@@ -15,8 +15,8 @@ export interface IOverlayStatus {
     hotkeys: { active: string; failed: string[] };
     /** Whether the HUD content is shown (D-14/D-15). Main-owned; declared identically in main and renderer. */
     hudVisible: boolean;
-    /** Which panel is the active keyboard-scroll target (D-08). Main-owned; declared identically in main and renderer. */
-    activePanel: 'transcript' | 'ai';
+    /** Which panel is the active keyboard-scroll target (D-08; Phase 7 D-09 adds 'vision'). Main-owned; declared identically in main and renderer. */
+    activePanel: 'transcript' | 'ai' | 'vision';
 }
 
 /**
@@ -52,8 +52,8 @@ const AI_CHANNEL = 'jedi:ai';
 /** The scroll direction forwarded from main (mirrors `ScrollTranscriptDirection` in the main process). */
 export type ScrollTranscriptDirection = 'up' | 'down';
 
-/** The AI mode that produced an entry (mirrors `AiMode` in the main process). */
-export type AiMode = 'answer' | 'talking-points';
+/** The AI mode that produced an entry (mirrors `AiMode` in the main process; Phase 7 adds 'code-challenge'). */
+export type AiMode = 'answer' | 'talking-points' | 'code-challenge';
 
 /**
  * The read-only AI push payload received over `jedi:ai` (Phase 5, AI-04). Structurally mirrors

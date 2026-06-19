@@ -1,6 +1,7 @@
 import { type JSX } from 'react';
 import { DebugHud } from './components/debug-hud';
 import { AiPanel } from './components/ai-panel';
+import { VisionPanel } from './components/vision-panel';
 import './assets/hud.css';
 
 /**
@@ -16,6 +17,12 @@ import './assets/hud.css';
  * the read-only `window.jedi.onAi` channel and renders streamed AI entries. It is deliberately
  * outside the HUD-toggle gate so it stays visible regardless of Ctrl+Alt+H (D-01).
  *
+ * The dedicated `VisionPanel` (Phase 7, D-08/D-10) shares the right column with `AiPanel`. It renders
+ * ONLY code-challenge entries and TAKES OVER the AI-panel region (an absolutely-positioned overlay) only
+ * while it is the active panel or is streaming / holds content — otherwise it returns `null` and the
+ * Phase-5 layout is unchanged. A `.overlay-column` wrapper anchors that takeover without shrinking the
+ * AI panel permanently on the fixed, non-resizable overlay.
+ *
  * The renderer is a pure one-way view: as of Phase 4 (D-02/IN-01) the entire audio path — WASAPI
  * capture, resample, the Deepgram socket, and the transcript buffer — lives in the main process, and
  * Phase 5's AI orchestration likewise lives in main. `App` only renders what main pushes.
@@ -26,7 +33,10 @@ export function App(): JSX.Element {
     return (
         <>
             <DebugHud />
-            <AiPanel />
+            <div className="overlay-column">
+                <AiPanel />
+                <VisionPanel />
+            </div>
         </>
     );
 }
