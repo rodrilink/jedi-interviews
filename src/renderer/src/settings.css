@@ -1,0 +1,178 @@
+/* Settings window styling. The settings window is the INVERTED overlay (focusable/framed/opaque,
+   06-01) — unlike the transparent click-through overlay, it is a normal opaque form surface. No inline
+   `style=` props anywhere in the settings components (code-standards); all styling lives here. */
+
+:root {
+    color-scheme: dark;
+}
+
+body {
+    margin: 0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #1e1e1e;
+    color: #e6e6e6;
+}
+
+.settings {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    box-sizing: border-box;
+}
+
+.settings__tabs {
+    display: flex;
+    gap: 4px;
+    padding: 8px 12px 0;
+    border-bottom: 1px solid #3a3a3a;
+}
+
+.settings__tab {
+    appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    border-bottom: none;
+    color: #b8b8b8;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+}
+
+.settings__tab:hover {
+    color: #e6e6e6;
+}
+
+.settings__tab--active {
+    background: #2a2a2a;
+    border-color: #3a3a3a;
+    color: #ffffff;
+}
+
+.settings__body {
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 16px;
+}
+
+.settings-tab {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 720px;
+}
+
+.settings-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.settings-field__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #cfcfcf;
+}
+
+.settings-field__hint {
+    font-size: 11px;
+    color: #8a8a8a;
+}
+
+.settings-field__input,
+.settings-field__textarea {
+    background: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    color: #e6e6e6;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.settings-field__textarea {
+    min-height: 96px;
+    resize: vertical;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+}
+
+.settings-field__input:focus,
+.settings-field__textarea:focus {
+    outline: none;
+    border-color: #5a9bd4;
+}
+
+.settings-field__key-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.settings-field__key-row .settings-field__input {
+    flex: 1 1 auto;
+}
+
+.settings-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 4px;
+}
+
+.settings-button {
+    appearance: none;
+    background: #3a6ea5;
+    border: none;
+    border-radius: 6px;
+    color: #ffffff;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.settings-button:hover {
+    background: #4a7fb8;
+}
+
+.settings-button:disabled {
+    background: #444;
+    color: #999;
+    cursor: default;
+}
+
+.settings-button--ghost {
+    background: transparent;
+    border: 1px solid #3a3a3a;
+    color: #cfcfcf;
+}
+
+.settings-status {
+    font-size: 12px;
+}
+
+.settings-status--dirty {
+    color: #e0a33e;
+}
+
+.settings-status--saved {
+    color: #5cb85c;
+}
+
+.settings-presence {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #b8b8b8;
+}
+
+.settings-presence__set {
+    color: #5cb85c;
+}
+
+.settings-presence__unset {
+    color: #c97a7a;
+}
