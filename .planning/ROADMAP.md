@@ -224,13 +224,21 @@ Plans:
   3. The app builds to a runnable Windows .exe on which transparency, focus discipline, and content protection still hold on the target machine.
   4. Latency is instrumented (hotkey→first-token budget) and SmartScreen behavior is documented as accepted friction.
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 
-- [ ] 07-01: ScreenshotService (desktopCapturer) + client-side downscale; image block in PromptAssembly; Opus routing; solve-screenshot hotkey
-- [ ] 07-02: electron-builder NSIS/portable packaging; verify transparency/focus/content-protection in the packaged build; hardware-accel fallback
-- [ ] 07-03: Latency instrumentation, SmartScreen documentation, Whisper stub gateway behind ISttProvider, hotkey-config recovery
+**Wave 1**
+
+- [ ] 07-01-PLAN.md — Vision slice: ScreenshotService (desktopCapturer active-monitor capture) + pure downscale utility (<=1568px, no data: prefix); optional image field on IAiPromptRequest + PromptAssembler image branch + VISION_SYSTEM_PROMPT; CODE_CHALLENGE_MODEL=claude-opus-4-8; Ctrl+Alt+C chord; dedicated vision panel + three-way focus cycle (AI-03)
+
+**Wave 2** *(blocked on 07-01)*
+
+- [ ] 07-02-PLAN.md — Packaging slice: electron-builder portable .exe + asarUnpack globs for both native modules; on-machine GO/NO-GO gate (transparency/focus/content-protection + end-to-end screenshot-solve) + committed 07-VERIFICATION.md (PKG-01)
+
+**Wave 3** *(blocked on 07-01 + 07-02)*
+
+- [ ] 07-03-PLAN.md — Hardening slice: vision latency instrumentation + opt-in JEDI_DISABLE_GPU hardware-accel fallback + hardened CTL-03 hotkey recovery + docs/HARDENING.md SmartScreen friction (Whisper stub DROPPED, D-16) (PKG-01)
 
 **Notes**: Vision mode reuses the entire Phase 5 AI path; it adds only an image source and an Opus model switch, so it is last among features and the most expensive per call. Confirm the current Anthropic vision request shape and model IDs via the claude-api skill (research flag: Phase 7 API shape). Base64 image field must have no data-URL prefix. PKG-01 is fully owned here; the Phase 1 packaged smoke test only de-risked transparency rendering. Standard patterns for electron-builder NSIS.
 **UI hint**: yes
@@ -248,4 +256,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. STT Pipeline + Live Transcript | 4/4 | Complete   | 2026-06-18 |
 | 5. AI Orchestration (Answer + Talking Points) | 2/3 | In Progress|  |
 | 6. Session Context + Settings Window | 4/4 | Complete   | 2026-06-19 |
-| 7. Screenshot Vision + Packaging & Hardening | 0/3 | Not started | - |
+| 7. Screenshot Vision + Packaging & Hardening | 0/3 | Planned | - |
