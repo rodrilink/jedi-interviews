@@ -79,6 +79,16 @@ interface IActiveRequest {
     text: string;
     debounceTimer: ReturnType<typeof setTimeout> | undefined;
     pendingDelta: boolean;
+    /** The model id this stream runs on, captured so the first-token latency log can attribute it (D-10). */
+    model: string;
+    /**
+     * Monotonic start timestamp (ms) captured when the stream is created, used to compute the
+     * hotkey-to-first-token latency (D-10). Reset per requestId so a cross-mode cancel-and-restart gets
+     * its own measurement; the requestId guard means an aborted stream's late first delta never logs here.
+     */
+    startMs: number;
+    /** Whether the first-token latency line has already been logged for this stream (log exactly once, D-10). */
+    firstTokenLogged: boolean;
 }
 
 /**
@@ -154,8 +164,11 @@ export class AiOrchestrator {
         const model = mode === 'answer' ? ANSWER_MODEL : TALKING_POINTS_MODEL;
         const { system, userContent } = assemblePrompt({ mode, span, context: undefined });
 
+        // Capture the monotonic start NOW — immediately before the stream is created — so the logged
+        // latency measures the hotkey-to-first-token interval the user actually feels (D-10).
+        const startMs = Date.now();
         const stream = this.gateway.stream({ model, maxTokens: MAX_TOKENS[mode], system, userContent });
-        this.active = { mode, requestId, id, stream, text: '', debounceTimer: undefined, pendingDelta: false };
+        this.active = { mode, requestId, id, stream, text: '', debounceTimer: undefined, pendingDelta: false, model, startMs, firstTokenLogged: false };
 
         // Surface the in-flight 'thinking…' state immediately so the entry appears before the first token (D-04).
         this.pushAi({ type: 'thinking', requestId, id, mode, at });
@@ -179,6 +192,17 @@ export class AiOrchestrator {
             // no active request to attach to and is dropped — it can never bleed into the new entry.
             if (this.active === undefined) {
                 return;
+            }
+
+            // D-10: log the hotkey-to-first-token latency ONCE per stream, to the MAIN LOG ONLY (never
+            // pushed to the renderer). Keyed on the active request (the Pitfall-1 guard above already
+            // dropped late deltas from an aborted stream), so a cross-mode cancel-and-restart logs the
+            // NEW stream's own measurement. Only `mode`, `model`, and `latencyMs` are logged — never the
+            // transcript text, the key, or an error payload (T-5-10; mirrors index.ts:131-135 discipline).
+            if (!this.active.firstTokenLogged) {
+                this.active.firstTokenLogged = true;
+                const latencyMs = Date.now() - this.active.startMs;
+                console.log(`[ai] first-token mode=${this.active.mode} model=${this.active.model} latencyMs=${latencyMs}`);
             }
 
             this.active.text += textDelta;
