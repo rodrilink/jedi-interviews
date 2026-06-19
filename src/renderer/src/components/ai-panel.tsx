@@ -206,9 +206,10 @@ export function AiPanel(): JSX.Element {
     }, [entries]);
 
     return (
-        <section className="ai-panel" data-testid="card-ai-panel">
+        <section className="ai-panel" data-testid="card-ai-panel" data-active={activePanel === 'ai'}>
             {/* Corner active-panel indicator (D-08): shows which panel the shared scroll chord targets.
-                A pure view of the main-owned activePanel flag; Ctrl+Alt+F flips it in main. */}
+                A pure view of the main-owned activePanel flag; Ctrl+Alt+F flips it in main. The
+                data-active attribute on the root drives the focus highlight (brighter border + ring). */}
             <span className="ai-panel__active-indicator" data-testid="icon-active-panel" data-active-panel={activePanel}>
                 {activePanel === 'ai' ? 'AI' : 'Transcript'}
             </span>

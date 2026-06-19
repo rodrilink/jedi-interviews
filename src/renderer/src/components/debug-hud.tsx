@@ -54,6 +54,8 @@ const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: stri
     { id: 'answer', label: 'Answer', chord: 'Ctrl+Alt+A' },
     { id: 'talking-points', label: 'Talking points', chord: 'Ctrl+Alt+T' },
     { id: 'clear-ai', label: 'Clear AI', chord: 'Ctrl+Alt+G' },
+    { id: 'copy-code', label: 'Copy code', chord: 'Ctrl+Alt+Y' },
+    { id: 'toggle-mouse', label: 'Toggle mouse', chord: 'Ctrl+Alt+M' },
     { id: 'quit', label: 'Quit', chord: 'Ctrl+Alt+Q' },
 ];
 
@@ -154,6 +156,11 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
     // logic — Luxon stays in main per project standards). Read once from the mount ref so it is static.
     const sessionStartedLabel = new Date(sessionStartRef.current).toLocaleString();
     const uptimeLabel = formatUptime(nowMs - sessionStartRef.current);
+    // The transcript/HUD is the 'transcript' focus-cycle target (D-09). Drive the focus highlight
+    // (brighter border + ring) and the corner indicator off the pushed activePanel flag — the renderer
+    // is a pure view of this main-owned flag (Ctrl+Alt+F flips it). Before the first status push, treat
+    // the HUD as unfocused (launch default is 'ai').
+    const isTranscriptActive: boolean = status?.activePanel === 'transcript';
     const connectionStateLabel = transcript?.connectionState ?? '—';
     const finalTextLabel = transcript?.finalText ?? '';
     const interimTextLabel = transcript?.interimText ?? '';
@@ -163,7 +170,12 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
     const meterPercent = Math.max(0, Math.min(100, Math.round(audioLevel * 250)));
 
     return (
-        <section className="debug-hud" data-testid="card-debug-hud">
+        <section className="debug-hud" data-testid="card-debug-hud" data-active={isTranscriptActive}>
+            {/* Corner active-panel indicator mirroring the AI/vision panels: highlights when the
+                transcript/HUD is the focus-cycle target (Ctrl+Alt+F). Pure view of the pushed flag. */}
+            <span className="debug-hud__active-indicator" data-testid="icon-active-panel-transcript" data-active-panel={status?.activePanel ?? 'ai'}>
+                Transcript
+            </span>
             <h1 className="debug-hud__title">Jedi Interviews</h1>
             <dl className="debug-hud__grid">
                 <dt className="debug-hud__key">Electron</dt>

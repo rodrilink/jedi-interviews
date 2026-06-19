@@ -166,6 +166,89 @@ export function getActivePanel(): 'transcript' | 'ai' | 'vision' {
 }
 
 /**
+ * The latest code-challenge solution text, tracked at module level (mirroring {@link activePanel})
+ * because it is main-owned and not derivable from the window. The pushAi closure in index.ts records the
+ * accumulated text of the in-flight code-challenge entry on each delta/done and clears it on a
+ * `cleared` event, so the copy-code-challenge chord (Ctrl+Alt+Y) can write it to the system clipboard in
+ * main without widening the renderer IPC surface. Empty until the first code challenge streams in.
+ */
+let latestCodeChallengeText = '';
+
+/**
+ * Records the latest code-challenge solution text so the copy-code-challenge chord can yank it to the
+ * clipboard (quick fix 260619-mcv, D-08). Called by the index.ts pushAi closure on each code-challenge
+ * delta/done (carrying the full accumulated text) and with `''` on a `cleared` event.
+ *
+ * @param text - The full accumulated code-challenge solution text (or `''` to reset).
+ */
+export function setLatestCodeChallengeText(text: string): void {
+    latestCodeChallengeText = text;
+}
+
+/**
+ * Reads the latest recorded code-challenge solution text for the copy-code-challenge chord.
+ *
+ * @returns The full latest code-challenge solution text, or `''` if none has streamed in yet.
+ */
+export function getLatestCodeChallengeText(): string {
+    return latestCodeChallengeText;
+}
+
+/**
+ * Whether the overlay is currently INTERACTIVE — i.e. click-through is temporarily disabled so the user
+ * can drag-select code in the Code Challenge panel (quick fix 260619-mcv, D-09). Tracked at module level
+ * (mirroring {@link activePanel}) because it is main-owned and the toggle chord (Ctrl+Alt+M) flips it
+ * independently of window/HUD visibility. Defaults to `false`: the overlay is created and shown
+ * click-through (OVL-02) and only this explicit, reversible toggle relaxes that.
+ */
+let overlayInteractive = false;
+
+/**
+ * Toggles the overlay between click-through (default) and interactive (quick fix 260619-mcv, D-09).
+ *
+ * This is the ONE sanctioned place {@link BrowserWindow.setIgnoreMouseEvents}`(false)` is called: when
+ * `interactive` is `true` the overlay stops swallowing-vs-passing mouse events so the user can click and
+ * drag-select code in the Code Challenge panel — an intentional, explicit relaxation of the never-take-
+ * focus discipline (OVL-02). When `interactive` is `false` it re-asserts the overlay's load-bearing
+ * defaults EXACTLY as {@link showOverlay} does — click-through (`setIgnoreMouseEvents(true, { forward:
+ * true })`), content protection, and the `'screen-saver'` always-on-top level (OVL-04 / Pitfall 2) —
+ * then pushes status so the HUD reflects the restored content-protection state. Guards `isDestroyed()`
+ * because hotkeys fire async, possibly mid-teardown.
+ *
+ * @param window - The overlay window to toggle.
+ * @param interactive - `true` to disable click-through for drag-select; `false` to restore the defaults.
+ */
+export function setOverlayInteractive(window: BrowserWindow, interactive: boolean): void {
+    if (window.isDestroyed()) {
+        return;
+    }
+
+    overlayInteractive = interactive;
+
+    if (interactive) {
+        // The sole sanctioned setIgnoreMouseEvents(false): let clicks/drag-select land on the overlay.
+        window.setIgnoreMouseEvents(false);
+    } else {
+        // Restore the load-bearing defaults exactly like showOverlay (the OS can drop these; re-assert).
+        window.setIgnoreMouseEvents(true, { forward: true });
+        window.setContentProtection(true);
+        contentProtectionEnabled = true;
+        window.setAlwaysOnTop(true, 'screen-saver');
+    }
+
+    pushStatus(window);
+}
+
+/**
+ * Reads the main-owned overlay-interactive flag so the toggle-interaction chord can read-toggle-push it.
+ *
+ * @returns `true` when click-through is currently disabled (interactive); `false` when click-through.
+ */
+export function getOverlayInteractive(): boolean {
+    return overlayInteractive;
+}
+
+/**
  * Whether the overlay *window* itself is currently visible (D-12: starts shown on launch).
  * Owned here in one place (mirroring {@link contentProtectionEnabled}) rather than fragmented
  * into index.ts, so the single show/hide chord can branch on it: {@link showOverlay} sets it

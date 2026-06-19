@@ -117,20 +117,22 @@ function renderEntryBody(entry: IVisionPanelEntry): string {
 }
 
 /**
- * The dedicated streaming vision panel (D-08/D-09/D-10).
+ * The dedicated streaming vision panel (D-08/D-09).
  *
  * A pure one-way view (IN-01): it subscribes to the read-only `window.jedi.onAi` channel and keeps a
  * bounded local mirror of ONLY the code-challenge entries (D-08 — separate from the answer/talking-points
  * AI panel because code solutions are long and read better isolated). It reuses the AI panel's streaming /
  * thinking… / error / cancelled inline-state render and the `stickToBottomRef` follow/pause + focused-panel
- * scroll model, guarding on the `'vision'` active panel (D-09 — the third focus-cycle target). It takes
- * over the AI-panel region only while it is the active panel OR is streaming/has content (D-10), so the
- * Phase-5 layout is otherwise unchanged. Streamed code renders as ESCAPED text inside `<pre>` — React
- * escapes by default and raw-HTML injection is never used (Security Domain / T-7-XSS).
+ * scroll model, guarding on the `'vision'` active panel (D-09 — the third focus-cycle target). It is its
+ * OWN distinct, always-present "Code Challenge" column alongside the HUD and AI panel (the former
+ * takeover-overlay model is replaced by a real third column), so it ALWAYS renders a `<section>` — a quiet
+ * placeholder line when there are no entries yet so the empty column reads intentionally. Streamed code
+ * renders as ESCAPED text inside `<pre>` — React escapes by default and raw-HTML injection is never used
+ * (Security Domain / T-7-XSS).
  *
- * @returns The vision panel element, or `null` when it is neither active nor holding content (D-10).
+ * @returns The vision panel element (always rendered — never returns null).
  */
-export function VisionPanel(): JSX.Element | null {
+export function VisionPanel(): JSX.Element {
     const [entries, setEntries] = useState<IVisionPanelEntry[]>([]);
     const [nowMs, setNowMs] = useState<number>(() => Date.now());
     const [activePanel, setActivePanel] = useState<'transcript' | 'ai' | 'vision'>('ai');
@@ -185,14 +187,10 @@ export function VisionPanel(): JSX.Element | null {
         }
     }, [entries]);
 
-    // D-10: take over the AI-panel region only when vision is the active panel OR is streaming / has
-    // content. Otherwise render nothing so the Phase-5 layout (HUD + AI panel) is unchanged.
-    const isStreaming = entries.some((entry) => entry.state === 'thinking' || entry.state === 'streaming');
-    const shouldShow = activePanel === 'vision' || isStreaming || entries.length > 0;
-    if (!shouldShow) {
-        return null;
-    }
-
+    // Phase 7 D-09 (quick fix 260619-mcv): the vision panel is now its OWN distinct, always-present
+    // third column (Transcript | AI | Code Challenge), NOT a takeover overlay — so it always renders.
+    // A quiet placeholder fills the entries area when no code challenge has been captured yet so the
+    // empty column reads intentionally rather than looking broken.
     return (
         <section className="vision-panel" data-testid="card-vision-panel" data-active={activePanel === 'vision'}>
             <span className="vision-panel__active-indicator" data-testid="icon-active-panel-vision" data-active-panel={activePanel}>
@@ -200,6 +198,11 @@ export function VisionPanel(): JSX.Element | null {
             </span>
             <h2 className="vision-panel__title">Code challenge</h2>
             <div className="vision-panel__entries" data-testid="list-vision-entries" ref={listRef}>
+                {entries.length === 0 ? (
+                    <p className="vision-panel__placeholder" data-testid="cell-vision-placeholder">
+                        No code challenge yet — press Ctrl+Alt+C to capture one.
+                    </p>
+                ) : null}
                 {entries.map((entry) => (
                     <article className={`vision-panel__entry vision-panel__entry--${entry.state}`} key={entry.id} data-testid={`row-vision-entry-${entry.id}`}>
                         <header className="vision-panel__entry-header">
