@@ -26,6 +26,7 @@ import type { ISttTranscriptEvent, SttConnectionState } from './stt/stt-provider
 import { AnthropicGateway } from './ai/anthropic-ai.gateway';
 import { AiOrchestrator } from './ai/ai-orchestrator';
 import { AiHistory } from './ai/ai-history';
+import { SessionContextRepository } from './context/session-context.repository';
 
 /**
  * The single hotkey registrar for the app's lifetime. Instantiated once after the overlay
@@ -299,6 +300,11 @@ app.whenReady().then(() => {
     // A key saved via the settings window overrides a stale .env value at boot (resolveApiKey).
     const apiKeyStore = new ApiKeyStoreService();
 
+    // The session-context persistence layer (06-02, D-09). By-convention singleton resolved here at the
+    // entry point only (no service-locator mid-method). Backs the orchestrator's pull-on-trigger context
+    // provider (D-10) and the two settings:*-context IPC handlers below.
+    const contextRepo = new SessionContextRepository();
+
     const window = bootOverlay();
 
     // The authoritative rolling transcript buffer (main-owned, TRN-04). Wired into the STT pipeline
@@ -318,10 +324,10 @@ app.whenReady().then(() => {
     // D-08 precedence for the Anthropic key too: a saved safeStorage key overrides a stale .env value.
     aiGateway = new AnthropicGateway(resolveApiKey(apiKeyStore.getAnthropic(), process.env.ANTHROPIC_API_KEY));
     aiHistory = new AiHistory();
-    // D-10 pull-on-trigger: the orchestrator's 5th arg is the active-context provider. Wired to the
-    // SessionContextRepository in 06-04 Task 3; until then it is the Phase-5 fail-safe (`undefined` →
-    // formatContext '' → byte-for-byte Phase-5 prompt).
-    aiOrchestrator = new AiOrchestrator(aiGateway, buffer, aiHistory, (event) => pushAi(window, event), () => undefined);
+    // D-10 pull-on-trigger: the orchestrator's 5th arg pulls the active grounding context FRESH at each
+    // trigger, so a mid-session context Save grounds the very next AI call with no restart. An absent
+    // context returns `undefined` → formatContext '' → byte-for-byte Phase-5 prompt (fail-safe).
+    aiOrchestrator = new AiOrchestrator(aiGateway, buffer, aiHistory, (event) => pushAi(window, event), () => contextRepo.activeAsGrounding());
 
     // Register the settings window's dedicated two-way IPC surface (D-04). These four named channels are
     // the ENTIRE settings renderer->main write surface; the overlay's one-way jedi:* channels are
@@ -353,10 +359,30 @@ app.whenReady().then(() => {
         }
     });
 
-    // TODO(06-03/06-04): back these with SessionContextRepository (get the active context / persist it).
-    // Declared now so the settings preload's contract is complete and 06-03 only needs to fill the body.
-    ipcMain.handle('settings:get-context', (): undefined => undefined);
-    ipcMain.handle('settings:save-context', (): void => undefined);
+    // settings:get-context (06-04): the editor pre-fills from the active context DTO (CTX-02). Returns
+    // `undefined` when no context exists yet (the editor renders empty fields). No key/secret crosses here.
+    ipcMain.handle('settings:get-context', (): ReturnType<typeof contextRepo.getActive> => contextRepo.getActive());
+
+    // settings:save-context (06-04, CTX-02/D-06): persist-and-activate the four grounding fields so the
+    // NEXT AI trigger pulls them via the orchestrator's provider — no restart. SECURITY (T-06-14,
+    // Tampering): the inbound DTO is untrusted renderer input, so VALIDATE its shape before persisting —
+    // reject a non-object, and coerce each field defensively (a wrong-typed field is dropped, never
+    // forwarded into the prompt). Only the four grounding fields are written; id/source/createdAt are
+    // owned by the repository. The renderer already sends `links` as a parsed string[] (preload contract),
+    // so no newline parsing is needed here.
+    ipcMain.handle('settings:save-context', (_event, dto: unknown): void => {
+        if (typeof dto !== 'object' || dto === null) {
+            return;
+        }
+
+        const candidate = dto as Record<string, unknown>;
+        const notes = typeof candidate.notes === 'string' ? candidate.notes : undefined;
+        const ticketText = typeof candidate.ticketText === 'string' ? candidate.ticketText : undefined;
+        const repoSnippets = typeof candidate.repoSnippets === 'string' ? candidate.repoSnippets : undefined;
+        const links = Array.isArray(candidate.links) ? candidate.links.filter((link): link is string => typeof link === 'string') : undefined;
+
+        contextRepo.saveActive({ notes, ticketText, repoSnippets, links });
+    });
 
     // Register the global hotkey layer after the overlay boots. The aggregated outcome is
     // fed to the HUD over the read-only jedi:status channel (D-06) — startup-only (D-07), and
