@@ -194,14 +194,19 @@ Plans:
   4. Every AI call (all available modes) is grounded in the active session context plus the relevant transcript span, and the grounding improvement is observable versus Phase 5.
   5. The context store is structured (ULID-keyed `ISessionContextDto`) so a future URL-fetcher can populate it without a schema redesign.
 
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
 
-- [ ] 06-01: Separate focusable settings BrowserWindow + API-key entry/save via safeStorage, opened by hotkey
-- [ ] 06-02: SessionContextRepository (electron-store) with multi-context-ready ISessionContextDto schema
-- [ ] 06-03: Context editor UI (paste/edit notes/snippets/links) reachable from settings window
-- [ ] 06-04: Inject active context into PromptAssembly for every mode (completes AI-06 grounding)
+**Wave 1**
+
+- [ ] 06-01-PLAN.md — Focusable settings window + two-key safeStorage store + Ctrl+Alt+S chord + boot key precedence (D-08) + multi-renderer/preload build wiring + headless key round-trip (SET-01, SET-02)
+- [ ] 06-02-PLAN.md — SessionContextRepository over electron-store (ULID-keyed ISessionContextDto, activeAsGrounding/saveActive) + pure parseLinks utility + ulid dep (CTX-01, CTX-02, CTX-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06-03-PLAN.md — Two-tab settings editor UI (Context landing + Keys), four fields, dirty indicator, explicit Save (CTX-01, SET-02, SET-04)
+- [ ] 06-04-PLAN.md — Inject active context into the orchestrator at trigger time (D-10) + live re-key both gateways (D-07) + fully wire the settings:* IPC handlers (CTX-02, CTX-03, AI-06, SET-02)
 
 **Notes**: The overlay is `focusable:false` and cannot host text inputs, so key entry and context editing must live in this separate focusable window (avoids the focus-stealing pitfall). Design the `ISessionContextDto` schema for multiple named contexts from day one even though v1 ships one. Standard patterns — electron-store + contextBridge IPC are mature.
 **UI hint**: yes
