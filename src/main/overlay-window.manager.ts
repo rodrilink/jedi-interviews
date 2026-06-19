@@ -241,18 +241,22 @@ let overlayInteractive = false;
  * always-on-top level (OVL-04 / Pitfall 2) — then pushes status so the renderer drops the interactive
  * background and the HUD reflects the restored state. Guards `isDestroyed()` because hotkeys fire async.
  *
- * TASKBAR/TITLE FIX (quick fix 260619-mcv items 3-5): on Windows, toggling focusability on a
+ * TASKBAR/TITLE FIX (quick fix 260619-mcv items 3-8): on Windows, toggling focusability on a
  * `frame:false` `skipTaskbar:true` window perturbs the native window frame. Round 4 fixed the ON path
- * (setFocusable(true) does not force a titled-frame repaint). Round 5 fixes the INVERTED regression on the
+ * (setFocusable(true) does not force a titled-frame repaint). Round 5 fixed the INVERTED regression on the
  * OFF path: calling `setFocusable(false)` WHILE the window still HOLDS focus (it was `focus()`'d on the ON
- * toggle) repaints it as a focused, titled window and surfaces the native title bar — and a later
- * `setSkipTaskbar`/`setTitle` does not clear that frame artifact. The OFF path therefore (a) `blur()`s the
- * window BEFORE dropping focusability so the frame is not repainted as a focused titled window, then (b)
- * forces a clean frameless re-realize with `hide()` + `showInactive()` (NEVER `show()`/`focus()` — OVL-02:
- * the overlay must never steal focus), and re-asserts ALL load-bearing defaults AFTER the re-show
- * (skip-taskbar, empty title, click-through, content protection, `'screen-saver'` always-on-top) so
- * nothing is lost and content protection is never left dropped. End state: no title bar, no taskbar entry,
- * click-through, content-protected, always-on-top — in every resting state across an ON/OFF/ON/OFF cycle.
+ * toggle) repaints it as a focused, titled window and surfaces the native title bar; round 5 cleared it
+ * with a `hide()` + `showInactive()` re-realize, but that re-realize caused a visible BLINK.
+ *
+ * Round 8 resolution (no stuck title bar AND no blink): the title bar only ever appeared because the
+ * window was repainted in the FOCUSED state when focusability was dropped. So the OFF path simply
+ * `blur()`s the window BEFORE `setFocusable(false)` — the frame is then repainted in the UNfocused,
+ * frameless state and the native title bar never surfaces, with NO hide()/showInactive() and therefore NO
+ * blink. (This is fix direction (a): blur-before-defocus alone suffices once the window isn't focused at
+ * the moment focusability is removed.) It then re-asserts every load-bearing default in place
+ * (skip-taskbar, empty title, click-through, content protection, `'screen-saver'` always-on-top) without
+ * any hide/show. End state in every resting state of an ON/OFF/ON/OFF cycle: no title bar, no taskbar
+ * entry, click-through, content-protected, always-on-top, never-steal-focus — and no flicker.
  *
  * @param window - The overlay window to toggle.
  * @param interactive - `true` to disable click-through for drag-select; `false` to restore the defaults.
@@ -276,21 +280,14 @@ export function setOverlayInteractive(window: BrowserWindow, interactive: boolea
         window.setTitle('');
         window.focus();
     } else {
-        // Defocus FIRST (item 5): dropping focusability while the window holds focus repaints it as a
-        // focused, titled window and surfaces the native title bar. blur() before setFocusable(false) so
-        // the frame is never repainted in the titled state.
+        // Defocus FIRST (round 5/8): dropping focusability while the window holds focus repaints it as a
+        // focused, TITLED window and surfaces the native title bar. blur() before setFocusable(false) so
+        // the frame is repainted in the unfocused, frameless state — the title bar never appears, with NO
+        // hide()/showInactive() re-realize and therefore NO blink (round 8). Then re-assert the load-bearing
+        // defaults IN PLACE (OVL-04 / Pitfall 2): no taskbar entry, empty title, click-through, content
+        // protection (never left dropped), and the highest practical always-on-top level.
         window.blur();
         window.setFocusable(false);
-
-        // Force a clean frameless re-realize so any lingering title-bar frame artifact is gone. hide() +
-        // showInactive() re-creates the window surface with its frame:false/no-title style; showInactive
-        // (NEVER show()/focus()) preserves the never-steal-focus invariant (OVL-02 / Pitfall 3).
-        window.hide();
-        window.showInactive();
-
-        // Re-assert every load-bearing default AFTER the re-show so none is lost and content protection is
-        // never left dropped (OVL-04 / Pitfall 2): no taskbar entry, empty title, click-through,
-        // content protection, and the highest practical always-on-top level.
         window.setSkipTaskbar(true);
         window.setTitle('');
         window.setIgnoreMouseEvents(true, { forward: true });
