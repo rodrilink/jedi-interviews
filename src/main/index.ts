@@ -1,6 +1,9 @@
 import { resolve } from 'path';
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import { loadDotenvFile } from './config/load-dotenv.utility';
+import { resolveApiKey } from './config/resolve-api-key.utility';
+import { ApiKeyStoreService } from './secrets/api-key-store.service';
+import { openOrFocusSettingsWindow } from './settings-window.manager';
 import {
     createOverlayWindow,
     showOverlay,
@@ -119,6 +122,11 @@ function buildHandlers(
             aiHistory.clear();
             pushAi(window, { type: 'cleared' });
         },
+        // Phase 6 (D-01/SET-01): Open (or focus) the settings window. The window manager owns the lazy
+        // create-or-focus lifecycle, so the handler is a one-liner mirroring the other chords. The
+        // settings window is a normal focusable window — opening it deliberately takes focus, unlike the
+        // overlay; it never touches the overlay's focus discipline.
+        'open-settings': (): void => openOrFocusSettingsWindow(),
         quit: (): void => actions.quit(),
     };
 }
@@ -157,12 +165,16 @@ function bootOverlay(): BrowserWindow {
  *
  * @param window - The overlay window the transcript snapshot is pushed to.
  * @param buffer - The shared transcript buffer (also wiped by the clear-transcript chord).
+ * @param apiKeyStore - The two-key safeStorage store; a saved Deepgram key overrides a stale .env (D-08).
  * @returns A getter for the current connection state, read by the clear-transcript handler.
  */
-function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer): () => SttConnectionState {
+function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, apiKeyStore: ApiKeyStoreService): () => SttConnectionState {
     let connectionState: SttConnectionState = 'disconnected';
 
-    const gateway = new DeepgramSttGateway(process.env.DEEPGRAM_API_KEY ?? '');
+    // D-08 precedence: a key saved via the settings window (safeStorage) wins over a stale .env value;
+    // the env fallback preserves the pre-Phase-6 behavior. Resolved here, post-app.ready (Pitfall 2), so
+    // safeStorage is available. The key is read in main only and never logged or sent over IPC.
+    const gateway = new DeepgramSttGateway(resolveApiKey(apiKeyStore.getDeepgram(), process.env.DEEPGRAM_API_KEY));
     sttGateway = gateway;
 
     // Latest audio level (RMS, 0..1) computed in main from the captured PCM. Surfaced on the overlay
@@ -222,6 +234,11 @@ app.whenReady().then(() => {
     // secrets via the real environment). MUST run before wireSttPipeline reads DEEPGRAM_API_KEY.
     loadDotenvFile(resolve(app.getAppPath(), '.env'));
 
+    // The two-key safeStorage store (D-08/SET-02). Instantiated once here, post-app.ready so
+    // safeStorage.isEncryptionAvailable() is true (Pitfall 2). By-convention singleton — no TSyringe.
+    // A key saved via the settings window overrides a stale .env value at boot (resolveApiKey).
+    const apiKeyStore = new ApiKeyStoreService();
+
     const window = bootOverlay();
 
     // The authoritative rolling transcript buffer (main-owned, TRN-04). Wired into the STT pipeline
@@ -229,7 +246,7 @@ app.whenReady().then(() => {
     const buffer = new TranscriptBuffer();
 
     // Wire capture -> resample -> Deepgram -> buffer -> jedi:transcript push once (TRN-01/02/03).
-    const getConnectionState = wireSttPipeline(window, buffer);
+    const getConnectionState = wireSttPipeline(window, buffer, apiKeyStore);
 
     // Wire the Phase 5 AI stack. The Anthropic key is read from process.env in main only (mirroring the
     // Deepgram D-08 policy), AFTER loadDotenvFile, and constructor-injected — the gateway never reads
@@ -238,9 +255,38 @@ app.whenReady().then(() => {
     // orchestrator closes over the shared `buffer` (the span source) and a `pushAi(window, event)`
     // closure, mirroring how wireSttPipeline closes over pushTranscript. If the key is empty, the
     // orchestrator surfaces `AI error: missing API key` inline (Pitfall 3) — never logs the key.
-    aiGateway = new AnthropicGateway(process.env.ANTHROPIC_API_KEY ?? '');
+    // D-08 precedence for the Anthropic key too: a saved safeStorage key overrides a stale .env value.
+    aiGateway = new AnthropicGateway(resolveApiKey(apiKeyStore.getAnthropic(), process.env.ANTHROPIC_API_KEY));
     aiHistory = new AiHistory();
     aiOrchestrator = new AiOrchestrator(aiGateway, buffer, aiHistory, (event) => pushAi(window, event));
+
+    // Register the settings window's dedicated two-way IPC surface (D-04). These four named channels are
+    // the ENTIRE settings renderer->main write surface; the overlay's one-way jedi:* channels are
+    // untouched. SECURITY: get-keys returns presence booleans only (T-06-01) — the decrypted key never
+    // crosses IPC outbound; save-keys trims + string-validates input (T-06-05) and never logs the key
+    // (T-06-02). Live re-key of the running gateways lands in 06-04; here save just persists. The two
+    // context channels are declared now and fully wired (the editor UI + persistence) in 06-03/06-04.
+    ipcMain.handle('settings:get-keys', (): { deepgram: boolean; anthropic: boolean } => ({
+        deepgram: apiKeyStore.hasDeepgram(),
+        anthropic: apiKeyStore.hasAnthropic(),
+    }));
+
+    ipcMain.handle('settings:save-keys', (_event, keys: { deepgram?: string; anthropic?: string }): void => {
+        // Validate each field is a non-empty string before persisting (T-06-05). The plaintext is
+        // encrypted at rest by the store and is NEVER logged here.
+        if (typeof keys?.deepgram === 'string' && keys.deepgram.trim().length > 0) {
+            apiKeyStore.saveDeepgram(keys.deepgram.trim());
+        }
+
+        if (typeof keys?.anthropic === 'string' && keys.anthropic.trim().length > 0) {
+            apiKeyStore.saveAnthropic(keys.anthropic.trim());
+        }
+    });
+
+    // TODO(06-03/06-04): back these with SessionContextRepository (get the active context / persist it).
+    // Declared now so the settings preload's contract is complete and 06-03 only needs to fill the body.
+    ipcMain.handle('settings:get-context', (): undefined => undefined);
+    ipcMain.handle('settings:save-context', (): void => undefined);
 
     // Register the global hotkey layer after the overlay boots. The aggregated outcome is
     // fed to the HUD over the read-only jedi:status channel (D-06) — startup-only (D-07), and

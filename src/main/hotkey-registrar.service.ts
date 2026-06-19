@@ -102,6 +102,13 @@ const HOTKEY_CHORDS: readonly IHotkeyChord[] = [
     // 'focus-cycle' handler (setActivePanel + pushStatus) is wired in index.ts; a missing handler
     // surfaces in register().failed (CTL-03) — no registrar change.
     { label: 'focus-cycle', keycode: UiohookKey.F, accelerator: 'Ctrl+Alt+F', kind: 'discrete' },
+    // Phase 6 (D-02/SET-01): Open the settings window. 'S' is OUTSIDE the locked, conflict-tested set
+    // {J, arrows, [, ], H, Q, K, PgUp, PgDn, A, T, G, F}; the on-machine Teams/Zoom/VS Code conflict
+    // re-check is pending for 06-01's manual verify (Task 4) per the 02-03 protocol (fall back to a
+    // reserved letter — e.g. 'O' for "open" — if a collision surfaces, and update this TSDoc). 'discrete'
+    // so a held key opens once per press. The 'open-settings' handler (openOrFocusSettingsWindow()) is
+    // wired in index.ts; a missing handler surfaces in register().failed (CTL-03) — no registrar change.
+    { label: 'open-settings', keycode: UiohookKey.S, accelerator: 'Ctrl+Alt+S', kind: 'discrete' },
 ];
 
 /** The ordered list of action labels in the locked set, exported for tests and HUD copy. */
