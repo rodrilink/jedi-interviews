@@ -118,6 +118,23 @@ const HOTKEY_CHORDS: readonly IHotkeyChord[] = [
     // the AiOrchestrator. The 'capture-code-challenge' handler (aiOrchestrator.trigger('code-challenge'))
     // is wired in index.ts; a missing handler surfaces in register().failed (CTL-03) — no registrar change.
     { label: 'capture-code-challenge', keycode: UiohookKey.C, accelerator: 'Ctrl+Alt+C', kind: 'discrete' },
+    // Quick fix 260619-mcv (D-08): Copy ("yank") the latest code-challenge solution to the system
+    // clipboard in one shot. 'Y' is OUTSIDE the locked, conflict-tested set {J, arrows, [, ], H, Q, K,
+    // PgUp, PgDn, A, T, G, F, S, C}; the on-machine Teams/Zoom/VS Code conflict re-check is pending for
+    // this task's manual verify (Task 3) per the 02-03 protocol (fall back to a reserved letter if a
+    // collision surfaces, and update this TSDoc). 'discrete' so a held key copies once per press. The
+    // 'copy-code-challenge' handler (clipboard.writeText of the latest code solution) is wired in
+    // index.ts; a missing handler surfaces in register().failed (CTL-03) — no registrar change.
+    { label: 'copy-code-challenge', keycode: UiohookKey.Y, accelerator: 'Ctrl+Alt+Y', kind: 'discrete' },
+    // Quick fix 260619-mcv (D-09): Toggle overlay interaction ("mouse"). Flips click-through OFF so the
+    // user can drag-select code in the Code Challenge panel, then back ON (re-asserting content protection
+    // + always-on-top). This is the ONLY sanctioned setIgnoreMouseEvents(false). 'M' is OUTSIDE the locked,
+    // conflict-tested set {J, arrows, [, ], H, Q, K, PgUp, PgDn, A, T, G, F, S, C, Y}; the on-machine
+    // Teams/Zoom/VS Code conflict re-check is pending for this task's manual verify (Task 3) per the 02-03
+    // protocol (fall back to a reserved letter if a collision surfaces, and update this TSDoc). 'discrete'
+    // so a held key toggles once per press. The 'toggle-interaction' handler (setOverlayInteractive) is
+    // wired in index.ts; a missing handler surfaces in register().failed (CTL-03) — no registrar change.
+    { label: 'toggle-interaction', keycode: UiohookKey.M, accelerator: 'Ctrl+Alt+M', kind: 'discrete' },
 ];
 
 /** The ordered list of action labels in the locked set, exported for tests and HUD copy. */

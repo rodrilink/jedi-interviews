@@ -1,5 +1,5 @@
 import { resolve } from 'path';
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, clipboard } from 'electron';
 import { loadDotenvFile } from './config/load-dotenv.utility';
 import { resolveApiKey } from './config/resolve-api-key.utility';
 import { ApiKeyStoreService } from './secrets/api-key-store.service';
@@ -15,6 +15,11 @@ import {
     getOverlayVisible,
     setActivePanel,
     getActivePanel,
+    setLatestCodeChallengeText,
+    getLatestCodeChallengeText,
+    setOverlayInteractive,
+    getOverlayInteractive,
+    type IAiPushEvent,
 } from './overlay-window.manager';
 import { HotkeyRegistrarService, type HotkeyHandlerMap } from './hotkey-registrar.service';
 import { WindowControlActionsService } from './window-control.actions';
@@ -156,6 +161,21 @@ function buildHandlers(
         // vision panel. The orchestrator owns the whole lifecycle — capture + downscale + single-in-flight
         // cancel + the debounced jedi:ai push — so the handler is a one-liner mirroring the other AI chords.
         'capture-code-challenge': (): void => aiOrchestrator.trigger('code-challenge'),
+        // Quick fix 260619-mcv (D-08): Copy ("yank") the latest code-challenge solution to the system
+        // clipboard in one shot. All clipboard access stays in main (the renderer never imports electron):
+        // the pushAi closure below records the accumulated code-challenge text, and this handler writes it.
+        // A no-op when nothing has streamed yet so an empty press never clobbers existing clipboard content.
+        'copy-code-challenge': (): void => {
+            const text = getLatestCodeChallengeText();
+            if (text.length > 0) {
+                clipboard.writeText(text);
+            }
+        },
+        // Quick fix 260619-mcv (D-09): Toggle overlay interaction. A pure read-toggle-push of the
+        // main-owned interactive flag (mirroring the focus-cycle handler): setOverlayInteractive(true)
+        // disables click-through for mouse drag-select, (false) re-asserts click-through + content
+        // protection + always-on-top. This is the ONLY sanctioned setIgnoreMouseEvents(false) (OVL-02).
+        'toggle-interaction': (): void => setOverlayInteractive(window, !getOverlayInteractive()),
         quit: (): void => actions.quit(),
     };
 }
@@ -352,11 +372,42 @@ app.whenReady().then(() => {
     // trigger, so a mid-session context Save grounds the very next AI call with no restart. An absent
     // context returns `undefined` → formatContext '' → byte-for-byte Phase-5 prompt (fail-safe). The 6th
     // arg (Phase 7) captures the overlay's monitor for the code-challenge vision mode.
+    // Quick fix 260619-mcv (D-08): track the latest code-challenge solution text so the Ctrl+Alt+Y
+    // copy chord can yank it. The push events don't carry `mode` on delta/done, so we latch the
+    // code-challenge entry id from the preceding thinking/empty event (mode==='code-challenge') and only
+    // record text for delta/done events matching that id. `cleared` (clear-AI chord) resets both. The
+    // existing pushAi(window, event) call is unchanged — this only OBSERVES the same stream.
+    let codeChallengeId: string | undefined;
+    const recordingPushAi = (event: IAiPushEvent): void => {
+        switch (event.type) {
+            case 'thinking':
+            case 'empty':
+                if (event.mode === 'code-challenge') {
+                    codeChallengeId = event.id;
+                }
+                break;
+            case 'delta':
+            case 'done':
+                if (event.id === codeChallengeId) {
+                    setLatestCodeChallengeText(event.text);
+                }
+                break;
+            case 'cleared':
+                codeChallengeId = undefined;
+                setLatestCodeChallengeText('');
+                break;
+            default:
+                break;
+        }
+
+        pushAi(window, event);
+    };
+
     aiOrchestrator = new AiOrchestrator(
         aiGateway,
         buffer,
         aiHistory,
-        (event) => pushAi(window, event),
+        recordingPushAi,
         () => contextRepo.activeAsGrounding(),
         () => screenshotService.captureForOverlay(window)
     );

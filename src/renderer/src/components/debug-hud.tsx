@@ -54,6 +54,8 @@ const HOTKEY_CHEAT_SHEET: ReadonlyArray<{ id: string; label: string; chord: stri
     { id: 'answer', label: 'Answer', chord: 'Ctrl+Alt+A' },
     { id: 'talking-points', label: 'Talking points', chord: 'Ctrl+Alt+T' },
     { id: 'clear-ai', label: 'Clear AI', chord: 'Ctrl+Alt+G' },
+    { id: 'copy-code', label: 'Copy code', chord: 'Ctrl+Alt+Y' },
+    { id: 'toggle-mouse', label: 'Toggle mouse', chord: 'Ctrl+Alt+M' },
     { id: 'quit', label: 'Quit', chord: 'Ctrl+Alt+Q' },
 ];
 
