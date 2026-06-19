@@ -130,14 +130,46 @@ function renderEntryBody(entry: IAiPanelEntry): string {
 export function AiPanel(): JSX.Element {
     const [entries, setEntries] = useState<IAiPanelEntry[]>([]);
     const [nowMs, setNowMs] = useState<number>(() => Date.now());
+    // The corner active-panel indicator (D-08) reads off the pushed flag; default 'ai' before the first
+    // status push (matching main's launch default) so the indicator renders correctly on launch.
+    const [activePanel, setActivePanel] = useState<'transcript' | 'ai'>('ai');
     const listRef = useRef<HTMLDivElement | null>(null);
     // While the user has scrolled up via hotkey, auto-stick is paused so a new streaming entry doesn't
     // yank them back to the bottom mid-read. Scrolling back to the bottom re-arms the live follow.
     const stickToBottomRef = useRef<boolean>(true);
+    // The scroll subscription is wired once (empty-deps useEffect), so it would close over a stale
+    // `activePanel`. Mirror the latest flag into a ref so the handler reads the live value and only
+    // scrolls the AI panel when the AI panel is the active panel (D-08 routing).
+    const activePanelRef = useRef<'transcript' | 'ai'>('ai');
 
     useEffect(() => {
         const offAi = window.jedi?.onAi((event: IAiPushEvent) => {
             setEntries((current) => reduceEntries(current, event));
+        });
+
+        // Track the main-owned active-panel flag so the corner indicator reflects it and the shared
+        // scroll channel routes correctly (D-08). The renderer is a pure view of this pushed flag.
+        const offStatus = window.jedi?.onStatus((status) => {
+            activePanelRef.current = status.activePanel;
+            setActivePanel(status.activePanel);
+        });
+
+        // Hotkey-driven scroll. The single Ctrl+Alt+PgUp/PgDn channel is shared with the HUD transcript,
+        // so we only act when the AI panel is the active panel (D-08) — otherwise the HUD handles it.
+        // Mirrors the debug-hud scroll step + stick-to-bottom re-arm so a long answer is fully readable.
+        const offScroll = window.jedi?.onScrollTranscript((direction) => {
+            if (activePanelRef.current !== 'ai') {
+                return;
+            }
+
+            const element = listRef.current;
+            if (element === null) {
+                return;
+            }
+
+            const lineStep = 3 * 18;
+            element.scrollTop += direction === 'down' ? lineStep : -lineStep;
+            stickToBottomRef.current = element.scrollTop + element.clientHeight >= element.scrollHeight - 4;
         });
 
         // Refresh the relative-time headers (D-03) on a coarse cadence so "now -> 3s ago" advances
@@ -146,6 +178,8 @@ export function AiPanel(): JSX.Element {
 
         return (): void => {
             offAi?.();
+            offStatus?.();
+            offScroll?.();
             window.clearInterval(tick);
         };
     }, []);
@@ -161,6 +195,11 @@ export function AiPanel(): JSX.Element {
 
     return (
         <section className="ai-panel" data-testid="card-ai-panel">
+            {/* Corner active-panel indicator (D-08): shows which panel the shared scroll chord targets.
+                A pure view of the main-owned activePanel flag; Ctrl+Alt+F flips it in main. */}
+            <span className="ai-panel__active-indicator" data-testid="icon-active-panel" data-active-panel={activePanel}>
+                {activePanel === 'ai' ? 'AI' : 'Transcript'}
+            </span>
             <h2 className="ai-panel__title">AI</h2>
             <div className="ai-panel__entries" data-testid="list-ai-entries" ref={listRef}>
                 {entries.map((entry) => (

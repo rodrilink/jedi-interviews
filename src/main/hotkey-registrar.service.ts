@@ -94,6 +94,14 @@ const HOTKEY_CHORDS: readonly IHotkeyChord[] = [
     // (aiHistory.clear() + cleared push) is wired in index.ts; a missing handler surfaces in
     // register().failed (CTL-03) — no registrar change.
     { label: 'clear-ai', keycode: UiohookKey.G, accelerator: 'Ctrl+Alt+G', kind: 'discrete' },
+    // Phase 5 (D-08): Focus-cycle. Flips the main-owned activePanel flag between the AI panel and the
+    // transcript so the single Ctrl+Alt+PgUp/PgDn scroll channel routes to the focused panel. 'F' is
+    // OUTSIDE the locked, conflict-tested set {J, arrows, [, ], H, Q, K, PgUp, PgDn, A, T, G}; the
+    // on-machine Teams/Zoom/VS Code conflict re-check is pending for 05-03's manual verify (fall back to
+    // a reserved letter if a collision surfaces). 'discrete' so a held key cycles once per press. The
+    // 'focus-cycle' handler (setActivePanel + pushStatus) is wired in index.ts; a missing handler
+    // surfaces in register().failed (CTL-03) — no registrar change.
+    { label: 'focus-cycle', keycode: UiohookKey.F, accelerator: 'Ctrl+Alt+F', kind: 'discrete' },
 ];
 
 /** The ordered list of action labels in the locked set, exported for tests and HUD copy. */

@@ -138,6 +138,80 @@ describe('ai-orchestrator', () => {
         });
     });
 
+    describe('hotkey-to-first-token latency logging (D-10)', () => {
+        it('should log one main-log first-token line on the first text delta', () => {
+            // Arrange
+            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+            seedSpan(buffer, 'How would you design a rate limiter?');
+            orchestrator.trigger('answer');
+
+            // Act
+            gateway.emit('text', 'Tok');
+            gateway.emit('text', 'en');
+
+            // Assert
+            const firstTokenLines = logSpy.mock.calls.filter((call) => typeof call[0] === 'string' && call[0].includes('[ai] first-token'));
+            expect(firstTokenLines).toHaveLength(1);
+
+            logSpy.mockRestore();
+        });
+
+        it('should log the active mode and model in the first-token line', () => {
+            // Arrange
+            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+            seedSpan(buffer, 'Walk me through the talking points.');
+            orchestrator.trigger('talking-points');
+
+            // Act
+            gateway.emit('text', 'Bullet');
+
+            // Assert
+            const line = logSpy.mock.calls.map((call) => String(call[0])).find((message) => message.includes('[ai] first-token'));
+            expect(line).toContain('mode=talking-points');
+            expect(line).toContain('model=claude-opus-4-8');
+            expect(line).toContain('latencyMs=');
+
+            logSpy.mockRestore();
+        });
+
+        it('should NOT log latency for a stale aborted stream late first delta', () => {
+            // Arrange
+            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+            seedSpan(buffer, 'First question about caching.');
+            orchestrator.trigger('answer'); // request 1
+            orchestrator.trigger('answer'); // re-press aborts request 1, no new stream
+            logSpy.mockClear();
+
+            // Act — request 1's late first delta fires after it was aborted.
+            gateway.emit('text', 'stale token');
+
+            // Assert
+            const firstTokenLines = logSpy.mock.calls.filter((call) => typeof call[0] === 'string' && call[0].includes('[ai] first-token'));
+            expect(firstTokenLines).toHaveLength(0);
+
+            logSpy.mockRestore();
+        });
+
+        it('should log a fresh first-token line for the new stream after a cross-mode switch', () => {
+            // Arrange
+            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+            seedSpan(buffer, 'We are discussing the reconciliation service.');
+            orchestrator.trigger('answer'); // request 1
+            orchestrator.trigger('talking-points'); // aborts request 1, starts request 2
+            logSpy.mockClear();
+
+            // Act — the new stream's first delta arrives.
+            gateway.emit('text', 'Bullet');
+
+            // Assert
+            const firstTokenLines = logSpy.mock.calls.map((call) => String(call[0])).filter((message) => message.includes('[ai] first-token'));
+            expect(firstTokenLines).toHaveLength(1);
+            expect(firstTokenLines[0]).toContain('mode=talking-points');
+
+            logSpy.mockRestore();
+        });
+    });
+
     describe('trailing-edge debounce (AI-04)', () => {
         it('should not push a delta synchronously on the first text event', () => {
             // Arrange
