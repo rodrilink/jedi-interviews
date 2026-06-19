@@ -26,15 +26,37 @@ import { sanitizeAiError } from './sanitize-ai-error.utility';
  * singleton by convention, like the other main-process services in this app.
  */
 export class AnthropicGateway extends EventEmitter implements IAiGateway {
-    private readonly client: Anthropic;
+    // NOT `readonly`: {@link rekey} reassigns both in place so a settings-window key Save applies live
+    // with no restart (D-07, Pattern 5b). `readonly` here would be a TS2540 compile error.
+    private client: Anthropic;
+    private apiKey: string;
 
     /**
      * @param apiKey - The Anthropic API key, read in main only (mirrors Deepgram D-08). Held in
      *   memory for the client; never logged, emitted, or sent over IPC.
      */
-    public constructor(private readonly apiKey: string) {
+    public constructor(apiKey: string) {
         super();
+        this.apiKey = apiKey;
         this.client = new Anthropic({ apiKey: this.apiKey });
+    }
+
+    /**
+     * Re-keys this gateway in place with a freshly-saved Anthropic key (D-07, live re-key, Pattern 5b).
+     *
+     * Replaces the in-memory `apiKey` and rebuilds the SDK `client` so the NEXT {@link stream} call
+     * uses the new key — no process restart, no re-wiring. The orchestrator holds this gateway by a
+     * `readonly` reference and its event handlers are wired once in the constructor; both are untouched
+     * here, so a swap of the underlying SDK client is transparent to every consumer.
+     *
+     * SECURITY: like the constructor, this NEVER logs, emits, or sends the key over IPC, and the
+     * gateway still NEVER reads `process.env` itself (the key is supplied by main, D-08).
+     *
+     * @param newKey - The new plaintext Anthropic API key (already trimmed/validated by the caller).
+     */
+    public rekey(newKey: string): void {
+        this.apiKey = newKey;
+        this.client = new Anthropic({ apiKey: newKey });
     }
 
     /**
