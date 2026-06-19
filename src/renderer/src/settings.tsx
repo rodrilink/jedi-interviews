@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { SettingsApp } from './SettingsApp';
 
 const rootElement = document.getElementById('root');
 
@@ -8,13 +9,12 @@ if (!rootElement) {
 }
 
 /**
- * The settings window renderer root. This is a minimal placeholder shell for 06-01 — it only proves
- * the second renderer entry loads in both dev and a production build. The full two-tab Keys/Context
- * editor UI (D-03) that consumes `window.settingsApi` lands in 06-03; the boolean-only key presence
- * and the encrypted save are wired here in 06-01.
+ * The settings window renderer root (06-03). Renders the two-tab `SettingsApp` (Context landing + Keys)
+ * that consumes the scoped two-way `window.settingsApi` bridge (06-01). All persistence/encryption
+ * stays in main; this is the renderer-only slice.
  */
 createRoot(rootElement).render(
     <StrictMode>
-        <div data-testid="settings-root">Settings</div>
+        <SettingsApp />
     </StrictMode>
 );
