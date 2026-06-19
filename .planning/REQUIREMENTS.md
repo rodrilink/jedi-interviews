@@ -50,8 +50,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Settings & Secrets
 
-- [ ] **SET-01**: A separate, normal (focusable) window hosts settings — required because the overlay is `focusable:false` and cannot host text inputs
-- [ ] **SET-02**: The user can enter and save Deepgram and Anthropic API keys via the settings window
+- [x] **SET-01**: A separate, normal (focusable) window hosts settings — required because the overlay is `focusable:false` and cannot host text inputs
+- [x] **SET-02**: The user can enter and save Deepgram and Anthropic API keys via the settings window
 - [x] **SET-03**: API keys are stored encrypted at rest (Electron `safeStorage`/DPAPI) and never written to logs, the renderer, or committed files
 - [ ] **SET-04**: The Session Context editor (CTX-01) is reachable from this settings window, opened by hotkey
 
@@ -126,8 +126,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CTX-02 | Phase 6 | Complete |
 | CTX-03 | Phase 6 | Pending |
 | CTX-04 | Phase 6 | Complete |
-| SET-01 | Phase 6 | Pending |
-| SET-02 | Phase 6 | Pending |
+| SET-01 | Phase 6 | Complete |
+| SET-02 | Phase 6 | Complete |
 | SET-04 | Phase 6 | Pending |
 | AI-06 | Phase 6 | Pending |
 | AI-03 | Phase 7 | Pending |

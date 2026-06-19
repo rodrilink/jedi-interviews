@@ -52,7 +52,8 @@ key-files:
 key-decisions:
   - "open-settings handler imported at module level and added directly to buildHandlers' returned map (the manager owns the lazy lifecycle); buildHandlers signature unchanged"
   - "settings:get-context / settings:save-context registered as no-op stubs in 06-01; bodies filled by 06-03/06-04"
-  - "Ctrl+Alt+S chord shipped pending on-machine Teams/Zoom/VS Code conflict re-check (Task 4 human-verify); fallback letter 'O' documented"
+  - "Ctrl+Alt+S chord FINALIZED — conflict-free vs Teams/Zoom/VS Code on the target machine (Task 4 human-verified 2026-06-19); no fallback needed"
+  - "Settings dev-server URL suffix VERIFIED as /settings.html (ELECTRON_RENDERER_URL + /settings.html) — 06-03 inherits this value"
 
 patterns-established:
   - "Inverted-overlay settings window (focusable/framed/opaque; NO setIgnoreMouseEvents/setContentProtection/always-on-top re-assert)"
@@ -74,7 +75,7 @@ completed: 2026-06-19
 - **Duration:** 6 min
 - **Started:** 2026-06-19T14:33:22Z
 - **Completed:** 2026-06-19T14:40:00Z
-- **Tasks:** 3 of 4 (Task 4 is a blocking human-verify checkpoint — see Next Phase Readiness)
+- **Tasks:** 4 of 4 (Task 4 blocking human-verify PASSED on the target machine, 2026-06-19)
 - **Files modified:** 13 (9 created, 4 modified)
 
 ## Accomplishments
@@ -93,7 +94,7 @@ Each task was committed atomically:
 2. **Task 2: Two-key store + build wiring + window/preload shell + Ctrl+Alt+S + boot precedence + IPC** - `782855b` (feat)
 3. **Task 3: Headless two-key verify script + npm wiring** - `d96c3fd` (test)
 
-_Task 4 is a blocking human-verify checkpoint (on-machine dev/prod open + chord conflict re-check); not yet executed — requires the user._
+**Task 4: On-machine settings-window open + dev/prod load + Ctrl+Alt+S conflict re-check** — human-verified PASSED on the target Windows machine (2026-06-19): dev open with HMR + click-through overlay intact, lazy focus/recreate lifecycle, prod loadFile open, and Ctrl+Alt+S conflict-free vs Teams/Zoom/VS Code (no fallback needed). Verified dev-server URL suffix = `/settings.html`. Tracking commit below.
 
 ## Files Created/Modified
 - `src/main/config/resolve-api-key.utility.ts` - Pure D-08 precedence (saved non-empty -> env -> '')
@@ -113,7 +114,8 @@ _Task 4 is a blocking human-verify checkpoint (on-machine dev/prod open + chord 
 ## Decisions Made
 - **open-settings handler wiring:** `openOrFocusSettingsWindow` is imported at module level in index.ts and added directly to the `buildHandlers` returned map (a one-liner mirroring the other chord handlers). The manager owns the lazy lifecycle, so threading it through `buildHandlers`' signature would add no value — the signature is unchanged. This is a minor simplification of the plan's "thread into buildHandlers" wording with identical behavior.
 - **Context channels:** `settings:get-context` / `settings:save-context` registered now as no-op stubs (return undefined) so the settings preload contract is complete; bodies (backed by SessionContextRepository) land in 06-03/06-04.
-- **Chord:** shipped `Ctrl+Alt+S`; on-machine conflict re-check is the Task 4 human-verify; documented fallback letter `O` ("open") if a collision surfaces.
+- **Chord:** `Ctrl+Alt+S` FINALIZED — Task 4 human-verify confirmed it is conflict-free vs Teams/Zoom/VS Code on the target machine; no fallback used.
+- **Dev URL suffix:** verified `${ELECTRON_RENDERER_URL}/settings.html` works for the second renderer entry (the one MEDIUM-confidence item from RESEARCH A1 / Open Question 1 — now resolved). 06-03 inherits this value.
 
 ## Deviations from Plan
 
@@ -126,12 +128,10 @@ None - plan executed exactly as written. (The `buildHandlers` simplification abo
 None - no external service configuration required for this plan. (Real API keys are entered through the settings window UI in 06-03.)
 
 ## Next Phase Readiness
-- **BLOCKING — Task 4 human-verify still required.** Before 06-03 proceeds, the user must run the on-machine checks:
-  1. `npm run dev`, press `Ctrl+Alt+S` → a normal framed focusable "Settings" window appears with HMR; overlay stays click-through.
-  2. Press again while open → focuses existing window (no second window); close + press → recreates.
-  3. `npm run build` then `npm run preview`, press `Ctrl+Alt+S` → loads from the built file (prod loadFile path).
-  4. With Teams/Zoom/VS Code each focused, press `Ctrl+Alt+S` → none consume it; if any collides, switch to fallback letter and re-test.
-  5. Record the working dev-server URL suffix (expected `/settings.html`) so 06-03 inherits the verified value.
+- **Task 4 human-verify PASSED (2026-06-19, target Windows machine):** dev open with HMR + overlay click-through intact; lazy focus/recreate lifecycle; prod (`build` + `preview`) loadFile open; Ctrl+Alt+S conflict-free vs Teams/Zoom/VS Code (no fallback). Plan 06-01 is fully complete.
+- **Verified values 06-03 inherits:**
+  - Settings dev-server URL suffix: `${ELECTRON_RENDERER_URL}/settings.html`
+  - Open-settings chord: `Ctrl+Alt+S` (finalized, no conflict)
 - **For 06-03/06-04:** the settingsApi contract (four channels) and the two-key store are wired; 06-03 fills the Keys/Context tab UI and the get/save-context handler bodies; 06-04 adds live re-key of the running gateways.
 
 ## Self-Check: PASSED

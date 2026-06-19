@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 6 context gathered
-last_updated: "2026-06-19T14:48:06.417Z"
+last_updated: "2026-06-19T15:46:32.222Z"
 last_activity: 2026-06-19
 progress:
   total_phases: 7
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 ## Current Position
 
 Phase: 06 (session-context-settings-window) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-06-19
 
@@ -67,6 +67,7 @@ Progress: [█████████░] 90%
 | Phase 04 P02 | 18min | 2 tasks tasks | 2 files files |
 | Phase 04 P03 | 8min | 2 tasks | 4 files |
 | Phase 06 P02 | 3min | 2 tasks | 7 files |
+| Phase 06 P01 | 6min | 4 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 04-03: clear-transcript chord = Ctrl+Alt+K (D-07) — one discrete IHotkeyChord, no registrar logic change; missing handler surfaces in register().failed (CTL-03). On-machine Teams/Zoom/VS Code conflict re-check PENDING for 04-04 (fall back to X).
 - [Phase ?]: 06-02: session-context store layout is { contexts: ISessionContextDto[]; activeId } under userData (default electron-store file); ULID-keyed + multi-context-ready but v1 single-context (D-09)
 - [Phase ?]: 06-02: activeAsGrounding() returns ONLY the four grounding fields or undefined (D-10 fail-safe); saveActive() creates one ULID DTO (source:manual+createdAt) then updates in place (D-06); injectable IContextStoreHandle is the Electron-free test seam
+- [Phase ?]: 06-01: Settings window = createOverlayWindow inverted (focusable/framed/opaque, NO setIgnoreMouseEvents/setContentProtection/always-on-top); scoped two-way settingsApi contextBridge separate from the untouched one-way jedi namespace (D-04); two-key safeStorage store (ciphertext-only, presence booleans over IPC, decrypt in main only); resolveApiKey precedence saved->env->'' (D-08). Ctrl+Alt+S FINALIZED conflict-free (human-verified 2026-06-19); dev URL suffix /settings.html verified.
 
 ### Pending Todos
 
@@ -116,7 +118,7 @@ None yet.
 - Phase 1 (GO/NO-GO): RESOLVED 2026-06-17. First gate run was NO-GO (overlay blocked mouse clicks — missing `setIgnoreMouseEvents`, OVL-02); fixed in quick task 260616-w65 and re-verified GO on the target Windows 11 machine. VERIFICATION.md signed GO at Electron 35.7.5.
 - Phase 3 (GO/NO-GO): RESOLVED 2026-06-17. Gate run was NO-GO — `getDisplayMedia`/Chromium loopback produced no signal even on general media on the target machine (MSI, Windows 10.0.26200.8655, Electron 35.7.5), root cause a continuous DXGI desktop-duplicator failure (`Duplication failed`) that breaks the capture session; built-in screen source, window source, and the `electron-audio-loopback` shim all failed identically. Not the D-09 comms-device-routing partial. Phase 4 uses a native WASAPI capture addon. 03-LOOPBACK-GATE.md signed NO-GO at Electron 35.7.5.
 - Phase 4 capture (OQ-1 GO/NO-GO): RESOLVED 2026-06-17 — GO. native-recorder-nodejs@1.2.0 loads in-process under Electron 35.7.5 and captures non-silent WASAPI loopback PCM (RMS 0.10-0.35, 48kHz/2ch/16-bit). The single biggest Phase 4 unknown is discharged; the WASAPI-in-main capture path is validated. 04-01-SUMMARY.md records the GO. Two MUST-honor findings for 04-04: install with `--ignore-scripts`; target the currently-active output device, not isDefault.
-- Plan 06-01 Task 4 (blocking human-verify) PENDING: user must run npm run dev and npm run build/preview, press Ctrl+Alt+S, confirm focusable settings window opens in dev AND prod, re-check Ctrl+Alt+S vs Teams/Zoom/VS Code, record dev-server URL suffix (expected /settings.html). Tasks 1-3 done and verified.
+- Plan 06-01 Task 4 (blocking human-verify): RESOLVED 2026-06-19 — PASSED on the target Windows machine. Focusable settings window opens via Ctrl+Alt+S in dev (HMR, overlay click-through intact) AND prod (build+preview loadFile); lazy focus/recreate lifecycle confirmed; Ctrl+Alt+S conflict-free vs Teams/Zoom/VS Code (no fallback, chord finalized). Verified dev-server URL suffix = `${ELECTRON_RENDERER_URL}/settings.html` (06-03 inherits it). SET-01 + SET-02 marked complete.
 
 ### Quick Tasks Completed
 
@@ -135,6 +137,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-19T14:47:06.357Z
+Last session: 2026-06-19T15:46:19.223Z
 Stopped at: Phase 6 context gathered
 Resume file: None
