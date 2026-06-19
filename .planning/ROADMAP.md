@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: STT Pipeline + Live Transcript** - Live rolling transcript with interim/final results, auto-reconnect, bounded buffer, and a swappable STT provider seam.
  (completed 2026-06-18)
 - [x] **Phase 5: AI Orchestration (Answer + Talking Points)** - Streaming, keyboard-scrollable AI answers and talking points drawn from the recent transcript.
-- [ ] **Phase 6: Session Context + Settings Window** - A focusable settings window for API keys and a persisted context editor that grounds every AI prompt.
+- [x] **Phase 6: Session Context + Settings Window** - A focusable settings window for API keys and a persisted context editor that grounds every AI prompt. (completed 2026-06-19)
 - [ ] **Phase 7: Screenshot Vision + Packaging & Hardening** - Screenshot-driven code-challenge solving and a runnable Windows .exe with transparency, focus discipline, and content protection intact.
 
 ## Phase Details
@@ -205,8 +205,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 06-03-PLAN.md — Two-tab settings editor UI (Context landing + Keys), four fields, dirty indicator, explicit Save (CTX-01, SET-02, SET-04)
-- [ ] 06-04-PLAN.md — Inject active context into the orchestrator at trigger time (D-10) + live re-key both gateways (D-07) + fully wire the settings:* IPC handlers (CTX-02, CTX-03, AI-06, SET-02)
+- [x] 06-03-PLAN.md — Two-tab settings editor UI (Context landing + Keys), four fields, dirty indicator, explicit Save (CTX-01, SET-02, SET-04)
+- [x] 06-04-PLAN.md — Inject active context into the orchestrator at trigger time (D-10) + live re-key both gateways (D-07) + fully wire the settings:* IPC handlers (CTX-02, CTX-03, AI-06, SET-02)
 
 **Notes**: The overlay is `focusable:false` and cannot host text inputs, so key entry and context editing must live in this separate focusable window (avoids the focus-stealing pitfall). Design the `ISessionContextDto` schema for multiple named contexts from day one even though v1 ships one. Standard patterns — electron-store + contextBridge IPC are mature.
 **UI hint**: yes
@@ -247,5 +247,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. Audio Loopback Spike | 2/2 | Complete   | 2026-06-17 |
 | 4. STT Pipeline + Live Transcript | 4/4 | Complete   | 2026-06-18 |
 | 5. AI Orchestration (Answer + Talking Points) | 2/3 | In Progress|  |
-| 6. Session Context + Settings Window | 2/4 | In Progress|  |
+| 6. Session Context + Settings Window | 4/4 | Complete   | 2026-06-19 |
 | 7. Screenshot Vision + Packaging & Hardening | 0/3 | Not started | - |
