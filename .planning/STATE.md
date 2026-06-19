@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 Phase: 07 (screenshot-vision-packaging-hardening) — EXECUTING
 Plan: 3 of 3
 Status: Ready to execute
-Last activity: 2026-06-19
+Last activity: 2026-06-19 - Completed quick task 260619-mcv: overlay UX overhaul (header + 4 panels, copy mechanisms, interaction toggle, Q/A scrollback)
 
 Progress: [██████████] 96%
 
@@ -130,6 +130,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260616-w65 | Fix overlay click-through bug — overlay swallowed mouse clicks (OVL-02 gap from Phase 1 gate) | 2026-06-17 | 4115f62 | [260616-w65-fix-overlay-click-through-bug-overlay-wi](./quick/260616-w65-fix-overlay-click-through-bug-overlay-wi/) |
 | 260618-r2x | Add HUD status rows: Active panel (AI/Transcript), Session started, Uptime (1s tick); pure formatUptime utility | 2026-06-19 | fd35627 | [260618-r2x-add-active-panel-session-started-uptime-](./quick/260618-r2x-add-active-panel-session-started-uptime-/) |
+| 260619-mcv | Overlay UX overhaul: header + 4 panels (Q/A·AI·Code·Commands), 1280px width, visible Ctrl+Alt+F focus cycle, canonical labels, dual copy (Ctrl+Alt+Y + copy-on-release), chrome-free interaction toggle (Ctrl+Alt+M), full-session Q/A scrollback. PENDING: on-machine hotkey-conflict re-check for Ctrl+Alt+Y/Ctrl+Alt+M vs Teams/Zoom/VS Code. | 2026-06-19 | a88dd43 | [260619-mcv-fix-ctrl-alt-f-focus-cycle-split-code-ch](./quick/260619-mcv-fix-ctrl-alt-f-focus-cycle-split-code-ch/) |
 
 ## Deferred Items
 
