@@ -234,7 +234,7 @@ Plans:
 
 **Wave 2** *(blocked on 07-01)*
 
-- [ ] 07-02-PLAN.md — Packaging slice: electron-builder portable .exe + asarUnpack globs for both native modules; on-machine GO/NO-GO gate (transparency/focus/content-protection + end-to-end screenshot-solve) + committed 07-VERIFICATION.md (PKG-01)
+- [x] 07-02-PLAN.md — Packaging slice: electron-builder portable .exe + asarUnpack globs for both native modules; on-machine GO/NO-GO gate (transparency/focus/content-protection + end-to-end screenshot-solve) + committed 07-VERIFICATION.md (PKG-01)
 
 **Wave 3** *(blocked on 07-01 + 07-02)*
 
@@ -256,4 +256,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. STT Pipeline + Live Transcript | 4/4 | Complete   | 2026-06-18 |
 | 5. AI Orchestration (Answer + Talking Points) | 2/3 | In Progress|  |
 | 6. Session Context + Settings Window | 4/4 | Complete   | 2026-06-19 |
-| 7. Screenshot Vision + Packaging & Hardening | 1/3 | In Progress|  |
+| 7. Screenshot Vision + Packaging & Hardening | 2/3 | In Progress|  |

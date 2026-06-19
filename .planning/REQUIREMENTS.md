@@ -57,7 +57,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Packaging
 
-- [ ] **PKG-01**: The app builds to a runnable Windows executable on which transparency, focus discipline, and content protection still hold
+- [x] **PKG-01**: The app builds to a runnable Windows executable on which transparency, focus discipline, and content protection still hold
 
 ## v2 Requirements
 
@@ -131,7 +131,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SET-04 | Phase 6 | Complete |
 | AI-06 | Phase 6 | Complete |
 | AI-03 | Phase 7 | Complete |
-| PKG-01 | Phase 7 | Pending |
+| PKG-01 | Phase 7 | Complete |
 
 **Coverage:**
 - v1 requirements: 30 total

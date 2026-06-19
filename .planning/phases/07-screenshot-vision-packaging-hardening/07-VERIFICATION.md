@@ -1,11 +1,11 @@
 ---
 phase: 7
-verified: pending
-status: pending
-score: 0/6 manual checks recorded (awaiting on-machine gate)
-human_verification: required
+verified: 2026-06-19T00:00:00Z
+status: passed
+score: 6/6 manual checks PASS (on-machine GO)
+human_verification: completed
 electron_version: 35.7.5
-target_machine: MSI, Windows 11 (the dev/target machine)
+target_machine: Windows 11 (the dev/target machine)
 artifact: release/Jedi Interviews-1.0.0-portable.exe
 ---
 
@@ -20,9 +20,10 @@ the overlay excluded from its own capture.
 `release/Jedi Interviews-1.0.0-portable.exe` (signed, portable, single-file), pinned Electron **35.7.5**.
 Both native `.node` prebuilds were confirmed unpacked to disk (see Build Evidence below).
 
-**On-machine gate status:** PENDING — the six checks below are inherently human-judged on the target
-Windows 11 machine (Phase 1 D-13 precedent: no headless display, no live API in CI). The human must run
-the portable `.exe` and record each result, then sign the GO/NO-GO line.
+**On-machine gate status:** PASS / GO — all six checks PASS on the target Windows 11 machine against the
+packaged portable `.exe` (Electron 35.7.5), with one accepted documented note (the packaged `.exe` does
+not load `.env`; keys go through the in-app Settings/`safeStorage` path — the intended v1 path). See the
+Observable Truths table and the Documented Note below.
 
 ---
 
@@ -42,55 +43,64 @@ the portable `.exe` and record each result, then sign the GO/NO-GO line.
 
 ## Goal Achievement — Observable Truths (on-machine, human-judged)
 
-> Run `release/Jedi Interviews-1.0.0-portable.exe` on the target Windows 11 machine. Record PASS/FAIL +
-> evidence in the Status/Evidence cells. These six checks are the D-13 manual gate (4 existential +
-> screenshot-solve) plus the two D-14 native-module liveness checks.
+> Run on the target Windows 11 machine against `release/Jedi Interviews-1.0.0-portable.exe`, Electron 35.7.5.
 
 | # | Truth (D-13/D-14) | Status | Evidence |
 |---|-------------------|--------|---------|
-| 1 | TRANSPARENCY — in the packaged `.exe` the overlay renders transparent and frameless (not a black/white rectangle). If it glitches, set `JEDI_DISABLE_GPU=1` and relaunch (GPU fallback; opt-in, top-level before `app.ready`). | pending | |
-| 2 | NEVER STEALS FOCUS — with a real meeting app (Teams/Zoom) focused, show/move/opacity hotkeys fire and the meeting app's title bar stays active the whole time. | pending | |
-| 3 | CONTENT PROTECTION — start a screen-share self-test; the overlay is fully absent (not a black box). | pending | |
-| 4 | NATIVE MODULES ALIVE — hotkeys fire (`uiohook-napi` loaded) AND the audio meter / transcript moves while system audio plays (`native-recorder-nodejs` loaded). Dead hotkeys or a flat meter = an asarUnpack failure (Pitfall 4). | pending | |
-| 5 | SCREENSHOT-SOLVE END-TO-END — park the overlay on a screen showing a code challenge, press `Ctrl+Alt+C`; a streaming solution appears in the vision panel grounded in session context. | pending | |
-| 6 | OVERLAY EXCLUDED FROM ITS OWN CAPTURE — inspect the captured frame/behavior: NO overlay rectangle appears in the screenshot sent to Claude (Pitfall 1). If a faint overlay rectangle appears, apply the documented fallback (brief `hideOverlay` → capture → `showOverlay`) and re-verify. | pending | |
+| 1 | TRANSPARENCY — in the packaged `.exe` the overlay renders transparent and frameless. | PASS | Overlay renders transparent/frameless (not a solid block). No `JEDI_DISABLE_GPU` needed — GPU path rendered transparency fine. |
+| 2 | NEVER STEALS FOCUS — with a real meeting app focused, hotkeys fire and the meeting app stays active. | PASS | Hotkeys fire with the meeting app focused; focus discipline intact. `Ctrl+Alt+C` conflict-free (no fallback to `V` needed). |
+| 3 | CONTENT PROTECTION — screen-share self-test; overlay fully absent. | PASS | Overlay absent from screen share. |
+| 4 | NATIVE MODULES ALIVE — hotkeys fire (`uiohook-napi`) AND audio meter moves (`native-recorder-nodejs`). | PASS (both) | `uiohook-napi`: global hotkeys + `Ctrl+Alt+S` Settings window fire. `native-recorder-nodejs`: audio meter moves with system audio. Both load from `app.asar.unpacked` prebuilds in the package — asarUnpack confirmed working. |
+| 5 | SCREENSHOT-SOLVE END-TO-END — `Ctrl+Alt+C` → streaming solution in the vision panel, grounded. | PASS | `Ctrl+Alt+C` → streaming `claude-opus-4-8` solution in the vision panel, grounded in session context. |
+| 6 | OVERLAY EXCLUDED FROM ITS OWN CAPTURE — no overlay rectangle in the captured screenshot. | PASS | No overlay rectangle in the captured screenshot — content protection covers the `desktopCapturer` path (no hide-capture-reshow fallback needed). |
 
-**Score:** 0/6 recorded (awaiting human gate)
+**Score:** 6/6 PASS
 
 ---
 
-## Human Verification Required
+## Documented Note (accepted — not a blocker)
 
-The six truths above require a running Electron app on the physical Windows 11 machine plus a live
-`ANTHROPIC_API_KEY` (checks 5/6). They cannot be exercised headlessly or in CI. The human must:
+**Packaged `.exe` does not load `.env`.** STT (Deepgram) and Anthropic keys must be entered via the in-app
+Settings window (`Ctrl+Alt+S`), which uses `safeStorage` — this is the intended v1 key path (Phase 6 D-08:
+`safeStorage` → `.env` → `''`) and works correctly in the package. `.env` is a dev-mode-only convenience
+(electron-vite loads it from the project root; the temp-extracted portable build does not have a project
+root to read from).
 
-1. Run `release/Jedi Interviews-1.0.0-portable.exe` (click through the Windows SmartScreen "Run anyway"
-   prompt — the unsigned portable `.exe` is accepted friction, D-15).
-2. Perform checks 1–6 and record PASS/FAIL + evidence in the table above.
-3. If transparency glitches: relaunch with `JEDI_DISABLE_GPU=1` and note it.
-4. If the overlay appears in its own capture (check 6): the content-protection-vs-`desktopCapturer`
-   exclusion failed on this driver/scale — apply the hide-capture-reshow fallback and re-verify.
-5. Sign the GO/NO-GO line below and commit this file.
+**Behavior observed:** on first packaged launch with no Settings key, the audio meter moved (capture alive)
+but STT showed "disconnected/reconnecting" and the transcript stayed empty; entering the Deepgram key via
+Settings → STT connected and the transcript flowed. The app is fully usable via the Settings/`safeStorage`
+path. Logged as a follow-up todo (NOT blocking this GO): decide whether the packaged build should also load
+a co-located `.env` — future-plan scope.
+
+---
+
+## Note for 07-03
+
+The `JEDI_DISABLE_GPU=1` opt-in hardware-accel fallback was **not needed** here (transparency rendered fine
+on the GPU path). 07-03 still wires it as the documented opt-in fallback per the plan, in case transparency
+glitches on a different driver/scale.
 
 ---
 
 ## Gaps Summary
 
-- **Pending (all six checks):** the on-machine manual gate has not yet been run. No gaps can be
-  asserted closed or open until the human records results.
-- **Cosmetic:** no `build/icon.ico` — the default Electron icon is used (non-blocking, RESEARCH).
-- **Carried from 07-01:** the `Ctrl+Alt+C` chord uses `C`, outside the locked conflict-tested set —
-  confirm conflict-free vs Teams/Zoom/VS Code during check 2 (documented fallback: `V` for "vision").
+- **None blocking.** All six on-machine checks PASS; PKG-01 existential behaviors + screenshot-solve hold in
+  the packaged build, and both native modules load from `app.asar.unpacked/`.
+- **Cosmetic:** no `build/icon.ico` — the default Electron icon is used (non-blocking).
+- **Follow-up todo (accepted, non-blocking):** packaged `.exe` does not load `.env`; keys flow through the
+  Settings/`safeStorage` path (the intended v1 path). Whether to also load a co-located `.env` in the package
+  is deferred to a future plan.
 
 ---
 
 ## GO / NO-GO Sign-Off
 
-**Result:** ____________  (GO / NO-GO)
+**Result:** GO
 
-**Verified by:** ____________
-**Date:** ____________
+**Verified by:** Rodrigo Gomez (on-machine, relayed via coordinator)
+**Date:** 2026-06-19
 **Electron version:** 35.7.5
-**Machine / OS:** ____________
+**Machine / OS:** Windows 11 (the dev/target machine)
 
-_Build prepared autonomously by Claude (gsd-executor), 2026-06-19. On-machine gate awaiting human sign-off._
+_Build prepared autonomously by Claude (gsd-executor), 2026-06-19. On-machine gate verified GO by the user
+on the target Windows 11 machine; results recorded above._
