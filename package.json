@@ -32,7 +32,8 @@
         "@deepgram/sdk": "5.4.0",
         "electron-store": "11.0.2",
         "native-recorder-nodejs": "1.2.0",
-        "uiohook-napi": "1.5.5"
+        "uiohook-napi": "1.5.5",
+        "ulid": "^3.0.2"
     },
     "devDependencies": {
         "@electron/rebuild": "^4.0.1",
