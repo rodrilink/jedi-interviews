@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
  (completed 2026-06-18)
 - [x] **Phase 5: AI Orchestration (Answer + Talking Points)** - Streaming, keyboard-scrollable AI answers and talking points drawn from the recent transcript.
 - [x] **Phase 6: Session Context + Settings Window** - A focusable settings window for API keys and a persisted context editor that grounds every AI prompt. (completed 2026-06-19)
-- [ ] **Phase 7: Screenshot Vision + Packaging & Hardening** - Screenshot-driven code-challenge solving and a runnable Windows .exe with transparency, focus discipline, and content protection intact.
+- [x] **Phase 7: Screenshot Vision + Packaging & Hardening** - Screenshot-driven code-challenge solving and a runnable Windows .exe with transparency, focus discipline, and content protection intact. (completed 2026-06-19)
 
 ## Phase Details
 
@@ -238,7 +238,7 @@ Plans:
 
 **Wave 3** *(blocked on 07-01 + 07-02)*
 
-- [ ] 07-03-PLAN.md — Hardening slice: vision latency instrumentation + opt-in JEDI_DISABLE_GPU hardware-accel fallback + hardened CTL-03 hotkey recovery + docs/HARDENING.md SmartScreen friction (Whisper stub DROPPED, D-16) (PKG-01)
+- [x] 07-03-PLAN.md — Hardening slice: vision latency instrumentation + opt-in JEDI_DISABLE_GPU hardware-accel fallback + hardened CTL-03 hotkey recovery + docs/HARDENING.md SmartScreen friction (Whisper stub DROPPED, D-16) (PKG-01)
 
 **Notes**: Vision mode reuses the entire Phase 5 AI path; it adds only an image source and an Opus model switch, so it is last among features and the most expensive per call. Confirm the current Anthropic vision request shape and model IDs via the claude-api skill (research flag: Phase 7 API shape). Base64 image field must have no data-URL prefix. PKG-01 is fully owned here; the Phase 1 packaged smoke test only de-risked transparency rendering. Standard patterns for electron-builder NSIS.
 **UI hint**: yes
@@ -256,4 +256,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. STT Pipeline + Live Transcript | 4/4 | Complete   | 2026-06-18 |
 | 5. AI Orchestration (Answer + Talking Points) | 2/3 | In Progress|  |
 | 6. Session Context + Settings Window | 4/4 | Complete   | 2026-06-19 |
-| 7. Screenshot Vision + Packaging & Hardening | 2/3 | In Progress|  |
+| 7. Screenshot Vision + Packaging & Hardening | 3/3 | Complete   | 2026-06-19 |
