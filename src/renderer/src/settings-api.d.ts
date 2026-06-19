@@ -26,12 +26,29 @@ export interface IApiKeyPresence {
     anthropic: boolean;
 }
 
+/**
+ * The shape the Context tab sends on save.
+ *
+ * LINK PARSING AUTHORITY (D-05, plan decision): `links` is the RAW newline-joined textarea string —
+ * NOT a pre-split array. Parsing into a clean `string[]` is authoritative in MAIN, via the tested
+ * `parseLinks` utility (06-02), inside the `settings:save-context` handler (wired in 06-04). The
+ * renderer never parses links; it only ever joins `links[]` with `'\n'` for editing on pre-fill. This
+ * keeps the CRLF-safe parse in exactly one place.
+ */
+export interface ISaveContextInput {
+    notes?: string;
+    ticketText?: string;
+    repoSnippets?: string;
+    /** Raw textarea text, one URL per line — parsed by `parseLinks` in main (NOT pre-split). */
+    links?: string;
+}
+
 /** The two-way settings bridge contract (structurally mirrors the preload's `SettingsApi`). */
 export interface ISettingsApi {
     getKeys(): Promise<IApiKeyPresence>;
     saveKeys(keys: { deepgram?: string; anthropic?: string }): Promise<void>;
     getContext(): Promise<ISettingsSessionContextDto | undefined>;
-    saveContext(dto: { notes?: string; ticketText?: string; repoSnippets?: string; links?: string[] }): Promise<void>;
+    saveContext(input: ISaveContextInput): Promise<void>;
 }
 
 declare global {

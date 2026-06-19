@@ -1,4 +1,5 @@
 import { useState, type JSX } from 'react';
+import { ContextTab } from './components/ContextTab';
 import { KeysTab } from './components/KeysTab';
 import './settings.css';
 
@@ -43,15 +44,7 @@ export function SettingsApp(): JSX.Element {
                 </button>
             </nav>
 
-            <div className="settings__body">
-                {activeTab === 'context' ? (
-                    <section className="settings-tab" data-testid="card-context-tab-placeholder">
-                        <p>Context editor — wired in Task 2.</p>
-                    </section>
-                ) : (
-                    <KeysTab />
-                )}
-            </div>
+            <div className="settings__body">{activeTab === 'context' ? <ContextTab /> : <KeysTab />}</div>
         </main>
     );
 }
