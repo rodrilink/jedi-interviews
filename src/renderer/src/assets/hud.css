@@ -162,6 +162,20 @@ body {
 }
 
 /*
+ * Layout-stable Copy cell (quick fix 260619-mcv round 7 item 1): the value swaps between "—" and
+ * "Copied ✓" (different widths), which shifted every neighboring header cell when copy fired. Reserve a
+ * fixed min-width sized for the WIDEST state and keep the value on one line, so the swap changes only the
+ * text/color in place and never moves adjacent cells.
+ */
+.debug-hud__cell--copy {
+    min-width: 64px;
+}
+
+.debug-hud__cell--copy .debug-hud__value {
+    white-space: nowrap;
+}
+
+/*
  * The live audio meter: a thin track with a fill whose width is the capture RMS level (0..100%),
  * pushed from main on every audio frame. The width transition smooths the ~15 fps updates into a
  * fluid bar. Green so "audio is alive" reads at a glance.
@@ -211,9 +225,10 @@ body {
 }
 
 /*
- * Per-panel width (quick fix 260619-mcv round 6): the three CONTENT panels (Q/A, AI, Code) are now EQUAL
- * width — each flex-grow 2, a touch roomier than Code's prior 1.8 — and the Commands reference column
- * stays narrow at 0.6. flex-grow 2 / 2 / 2 / 0.6 → roughly ~30% / ~30% / ~30% / ~9% of the four-column row.
+ * Per-panel width (quick fix 260619-mcv): the three CONTENT panels (Q/A, AI, Code) are EQUAL width — each
+ * flex-grow 2 — and the Commands reference column stays narrow at flex-grow 0.8 (round 7: bumped from 0.6
+ * so the chord strings fit without a horizontal scrollbar). flex-grow 2 / 2 / 2 / 0.8 of the four-column
+ * row; on the 1280px window the content panels are ~400px each and Commands is ~115px.
  */
 .transcript-panel,
 .ai-panel,
@@ -228,7 +243,7 @@ body {
 }
 
 .commands-panel {
-    flex: 0.6 1 0;
+    flex: 0.8 1 0;
 }
 
 /*
@@ -479,9 +494,12 @@ body {
 
 .commands-panel__list {
     flex: 1 1 auto;
+    min-width: 0;
     min-height: 0;
     margin: 0;
     overflow-y: auto;
+    /* Never scroll horizontally (round 7 item 3): chord strings wrap instead — see __chord below. */
+    overflow-x: hidden;
     scrollbar-width: thin;
     scrollbar-color: rgb(148 163 184 / 50%) transparent;
 }
@@ -498,6 +516,7 @@ body {
 /* Each command row: the action label on top, its chord below, compact for a glanceable reference. */
 .commands-panel__row {
     padding: 3px 0;
+    min-width: 0;
 }
 
 .commands-panel__row + .commands-panel__row {
@@ -509,9 +528,17 @@ body {
     font-size: 11px;
 }
 
+/*
+ * The chord text wraps cleanly to a second line inside the narrow column rather than forcing a horizontal
+ * scrollbar (round 7 item 3): overflow-wrap + word-break let strings like "Ctrl+Alt+PgUp / PgDn" break,
+ * and white-space:normal allows wrapping at the spaces.
+ */
 .commands-panel__chord {
     margin: 0;
     color: rgb(226 232 240 / 100%);
     font-variant-numeric: tabular-nums;
     font-size: 11px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }

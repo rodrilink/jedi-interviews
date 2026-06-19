@@ -163,7 +163,7 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
                         {mouseToggleLabel}
                     </dd>
                 </div>
-                <div className="debug-hud__cell">
+                <div className="debug-hud__cell debug-hud__cell--copy">
                     <dt className="debug-hud__key">Copy</dt>
                     <dd className="debug-hud__value" data-testid="cell-copy-ok" data-copy-ok={copyOk}>
                         {copyOk ? 'Copied ✓' : '—'}
