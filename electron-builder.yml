@@ -11,6 +11,10 @@ directories:
 files:
     - out/**/*
     - package.json
+# Both native modules ship ABI-stable N-API prebuilds that load as-is under Electron 35.7.5
+# (STATE 02-01 / 04-01); this machine has no MSVC, so the default electron-builder from-source
+# rebuild fails. Disable it — asarUnpack (below) is the real packaging fix (RESEARCH Pitfall 4).
+npmRebuild: false
 asarUnpack:
     - '**/*.node'
     - '**/node_modules/uiohook-napi/**'
