@@ -134,6 +134,10 @@ None - no external service configuration required for this plan. (Real API keys 
   5. Record the working dev-server URL suffix (expected `/settings.html`) so 06-03 inherits the verified value.
 - **For 06-03/06-04:** the settingsApi contract (four channels) and the two-key store are wired; 06-03 fills the Keys/Context tab UI and the get/save-context handler bodies; 06-04 adds live re-key of the running gateways.
 
+## Self-Check: PASSED
+
+All 9 created files verified present on disk; all 3 task commits (`b2e12e4`, `782855b`, `d96c3fd`) verified in git log. Automated verification green: `npx vitest run src/main/config/resolve-api-key.utility.test.ts` (5/5), `npm run typecheck`, `npm run lint`, `npm run build` (both `out/preload/settings.cjs` + `out/renderer/settings.html` emitted), `npm run verify:keys` (PASS, exit 0, no key printed).
+
 ---
 *Phase: 06-session-context-settings-window*
 *Completed: 2026-06-19*
