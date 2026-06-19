@@ -36,7 +36,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **AI-01**: By hotkey, the user gets an AI answer to an interview question drawn from the recent transcript
 - [ ] **AI-02**: By hotkey, the user gets AI-suggested talking points when the team is discussing project work, drawn from the recent transcript
-- [ ] **AI-03**: By hotkey, the user takes a screenshot and gets an AI solution to a code challenge shown in it
+- [x] **AI-03**: By hotkey, the user takes a screenshot and gets an AI solution to a code challenge shown in it
 - [ ] **AI-04**: AI responses stream token-by-token to the overlay and are readable in the flow of conversation
 - [ ] **AI-05**: AI output is keyboard-scrollable so responses longer than the overlay are fully readable
 - [x] **AI-06**: Every AI call is grounded in the active Session Context (pasted project notes, ticket text, repo snippets, links) plus the relevant transcript span
@@ -130,7 +130,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SET-02 | Phase 6 | Complete |
 | SET-04 | Phase 6 | Complete |
 | AI-06 | Phase 6 | Complete |
-| AI-03 | Phase 7 | Pending |
+| AI-03 | Phase 7 | Complete |
 | PKG-01 | Phase 7 | Pending |
 
 **Coverage:**

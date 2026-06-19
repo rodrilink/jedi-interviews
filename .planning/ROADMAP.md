@@ -230,7 +230,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 07-01-PLAN.md — Vision slice: ScreenshotService (desktopCapturer active-monitor capture) + pure downscale utility (<=1568px, no data: prefix); optional image field on IAiPromptRequest + PromptAssembler image branch + VISION_SYSTEM_PROMPT; CODE_CHALLENGE_MODEL=claude-opus-4-8; Ctrl+Alt+C chord; dedicated vision panel + three-way focus cycle (AI-03)
+- [x] 07-01-PLAN.md — Vision slice: ScreenshotService (desktopCapturer active-monitor capture) + pure downscale utility (<=1568px, no data: prefix); optional image field on IAiPromptRequest + PromptAssembler image branch + VISION_SYSTEM_PROMPT; CODE_CHALLENGE_MODEL=claude-opus-4-8; Ctrl+Alt+C chord; dedicated vision panel + three-way focus cycle (AI-03)
 
 **Wave 2** *(blocked on 07-01)*
 
@@ -256,4 +256,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. STT Pipeline + Live Transcript | 4/4 | Complete   | 2026-06-18 |
 | 5. AI Orchestration (Answer + Talking Points) | 2/3 | In Progress|  |
 | 6. Session Context + Settings Window | 4/4 | Complete   | 2026-06-19 |
-| 7. Screenshot Vision + Packaging & Hardening | 0/3 | Planned | - |
+| 7. Screenshot Vision + Packaging & Hardening | 1/3 | In Progress|  |
