@@ -211,17 +211,18 @@ body {
 }
 
 /*
- * Per-panel width (locked decision B — NOT equal): Code widest, Q/A and AI narrower, Commands narrowest.
- * flex-grow 1 / 1 / 1.8 / 0.6 → roughly ~22% / ~22% / ~40% / ~13% of the four-column row.
+ * Per-panel width (quick fix 260619-mcv round 6): the three CONTENT panels (Q/A, AI, Code) are now EQUAL
+ * width — each flex-grow 2, a touch roomier than Code's prior 1.8 — and the Commands reference column
+ * stays narrow at 0.6. flex-grow 2 / 2 / 2 / 0.6 → roughly ~30% / ~30% / ~30% / ~9% of the four-column row.
  */
 .transcript-panel,
-.ai-panel {
-    flex: 1 1 0;
+.ai-panel,
+.vision-panel {
+    flex: 2 1 0;
 }
 
 .vision-panel {
-    flex: 1.8 1 0;
-    /* The Code panel reads on a slightly stronger chrome so the wider code column stands out. */
+    /* The Code panel reads on a slightly stronger chrome so it stands out (width is now equal to Q/A + AI). */
     background: rgb(12 14 20 / 86%);
     border-color: rgb(196 181 253 / 40%);
 }
