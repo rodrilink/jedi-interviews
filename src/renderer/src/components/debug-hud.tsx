@@ -113,52 +113,74 @@ export function DebugHud({ visible = true }: { visible?: boolean }): JSX.Element
         <header className="debug-hud" data-testid="card-debug-hud">
             <h1 className="debug-hud__title">Jedi Interviews</h1>
             <dl className="debug-hud__grid">
-                <dt className="debug-hud__key">Electron</dt>
-                <dd className="debug-hud__value" data-testid="cell-electron-version">
-                    {electronVersionLabel}
-                </dd>
-                <dt className="debug-hud__key">Content protection</dt>
-                <dd className="debug-hud__value" data-testid="cell-content-protection">
-                    {contentProtectionLabel}
-                </dd>
-                <dt className="debug-hud__key">Position</dt>
-                <dd className="debug-hud__value" data-testid="cell-position">
-                    {positionLabel}
-                </dd>
-                <dt className="debug-hud__key">Hotkeys</dt>
-                <dd className="debug-hud__value" data-testid="cell-hotkey-status">
-                    {hotkeyLabel}
-                </dd>
-                <dt className="debug-hud__key">Connection</dt>
-                <dd className="debug-hud__value" data-testid="cell-connection-state">
-                    {connectionStateLabel}
-                </dd>
-                <dt className="debug-hud__key">Audio</dt>
-                <dd className="debug-hud__value" data-testid="cell-audio-meter">
-                    <span className="debug-hud__meter" data-testid="meter-audio-level">
-                        <span className="debug-hud__meter-fill" style={{ width: `${meterPercent}%` }} />
-                    </span>
-                </dd>
-                <dt className="debug-hud__key">Active panel</dt>
-                <dd className="debug-hud__value" data-testid="cell-active-panel">
-                    {activePanelLabel}
-                </dd>
-                <dt className="debug-hud__key">Mouse</dt>
-                <dd className="debug-hud__value" data-testid="cell-mouse-toggle" data-mouse-toggle={mouseToggleLabel === 'ON'}>
-                    {mouseToggleLabel}
-                </dd>
-                <dt className="debug-hud__key">Copy</dt>
-                <dd className="debug-hud__value" data-testid="cell-copy-ok" data-copy-ok={copyOk}>
-                    {copyOk ? 'Copied ✓' : '—'}
-                </dd>
-                <dt className="debug-hud__key">Session started</dt>
-                <dd className="debug-hud__value" data-testid="cell-session-started">
-                    {sessionStartedLabel}
-                </dd>
-                <dt className="debug-hud__key">Uptime</dt>
-                <dd className="debug-hud__value" data-testid="cell-uptime">
-                    {uptimeLabel}
-                </dd>
+                <div className="debug-hud__cell">
+                    <dt className="debug-hud__key">Electron</dt>
+                    <dd className="debug-hud__value" data-testid="cell-electron-version">
+                        {electronVersionLabel}
+                    </dd>
+                </div>
+                <div className="debug-hud__cell">
+                    <dt className="debug-hud__key">Content protection</dt>
+                    <dd className="debug-hud__value" data-testid="cell-content-protection">
+                        {contentProtectionLabel}
+                    </dd>
+                </div>
+                <div className="debug-hud__cell">
+                    <dt className="debug-hud__key">Position</dt>
+                    <dd className="debug-hud__value" data-testid="cell-position">
+                        {positionLabel}
+                    </dd>
+                </div>
+                <div className="debug-hud__cell">
+                    <dt className="debug-hud__key">Hotkeys</dt>
+                    <dd className="debug-hud__value" data-testid="cell-hotkey-status">
+                        {hotkeyLabel}
+                    </dd>
+                </div>
+                <div className="debug-hud__cell">
+                    <dt className="debug-hud__key">Connection</dt>
+                    <dd className="debug-hud__value" data-testid="cell-connection-state">
+                        {connectionStateLabel}
+                    </dd>
+                </div>
+                <div className="debug-hud__cell">
+                    <dt className="debug-hud__key">Audio</dt>
+                    <dd className="debug-hud__value" data-testid="cell-audio-meter">
+                        <span className="debug-hud__meter" data-testid="meter-audio-level">
+                            <span className="debug-hud__meter-fill" style={{ width: `${meterPercent}%` }} />
+                        </span>
+                    </dd>
+                </div>
+                <div className="debug-hud__cell">
+                    <dt className="debug-hud__key">Active panel</dt>
+                    <dd className="debug-hud__value" data-testid="cell-active-panel">
+                        {activePanelLabel}
+                    </dd>
+                </div>
+                <div className="debug-hud__cell">
+                    <dt className="debug-hud__key">Mouse</dt>
+                    <dd className="debug-hud__value" data-testid="cell-mouse-toggle" data-mouse-toggle={mouseToggleLabel === 'ON'}>
+                        {mouseToggleLabel}
+                    </dd>
+                </div>
+                <div className="debug-hud__cell">
+                    <dt className="debug-hud__key">Copy</dt>
+                    <dd className="debug-hud__value" data-testid="cell-copy-ok" data-copy-ok={copyOk}>
+                        {copyOk ? 'Copied ✓' : '—'}
+                    </dd>
+                </div>
+                <div className="debug-hud__cell">
+                    <dt className="debug-hud__key">Session started</dt>
+                    <dd className="debug-hud__value" data-testid="cell-session-started">
+                        {sessionStartedLabel}
+                    </dd>
+                </div>
+                <div className="debug-hud__cell">
+                    <dt className="debug-hud__key">Uptime</dt>
+                    <dd className="debug-hud__value" data-testid="cell-uptime">
+                        {uptimeLabel}
+                    </dd>
+                </div>
             </dl>
         </header>
     );

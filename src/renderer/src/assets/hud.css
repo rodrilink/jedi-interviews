@@ -104,18 +104,28 @@ body {
 }
 
 /*
- * The status grid in the header: a horizontal run of key/value cells. `grid-auto-flow: column` keeps the
- * key above its value and lays successive cells out across the header. It wraps to a second band of cells
- * if the window is narrow. (The hotkey cheat-sheet moved out to the CommandsPanel — item 1 declutter.)
+ * The status cells in the header: a WRAPPING flex row of compact key/value cells (item 6 fix). The prior
+ * `grid-auto-flow: column` laid every cell in one non-wrapping run, so the rightmost cell (uptime) was
+ * pushed past the edge and clipped. A wrapping flex lets cells fit across the full width and drop to a
+ * second clean line when they don't — nothing is clipped. (The hotkey cheat-sheet lives in CommandsPanel.)
  */
 .debug-hud__grid {
     flex: 1 1 auto;
-    display: grid;
-    grid-auto-flow: column;
-    grid-template-rows: auto auto;
-    grid-auto-columns: max-content;
-    gap: 0 16px;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    column-gap: 16px;
+    row-gap: 4px;
     margin: 0;
+}
+
+/* One status cell: the label stacked above its value, sized to content so the row packs tightly. */
+.debug-hud__cell {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-width: 0;
 }
 
 .debug-hud__key {
