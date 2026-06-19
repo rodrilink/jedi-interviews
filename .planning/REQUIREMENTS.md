@@ -43,10 +43,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Session Context
 
-- [ ] **CTX-01**: The user can paste and edit project context — notes, ticket text, repo snippets, and reference links — in a dedicated editor
-- [ ] **CTX-02**: Session Context persists locally across app restarts
+- [x] **CTX-01**: The user can paste and edit project context — notes, ticket text, repo snippets, and reference links — in a dedicated editor
+- [x] **CTX-02**: Session Context persists locally across app restarts
 - [ ] **CTX-03**: The active Session Context is injected into AI prompts for all three modes
-- [ ] **CTX-04**: The context store is structured so a future URL-fetcher (Jira/Azure/GitHub) can populate it without redesign
+- [x] **CTX-04**: The context store is structured so a future URL-fetcher (Jira/Azure/GitHub) can populate it without redesign
 
 ### Settings & Secrets
 
@@ -122,10 +122,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AI-02 | Phase 5 | Pending |
 | AI-04 | Phase 5 | Pending |
 | AI-05 | Phase 5 | Pending |
-| CTX-01 | Phase 6 | Pending |
-| CTX-02 | Phase 6 | Pending |
+| CTX-01 | Phase 6 | Complete |
+| CTX-02 | Phase 6 | Complete |
 | CTX-03 | Phase 6 | Pending |
-| CTX-04 | Phase 6 | Pending |
+| CTX-04 | Phase 6 | Complete |
 | SET-01 | Phase 6 | Pending |
 | SET-02 | Phase 6 | Pending |
 | SET-04 | Phase 6 | Pending |

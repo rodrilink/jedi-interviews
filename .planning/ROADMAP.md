@@ -200,8 +200,8 @@ Plans:
 
 **Wave 1**
 
-- [ ] 06-01-PLAN.md — Focusable settings window + two-key safeStorage store + Ctrl+Alt+S chord + boot key precedence (D-08) + multi-renderer/preload build wiring + headless key round-trip (SET-01, SET-02)
-- [ ] 06-02-PLAN.md — SessionContextRepository over electron-store (ULID-keyed ISessionContextDto, activeAsGrounding/saveActive) + pure parseLinks utility + ulid dep (CTX-01, CTX-02, CTX-04)
+- [x] 06-01-PLAN.md — Focusable settings window + two-key safeStorage store + Ctrl+Alt+S chord + boot key precedence (D-08) + multi-renderer/preload build wiring + headless key round-trip (SET-01, SET-02)
+- [x] 06-02-PLAN.md — SessionContextRepository over electron-store (ULID-keyed ISessionContextDto, activeAsGrounding/saveActive) + pure parseLinks utility + ulid dep (CTX-01, CTX-02, CTX-04)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -247,5 +247,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. Audio Loopback Spike | 2/2 | Complete   | 2026-06-17 |
 | 4. STT Pipeline + Live Transcript | 4/4 | Complete   | 2026-06-18 |
 | 5. AI Orchestration (Answer + Talking Points) | 2/3 | In Progress|  |
-| 6. Session Context + Settings Window | 0/4 | Not started | - |
+| 6. Session Context + Settings Window | 2/4 | In Progress|  |
 | 7. Screenshot Vision + Packaging & Hardening | 0/3 | Not started | - |

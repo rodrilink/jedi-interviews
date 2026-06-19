@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 6 context gathered
-last_updated: "2026-06-19T14:41:38.098Z"
-last_activity: 2026-06-19 -- Phase 06 execution started
+last_updated: "2026-06-19T14:48:06.417Z"
+last_activity: 2026-06-19
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 20
-  completed_plans: 17
+  completed_plans: 18
   percent: 71
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-16)
 ## Current Position
 
 Phase: 06 (session-context-settings-window) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 06
-Last activity: 2026-06-19 -- Phase 06 execution started
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-06-19
 
-Progress: [███████░░░] 71%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Progress: [███████░░░] 71%
 | Phase 04 P01 | 106min | 3 tasks | 6 files |
 | Phase 04 P02 | 18min | 2 tasks tasks | 2 files files |
 | Phase 04 P03 | 8min | 2 tasks | 4 files |
+| Phase 06 P02 | 3min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,8 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-02: DeepgramSttGateway implements ISttProvider over @deepgram/sdk v5 - backoff 500ms x2 max 8s +/-20% jitter (resets on open); states connecting/connected/reconnecting/disconnected/error; key env var DEEPGRAM_API_KEY injected via constructor (gateway never reads process.env), never logged/emitted/IPC'd; keep-alive ~6s during silence; sendAudio drops PCM while disconnected (D-06); consumers depend on the seam only (TRN-05).
 - [Phase ?]: 04-03: TranscriptBuffer (TRN-04, main-owned, D-06) — WINDOW_MS=90s + clock-independent ceilings MAX_SEGMENTS=400/MAX_TOTAL_CHARS=20000 (T-4-06); interim replaced; recentSince(ms) is Phase 5 span read; injected clock.
 - [Phase ?]: 04-03: clear-transcript chord = Ctrl+Alt+K (D-07) — one discrete IHotkeyChord, no registrar logic change; missing handler surfaces in register().failed (CTL-03). On-machine Teams/Zoom/VS Code conflict re-check PENDING for 04-04 (fall back to X).
+- [Phase ?]: 06-02: session-context store layout is { contexts: ISessionContextDto[]; activeId } under userData (default electron-store file); ULID-keyed + multi-context-ready but v1 single-context (D-09)
+- [Phase ?]: 06-02: activeAsGrounding() returns ONLY the four grounding fields or undefined (D-10 fail-safe); saveActive() creates one ULID DTO (source:manual+createdAt) then updates in place (D-06); injectable IContextStoreHandle is the Electron-free test seam
 
 ### Pending Todos
 
@@ -132,6 +135,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-19T14:41:26.454Z
+Last session: 2026-06-19T14:47:06.357Z
 Stopped at: Phase 6 context gathered
 Resume file: None
