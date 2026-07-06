@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 Phase: 08 (diarized-utterance-pipeline) — EXECUTING
 Plan: 1 of 3
 Status: Executing Phase 08
-Last activity: 2026-07-06 -- Phase 08 execution started
+Last activity: 2026-07-06 - Completed quick task 260706-q4m: fix CR-01 (Phase 8 blocker) — restored AI transcript feed
 
 ## Milestone v1.1 Roadmap (Phases 8–9)
 
@@ -138,6 +138,7 @@ None yet.
 | 260616-w65 | Fix overlay click-through bug — overlay swallowed mouse clicks (OVL-02 gap from Phase 1 gate) | 2026-06-17 | 4115f62 | [260616-w65-fix-overlay-click-through-bug-overlay-wi](./quick/260616-w65-fix-overlay-click-through-bug-overlay-wi/) |
 | 260618-r2x | Add HUD status rows: Active panel (AI/Transcript), Session started, Uptime (1s tick); pure formatUptime utility | 2026-06-19 | fd35627 | [260618-r2x-add-active-panel-session-started-uptime-](./quick/260618-r2x-add-active-panel-session-started-uptime-/) |
 | 260619-mcv | Overlay UX overhaul: header + 4 panels (Q/A·AI·Code·Commands), 1280px width, visible Ctrl+Alt+F focus cycle, canonical labels, dual copy (Ctrl+Alt+Y + copy-on-release), chrome-free interaction toggle (Ctrl+Alt+M), full-session Q/A scrollback. PENDING: on-machine hotkey-conflict re-check for Ctrl+Alt+Y/Ctrl+Alt+M vs Teams/Zoom/VS Code. | 2026-06-19 | a88dd43 | [260619-mcv-fix-ctrl-alt-f-focus-cycle-split-code-ch](./quick/260619-mcv-fix-ctrl-alt-f-focus-cycle-split-code-ch/) |
+| 260706-q4m | Fix CR-01 (Phase 8 blocker): re-emit committed utterances as final `transcript` events (`isFinal:true`) from the gateway so `TranscriptBuffer` feeds the AI orchestrator again — restores AI-01/AI-02 + TRN-01/TRN-02; adds a regression test that catches the empty-span break. | 2026-07-06 | 79f293c | [260706-q4m-fix-cr-01-re-emit-committed-utterances-a](./quick/260706-q4m-fix-cr-01-re-emit-committed-utterances-a/) |
 
 ## Deferred Items
 
