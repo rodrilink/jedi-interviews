@@ -4,7 +4,7 @@ type: bug
 status: pending
 created: 2026-06-20
 severity: high
-resolves_phase:
+resolves_phase: 8
 source: error-1.png (on-machine, 2026-06-20)
 ---
 
