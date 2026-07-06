@@ -23,7 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: AI Orchestration (Answer + Talking Points)** - Streaming, keyboard-scrollable AI answers and talking points drawn from the recent transcript.
 - [x] **Phase 6: Session Context + Settings Window** - A focusable settings window for API keys and a persisted context editor that grounds every AI prompt. (completed 2026-06-19)
 - [x] **Phase 7: Screenshot Vision + Packaging & Hardening** - Screenshot-driven code-challenge solving and a runnable Windows .exe with transparency, focus discipline, and content protection intact. (completed 2026-06-19)
-- [ ] **Phase 8: Diarized Utterance Pipeline** - Per-speaker utterances with a stable `Person N` map and a local Question/Statement tag, all riding the existing STT provider seam. *(milestone v1.1)*
+- [x] **Phase 8: Diarized Utterance Pipeline** - Per-speaker utterances with a stable `Person N` map and a local Question/Statement tag, all riding the existing STT provider seam. *(milestone v1.1)* (completed 2026-07-06)
 - [ ] **Phase 9: Card-Based Q/A Panel Redesign** - The Q/A panel rebuilt in place as per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, with a compact people list. *(milestone v1.1)*
 
 ## Phase Details
@@ -275,7 +275,7 @@ Plans:
 
 **Wave 3** *(blocked on 08-02)*
 
-- [ ] 08-03-PLAN.md — Main wiring: additively extend `IOverlayTranscript` with the committed-utterance list on the existing read-only `jedi:transcript` channel (no new control channel), re-key-safe `on('utterance')` binding, and Ctrl+Alt+K reset of buffer + utterance list + Person N numbering together (QA-01, QA-02, QA-07)
+- [x] 08-03-PLAN.md — Main wiring: additively extend `IOverlayTranscript` with the committed-utterance list on the existing read-only `jedi:transcript` channel (no new control channel), re-key-safe `on('utterance')` binding, and Ctrl+Alt+K reset of buffer + utterance list + Person N numbering together (QA-01, QA-02, QA-07)
 
 **Notes**: The `ISttProvider` seam (`src/main/stt/stt-provider.interface.ts`) MUST be preserved (QA-07/TRN-05): extend `ISttTranscriptEvent` (or add a sibling utterance event) to carry `speaker` + classification rather than coupling consumers to Deepgram. Enable diarization via `diarize: 'true'` + end-of-utterance via `utterance_end_ms: '1000'` on the Deepgram v5 `listen.v1.connect` options in `deepgram-stt.gateway.ts` (RESEARCH correction: there is NO live `utterances` option and NO per-utterance `speaker` — `speaker` is per-word at `words[].speaker`, utterance boundaries come from `speech_final`/`UtteranceEnd`); the exact per-word `speaker` index / utterance-boundary payload shape is a plan-time research item (Context7 `/deepgram/deepgram-js-sdk` + the `claude-api` skill is NOT needed — this is Deepgram-only). The stable speaker map (QA-02) is a main-process session-scoped structure that maps drifting Deepgram indices → stable `Person N`; hold it alongside the `TranscriptBuffer`. Q-vs-statement (QA-03) is a LOCAL heuristic (punctuation `?`, leading interrogatives like who/what/when/where/why/how/do/does/is/are/can/could/would/will, rising-question cues) — no AI call, honoring the "AI calls are user-triggered only" constraint; default Statement when unsure. Keep the classification/speaker-map logic in pure, unit-testable utilities per the seam pattern.
 
@@ -312,5 +312,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. AI Orchestration (Answer + Talking Points) | 2/3 | In Progress|  |
 | 6. Session Context + Settings Window | 4/4 | Complete   | 2026-06-19 |
 | 7. Screenshot Vision + Packaging & Hardening | 3/3 | Complete   | 2026-06-19 |
-| 8. Diarized Utterance Pipeline | 2/3 | In Progress|  |
+| 8. Diarized Utterance Pipeline | 3/3 | Complete   | 2026-07-06 |
 | 9. Card-Based Q/A Panel Redesign | 0/? | Not started | - |
