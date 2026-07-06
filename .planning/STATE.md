@@ -4,8 +4,8 @@ milestone: v1.1
 milestone_name: Structured Q/A Panel
 status: executing
 stopped_at: Phase 8 context gathered
-last_updated: "2026-07-06T18:19:25.193Z"
-last_activity: 2026-07-06 -- Phase 08 planning complete
+last_updated: "2026-07-06T22:32:27.614Z"
+last_activity: 2026-07-06 -- Phase 08 execution started
 progress:
   total_phases: 9
   completed_phases: 7
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-06)
 
 **Core value:** When the user presses a hotkey during a meeting, a grounded, relevant AI response appears on the overlay fast enough to be useful — without ever stealing keyboard/mouse focus from the meeting app.
-**Current focus:** Milestone v1.1 (Structured Q/A Panel) — roadmapped into Phases 8–9. Next: plan Phase 8 (Diarized Utterance Pipeline).
+**Current focus:** Phase 08 — diarized-utterance-pipeline
 
 ## Current Position
 
-Phase: 8 — Diarized Utterance Pipeline (not started)
-Plan: —
-Status: Ready to execute
-Last activity: 2026-07-06 -- Phase 08 planning complete
+Phase: 08 (diarized-utterance-pipeline) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 08
+Last activity: 2026-07-06 -- Phase 08 execution started
 
 ## Milestone v1.1 Roadmap (Phases 8–9)
 
