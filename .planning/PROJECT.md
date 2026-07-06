@@ -19,6 +19,17 @@ When the user presses a hotkey during a meeting, a grounded, relevant AI respons
 overlay fast enough to be useful in the flow of conversation — without ever stealing keyboard/mouse
 focus from the meeting app.
 
+## Current Milestone: v1.1 Structured Q/A Panel
+
+**Goal:** Turn the flat-text Q/A panel into structured, speaker-attributed cards that clearly distinguish questions from statements at a glance.
+
+**Target features:**
+- Enable Deepgram diarization + utterance segmentation so the mixed loopback stream is split into per-speaker utterances (moves CAP-02 into this milestone)
+- A session-long speaker map that keeps each voice labeled consistently as Person 1, Person 2, … despite Deepgram index drift
+- A fast local heuristic that tags each utterance as Question or Statement (defaulting to Statement when unsure) — no per-segment AI cost
+- Card-based Q/A redesign in place: each utterance in its own panel labeled `Q1 - Person 1` / `S3 - Person 2`, questions and statements visually distinct
+- A compact people list of identified speakers in the Q/A panel
+
 ## Requirements
 
 ### Validated
@@ -87,6 +98,9 @@ focus from the meeting app.
 | Claude (Opus 4.8 hard / Haiku 4.5 fast) | User is in the Anthropic ecosystem; tiered for cost/quality | — Pending |
 | Hotkey-driven AI triggers (no auto-detect) | Predictable, cheap, no awkward unprompted pop-ups; fits keyboard-only requirement | — Pending |
 | Paste-based local context store (no live API) | 90% of grounding value without per-provider OAuth surface; upgradeable to a URL-fetcher | — Pending |
+| Deepgram diarization for speaker ID (v1.1) | Single mixed loopback stream still separates into speakers via `diarize:true`; no mic/second-channel needed; classification kept local/heuristic to honor "AI is user-triggered only" | — Pending (v1.1) |
+| Session-long speaker map (stable Person N) | Deepgram raw speaker indices drift on a rolling stream; a session map keeps each voice's label stable for the whole meeting | — Pending (v1.1) |
+| Local heuristic Q-vs-statement (default Statement) | Avoids per-segment AI cost/latency; questions are the high-value signal but false-questions are noisy, so borderline defaults to Statement | — Pending (v1.1) |
 
 ## Evolution
 
@@ -106,4 +120,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-17 — Phase 3 loopback gate NO-GO (built-in `getDisplayMedia` loopback silent on the target machine due to a DXGI desktop-duplicator failure); Phase 4 will capture system audio via the `naudiodon` WASAPI sidecar.*
+*Last updated: 2026-07-06 — Started milestone v1.1 (Structured Q/A Panel): Deepgram diarization + utterance segmentation, stable Person N speaker mapping, local question-vs-statement heuristic, and a card-based Q/A redesign with a people list.*
