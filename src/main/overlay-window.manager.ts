@@ -2,7 +2,7 @@ import { BrowserWindow, screen } from 'electron';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 
-import type { SttConnectionState } from './stt/stt-provider.interface';
+import type { SttConnectionState, IUtteranceEvent } from './stt/stt-provider.interface';
 import type { IAiPushEvent } from './ai/ai-orchestrator';
 
 export type { IAiPushEvent };
@@ -86,6 +86,12 @@ export type ScrollTranscriptDirection = 'up' | 'down';
  * The read-only transcript payload pushed to the HUD over {@link TRANSCRIPT_CHANNEL} (D-04). Carries
  * the renderable transcript snapshot plus the coarse STT connection state — text and state only,
  * never the Deepgram key or any secret (D-08). The renderer is a pure view of this payload.
+ *
+ * Phase 8 (QA-01): the payload is extended ADDITIVELY with {@link IOverlayTranscript.utterances}, the
+ * committed speaker-attributed utterance stream, so the Phase 9 Q/A card panel rides the SAME read-only
+ * channel — no new renderer→main control surface is added. An {@link IUtteranceEvent} carries only
+ * text/speaker/classification, so the "text + state only, never the Deepgram key or any secret" contract
+ * (D-08) still holds.
  */
 export interface IOverlayTranscript {
     /** The space-joined finalized transcript text in the current time window. */
@@ -96,6 +102,12 @@ export interface IOverlayTranscript {
     connectionState: SttConnectionState;
     /** The live capture RMS level in `[0, 1]`, computed in main, rendered as the overlay audio meter. */
     audioLevel: number;
+    /**
+     * The committed, speaker-attributed, classified utterances for this session, oldest first — consumed
+     * by the Phase 9 card panel over the same read-only channel. Additive (QA-01): the existing HUD reads
+     * only the four fields above and is unaffected; the utterance stream rides this same one-way push.
+     */
+    utterances: IUtteranceEvent[];
 }
 
 /**
