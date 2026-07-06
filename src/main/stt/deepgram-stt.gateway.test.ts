@@ -1,12 +1,13 @@
 import { EventEmitter } from 'events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ISttTranscriptEvent, SttConnectionState } from './stt-provider.interface';
+import type { ISttTranscriptEvent, IUtteranceEvent, SttConnectionState } from './stt-provider.interface';
 
 /** Local listener aliases for the gateway's typed events (the interface declares these inline). */
 type ISttTranscriptListener = (transcriptEvent: ISttTranscriptEvent) => void;
 type ISttConnectionStateListener = (state: SttConnectionState) => void;
 type ISttErrorListener = (error: Error) => void;
+type IUtteranceListener = (utterance: IUtteranceEvent) => void;
 
 /**
  * In-memory stand-in for the Deepgram v5 `V1Socket`. The real socket is an event emitter
@@ -58,6 +59,31 @@ function emitTranscriptMessage(transcript: string, isFinal: boolean): void {
         is_final: isFinal,
         channel: { alternatives: [{ transcript }] },
     });
+}
+
+/**
+ * Emits a Deepgram `Results` message, optionally carrying `speech_final` and per-word diarization
+ * indices — the extended shape the diarized-utterance path consumes.
+ */
+function emitResultsMessage(
+    transcript: string,
+    isFinal: boolean,
+    options?: {
+        speechFinal?: boolean;
+        words?: Array<{ punctuated_word?: string; word?: string; speaker?: number }>;
+    }
+): void {
+    fakeSocket.emit('message', {
+        type: 'Results',
+        is_final: isFinal,
+        speech_final: options?.speechFinal,
+        channel: { alternatives: [{ transcript, words: options?.words }] },
+    });
+}
+
+/** Emits a Deepgram `UtteranceEnd` message — the end-of-turn fallback finalization signal. */
+function emitUtteranceEnd(): void {
+    fakeSocket.emit('message', { type: 'UtteranceEnd', channel: [0], last_word_end: 1.2 });
 }
 
 describe('deepgram-stt.gateway', () => {
@@ -301,6 +327,170 @@ describe('deepgram-stt.gateway', () => {
         // Assert
         expect(fakeSocket.sendCloseStream).toHaveBeenCalled();
         expect(fakeSocket.close).toHaveBeenCalled();
+    });
+
+    it('should still emit an interim transcript for an is_final:false Results and no utterance', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+        const transcripts: ISttTranscriptEvent[] = [];
+        const utterances: IUtteranceEvent[] = [];
+        const transcriptListener: ISttTranscriptListener = (transcriptEvent: ISttTranscriptEvent): void => {
+            transcripts.push(transcriptEvent);
+        };
+        const utteranceListener: IUtteranceListener = (utterance: IUtteranceEvent): void => {
+            utterances.push(utterance);
+        };
+        gateway.on('transcript', transcriptListener);
+        gateway.on('utterance', utteranceListener);
+
+        // Act
+        await gateway.start();
+        fakeSocket.emit('open');
+        emitResultsMessage('hello', false);
+
+        // Assert
+        expect(transcripts).toEqual([{ text: 'hello', isFinal: false }]);
+        expect(utterances).toEqual([]);
+    });
+
+    it('should emit exactly one utterance per speech_final turn built from multiple is_final runs', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+        const utterances: IUtteranceEvent[] = [];
+        const utteranceListener: IUtteranceListener = (utterance: IUtteranceEvent): void => {
+            utterances.push(utterance);
+        };
+        gateway.on('utterance', utteranceListener);
+
+        // Act
+        await gateway.start();
+        fakeSocket.emit('open');
+        emitResultsMessage('how are', true, { words: [{ speaker: 0 }, { speaker: 0 }] });
+        emitResultsMessage('you doing?', true, { speechFinal: true, words: [{ speaker: 0 }, { speaker: 0 }] });
+
+        // Assert
+        expect(utterances).toHaveLength(1);
+        expect(utterances[0].text).toBe('how are you doing?');
+    });
+
+    it('should not emit an utterance for an is_final run that is not speech_final', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+        const utterances: IUtteranceEvent[] = [];
+        const utteranceListener: IUtteranceListener = (utterance: IUtteranceEvent): void => {
+            utterances.push(utterance);
+        };
+        gateway.on('utterance', utteranceListener);
+
+        // Act
+        await gateway.start();
+        fakeSocket.emit('open');
+        emitResultsMessage('partial turn', true, { words: [{ speaker: 0 }] });
+
+        // Assert
+        expect(utterances).toEqual([]);
+    });
+
+    it('should commit one utterance on UtteranceEnd when a turn is pending', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+        const utterances: IUtteranceEvent[] = [];
+        const utteranceListener: IUtteranceListener = (utterance: IUtteranceEvent): void => {
+            utterances.push(utterance);
+        };
+        gateway.on('utterance', utteranceListener);
+
+        // Act
+        await gateway.start();
+        fakeSocket.emit('open');
+        emitResultsMessage('this is a statement', true, { words: [{ speaker: 1 }] });
+        emitUtteranceEnd();
+
+        // Assert
+        expect(utterances).toHaveLength(1);
+        expect(utterances[0].text).toBe('this is a statement');
+    });
+
+    it('should emit exactly one utterance for a speech_final followed by a trailing UtteranceEnd', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+        const utterances: IUtteranceEvent[] = [];
+        const utteranceListener: IUtteranceListener = (utterance: IUtteranceEvent): void => {
+            utterances.push(utterance);
+        };
+        gateway.on('utterance', utteranceListener);
+
+        // Act
+        await gateway.start();
+        fakeSocket.emit('open');
+        emitResultsMessage('done talking now', true, { speechFinal: true, words: [{ speaker: 0 }] });
+        emitUtteranceEnd();
+
+        // Assert
+        expect(utterances).toHaveLength(1);
+    });
+
+    it('should attribute a diarized turn to a Person N speaker and classify it', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+        const utterances: IUtteranceEvent[] = [];
+        const utteranceListener: IUtteranceListener = (utterance: IUtteranceEvent): void => {
+            utterances.push(utterance);
+        };
+        gateway.on('utterance', utteranceListener);
+
+        // Act
+        await gateway.start();
+        fakeSocket.emit('open');
+        emitResultsMessage('what is the plan?', true, { speechFinal: true, words: [{ speaker: 2 }, { speaker: 2 }] });
+
+        // Assert
+        expect(utterances).toEqual([{ text: 'what is the plan?', speaker: 'Person 1', isDiarized: true, classification: 'question' }]);
+    });
+
+    it('should give an undiarized turn the neutral speaker with isDiarized false', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+        const utterances: IUtteranceEvent[] = [];
+        const utteranceListener: IUtteranceListener = (utterance: IUtteranceEvent): void => {
+            utterances.push(utterance);
+        };
+        gateway.on('utterance', utteranceListener);
+
+        // Act
+        await gateway.start();
+        fakeSocket.emit('open');
+        emitResultsMessage('just a remark.', true, { speechFinal: true, words: [{}] });
+
+        // Assert
+        expect(utterances).toEqual([{ text: 'just a remark.', speaker: 'Speaker', isDiarized: false, classification: 'statement' }]);
+    });
+
+    it('should not emit transcript or utterance for Metadata or SpeechStarted messages', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+        const transcriptListener: ISttTranscriptListener = vi.fn<(transcriptEvent: ISttTranscriptEvent) => void>();
+        const utteranceListener: IUtteranceListener = vi.fn<(utterance: IUtteranceEvent) => void>();
+        gateway.on('transcript', transcriptListener);
+        gateway.on('utterance', utteranceListener);
+
+        // Act
+        await gateway.start();
+        fakeSocket.emit('open');
+        fakeSocket.emit('message', { type: 'Metadata' });
+        fakeSocket.emit('message', { type: 'SpeechStarted' });
+
+        // Assert
+        expect(transcriptListener).not.toHaveBeenCalled();
+        expect(utteranceListener).not.toHaveBeenCalled();
     });
 
     it('should never log the api key during the connection lifecycle', async () => {
