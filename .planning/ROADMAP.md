@@ -271,7 +271,7 @@ Plans:
 
 **Wave 2** *(blocked on 08-01)*
 
-- [ ] 08-02-PLAN.md — Gateway wiring: `diarize:'true'` + `utterance_end_ms:'1000'` on the live connect, message-type switch, accumulate-then-commit (one `utterance` per `speech_final`, `UtteranceEnd` fallback, no double-commit), `Person N` + Q/S labeling emitted through the seam, D-11 timer audit + regression (closes todo 260620) (QA-01, QA-07)
+- [x] 08-02-PLAN.md — Gateway wiring: `diarize:'true'` + `utterance_end_ms:'1000'` on the live connect, message-type switch, accumulate-then-commit (one `utterance` per `speech_final`, `UtteranceEnd` fallback, no double-commit), `Person N` + Q/S labeling emitted through the seam, D-11 timer audit + regression (closes todo 260620) (QA-01, QA-07)
 
 **Wave 3** *(blocked on 08-02)*
 
@@ -312,5 +312,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. AI Orchestration (Answer + Talking Points) | 2/3 | In Progress|  |
 | 6. Session Context + Settings Window | 4/4 | Complete   | 2026-06-19 |
 | 7. Screenshot Vision + Packaging & Hardening | 3/3 | Complete   | 2026-06-19 |
-| 8. Diarized Utterance Pipeline | 1/3 | In Progress|  |
+| 8. Diarized Utterance Pipeline | 2/3 | In Progress|  |
 | 9. Card-Based Q/A Panel Redesign | 0/? | Not started | - |
