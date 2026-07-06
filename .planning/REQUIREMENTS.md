@@ -146,12 +146,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AI-06 | Phase 6 | Complete |
 | AI-03 | Phase 7 | Complete |
 | PKG-01 | Phase 7 | Complete |
+| QA-01 | Phase 8 | Pending |
+| QA-02 | Phase 8 | Pending |
+| QA-03 | Phase 8 | Pending |
+| QA-07 | Phase 8 | Pending |
+| QA-04 | Phase 9 | Pending |
+| QA-05 | Phase 9 | Pending |
+| QA-06 | Phase 9 | Pending |
 
 **Coverage:**
 - v1 requirements: 30 total
 - Mapped to phases: 30 ✓
+- Milestone v1.1 requirements: 7 total (QA-01…QA-07)
+- Mapped to phases: 7 ✓ (Phase 8: QA-01/02/03/07; Phase 9: QA-04/05/06)
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-16*
-*Last updated: 2026-07-06 — added milestone v1.1 Structured Q/A requirements (QA-01…QA-07); CAP-02 pulled forward from v2. Traceability for v1.1 populated during roadmap creation.*
+*Last updated: 2026-07-06 — mapped milestone v1.1 Structured Q/A requirements (QA-01…QA-07) to Phases 8–9: the diarized utterance pipeline (QA-01/02/03/07) and the card-based Q/A panel redesign (QA-04/05/06). CAP-02 pulled forward from v2.*

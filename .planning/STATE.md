@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Structured Q/A Panel
-status: planning
-last_updated: "2026-07-06T16:37:48.385Z"
+status: roadmapped
+last_updated: "2026-07-06T17:10:00.000Z"
 last_activity: 2026-07-06
 progress:
-  total_phases: 0
+  total_phases: 2
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,17 +17,22 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-16)
+See: .planning/PROJECT.md (updated 2026-07-06)
 
 **Core value:** When the user presses a hotkey during a meeting, a grounded, relevant AI response appears on the overlay fast enough to be useful — without ever stealing keyboard/mouse focus from the meeting app.
-**Current focus:** Milestone complete
+**Current focus:** Milestone v1.1 (Structured Q/A Panel) — roadmapped into Phases 8–9. Next: plan Phase 8 (Diarized Utterance Pipeline).
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 8 — Diarized Utterance Pipeline (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-06 — Milestone v1.1 started
+Status: Roadmapped — awaiting Phase 8 planning
+Last activity: 2026-07-06 — Milestone v1.1 roadmap created (Phases 8–9)
+
+## Milestone v1.1 Roadmap (Phases 8–9)
+
+- **Phase 8: Diarized Utterance Pipeline** — QA-01, QA-02, QA-03, QA-07. Deepgram diarization + utterance segmentation, session-long stable `Person N` speaker map, local Question/Statement heuristic, all carried through the existing `ISttProvider` seam. Data/seam layer — lands before the UI redesign.
+- **Phase 9: Card-Based Q/A Panel Redesign** — QA-04, QA-05, QA-06. Rebuild `transcript-panel.tsx` in place as per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, plus a compact people list. Consumes the Phase 8 stream.
 
 ## Performance Metrics
 
@@ -112,6 +117,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 07-01: Vision rides an optional image field on IAiPromptRequest (no new gateway method); code-challenge is a third AiMode under the SAME single-in-flight orchestrator routing claude-opus-4-8; text modes byte-for-byte unchanged. Capture seam threaded as a closure; dedicated vision-panel takes over the AI-panel region (D-10). claude-api skill confirmed the model id + base64-no-data:-prefix block shape (Task 5).
 - [Phase 07]: 07-02: Portable .exe (Electron 35.7.5) verified GO 6/6 on-machine (PKG-01) — both native modules asarUnpack'd, load from app.asar.unpacked/. npmRebuild:false (no MSVC; N-API prebuilds ABI-stable, asarUnpack is the real fix, Pitfall 4). Packaged .exe does NOT load .env — keys via Settings/safeStorage (intended v1 path); follow-up todo to consider co-located .env.
 - [Phase ?]: 07-03: CTL-03 hardened via main-process startup log of the registrar outcome (active layer + failed-chord labels only, T-7-IL2); full chord set incl. Ctrl+Alt+C/Y/M/F already covered by register().failed. GPU fallback + vision latency log confirmed no-new-code (07-01). docs/HARDENING.md documents SmartScreen accepted friction. Whisper stub DROPPED (D-16). Pending: Ctrl+Alt+Y/M conflict re-check (260619-mcv).
+- v1.1 roadmap (2026-07-06): milestone split into Phase 8 (Diarized Utterance Pipeline — QA-01/02/03/07, the data/seam layer) then Phase 9 (Card-Based Q/A Panel Redesign — QA-04/05/06, the UI). The `ISttProvider` seam is extended to carry speaker + Question/Statement classification (QA-07) rather than coupling consumers to Deepgram; diarization/utterances enabled via `diarize:true`+`utterances:true` on the Deepgram v5 connect. Stable `Person N` map (QA-02) is a main-process session structure held alongside TranscriptBuffer. Q-vs-statement (QA-03) is a LOCAL heuristic (default Statement) — no per-utterance AI call. Panel redesign is IN PLACE in transcript-panel.tsx; 4-panel layout unchanged.
 
 ### Pending Todos
 
@@ -142,6 +148,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-19T23:45:11.958Z
-Stopped at: Completed 07-02-PLAN.md (PKG-01 GO 6/6)
+Last session: 2026-07-06T17:10:00.000Z
+Stopped at: Created milestone v1.1 roadmap (Phases 8–9); traceability + STATE updated
 Resume file: None
