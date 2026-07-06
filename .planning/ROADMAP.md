@@ -261,9 +261,23 @@ Plans:
   4. The utterance shape — text, speaker label, and Question/Statement tag — is emitted through the existing `ISttProvider` seam (the transcript event contract), so consumers depend on the seam and remain swappable/backend-agnostic; no consumer imports `@deepgram/sdk`.
   5. When the transcript is cleared (Ctrl+Alt+K) the utterance stream and the session speaker map reset together, so `Person N` numbering restarts cleanly for the next session.
 
-**Plans**: TBD
+**Plans**: 3 plans
 
-**Notes**: The `ISttProvider` seam (`src/main/stt/stt-provider.interface.ts`) MUST be preserved (QA-07/TRN-05): extend `ISttTranscriptEvent` (or add a sibling utterance event) to carry `speaker` + classification rather than coupling consumers to Deepgram. Enable diarization/utterances via `diarize: true` + `utterances: true` on the Deepgram v5 `listen.v1.connect` options in `deepgram-stt.gateway.ts`; the exact per-word `speaker` index / utterance-boundary payload shape is a plan-time research item (Context7 `/deepgram/deepgram-js-sdk` + the `claude-api` skill is NOT needed — this is Deepgram-only). The stable speaker map (QA-02) is a main-process session-scoped structure that maps drifting Deepgram indices → stable `Person N`; hold it alongside the `TranscriptBuffer`. Q-vs-statement (QA-03) is a LOCAL heuristic (punctuation `?`, leading interrogatives like who/what/when/where/why/how/do/does/is/are/can/could/would/will, rising-question cues) — no AI call, honoring the "AI calls are user-triggered only" constraint; default Statement when unsure. Keep the classification/speaker-map logic in pure, unit-testable utilities per the seam pattern.
+Plans:
+
+**Wave 1**
+
+- [ ] 08-01-PLAN.md — Pure core + seam extension: `IUtteranceEvent`/`on('utterance')` on the seam (no Deepgram import), `classifyUtterance` heuristic (D-07/D-08), `pickModalSpeakerIndex` + empty-commit-safe `UtteranceAccumulator`, first-seen `SpeakerMap` with neutral bucket + reset — with all three Wave 0 test files (QA-02, QA-03, QA-07)
+
+**Wave 2** *(blocked on 08-01)*
+
+- [ ] 08-02-PLAN.md — Gateway wiring: `diarize:'true'` + `utterance_end_ms:'1000'` on the live connect, message-type switch, accumulate-then-commit (one `utterance` per `speech_final`, `UtteranceEnd` fallback, no double-commit), `Person N` + Q/S labeling emitted through the seam, D-11 timer audit + regression (closes todo 260620) (QA-01, QA-07)
+
+**Wave 3** *(blocked on 08-02)*
+
+- [ ] 08-03-PLAN.md — Main wiring: additively extend `IOverlayTranscript` with the committed-utterance list on the existing read-only `jedi:transcript` channel (no new control channel), re-key-safe `on('utterance')` binding, and Ctrl+Alt+K reset of buffer + utterance list + Person N numbering together (QA-01, QA-02, QA-07)
+
+**Notes**: The `ISttProvider` seam (`src/main/stt/stt-provider.interface.ts`) MUST be preserved (QA-07/TRN-05): extend `ISttTranscriptEvent` (or add a sibling utterance event) to carry `speaker` + classification rather than coupling consumers to Deepgram. Enable diarization via `diarize: 'true'` + end-of-utterance via `utterance_end_ms: '1000'` on the Deepgram v5 `listen.v1.connect` options in `deepgram-stt.gateway.ts` (RESEARCH correction: there is NO live `utterances` option and NO per-utterance `speaker` — `speaker` is per-word at `words[].speaker`, utterance boundaries come from `speech_final`/`UtteranceEnd`); the exact per-word `speaker` index / utterance-boundary payload shape is a plan-time research item (Context7 `/deepgram/deepgram-js-sdk` + the `claude-api` skill is NOT needed — this is Deepgram-only). The stable speaker map (QA-02) is a main-process session-scoped structure that maps drifting Deepgram indices → stable `Person N`; hold it alongside the `TranscriptBuffer`. Q-vs-statement (QA-03) is a LOCAL heuristic (punctuation `?`, leading interrogatives like who/what/when/where/why/how/do/does/is/are/can/could/would/will, rising-question cues) — no AI call, honoring the "AI calls are user-triggered only" constraint; default Statement when unsure. Keep the classification/speaker-map logic in pure, unit-testable utilities per the seam pattern.
 
 ### Phase 9: Card-Based Q/A Panel Redesign
 
@@ -298,5 +312,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. AI Orchestration (Answer + Talking Points) | 2/3 | In Progress|  |
 | 6. Session Context + Settings Window | 4/4 | Complete   | 2026-06-19 |
 | 7. Screenshot Vision + Packaging & Hardening | 3/3 | Complete   | 2026-06-19 |
-| 8. Diarized Utterance Pipeline | 0/? | Not started | - |
+| 8. Diarized Utterance Pipeline | 0/3 | Not started | - |
 | 9. Card-Based Q/A Panel Redesign | 0/? | Not started | - |
