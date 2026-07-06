@@ -299,6 +299,16 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
      * `'utterance'`. The modal per-word speaker index is resolved to a stable `Person N` label via the
      * gateway-owned {@link SpeakerMap}, and the text is locally classified — so all `@deepgram/sdk`
      * coupling stays inside this file and a fully-labeled, classified utterance crosses the seam (D-09).
+     *
+     * It ALSO re-emits the committed text as a final `transcript` event (`isFinal: true`) — the rolling
+     * finalized-transcript feed the buffer and AI orchestrator depend on (TRN-01/TRN-02/AI-01/AI-02).
+     * This is why `index.ts`'s `if (event.isFinal) buffer.appendFinal(...)` branch runs, and — because
+     * `TranscriptBuffer.appendFinal` clears the trailing interim as a side effect — why restoring this
+     * emit also resolves the stale-trailing-interim-on-commit warning (WR-02) with no `index.ts` change. The
+     * transcript emit is purely ADDITIVE to (never a replacement for) the single `utterance` emit, so
+     * the D-01 one-utterance-per-turn contract is untouched. It is guarded on non-whitespace text so an
+     * empty/whitespace committed turn never pushes a junk empty segment into the buffer's finals (WR-01);
+     * the emitted event is the seam-level {@link ISttTranscriptEvent} — no Deepgram type escapes (D-09).
      */
     private commitPendingUtterance(): void {
         const committed = this.accumulator.commit();
@@ -315,6 +325,11 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
             classification: classifyUtterance(committed.text),
         };
         this.emit('utterance', utterance);
+
+        if (committed.text.trim().length > 0) {
+            const transcriptEvent: ISttTranscriptEvent = { text: committed.text, isFinal: true };
+            this.emit('transcript', transcriptEvent);
+        }
     }
 
     /**
