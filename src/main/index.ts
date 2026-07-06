@@ -28,7 +28,7 @@ import { AudioCaptureService } from './audio/audio-capture.service';
 import { computeRmsInt16 } from './audio/rms.utility';
 import { DeepgramSttGateway } from './stt/deepgram-stt.gateway';
 import { TranscriptBuffer } from './stt/transcript-buffer';
-import type { ISttTranscriptEvent, SttConnectionState } from './stt/stt-provider.interface';
+import type { ISttTranscriptEvent, SttConnectionState, IUtteranceEvent } from './stt/stt-provider.interface';
 import { AnthropicGateway } from './ai/anthropic-ai.gateway';
 import { AiOrchestrator } from './ai/ai-orchestrator';
 import { AiHistory } from './ai/ai-history';
@@ -90,6 +90,7 @@ let aiHistory: AiHistory | undefined;
  * @param actions - The window-control action service bound to the overlay window.
  * @param window - The overlay window to push the cleared transcript snapshot to.
  * @param buffer - The transcript buffer wiped by the clear-transcript chord.
+ * @param utterances - The main-owned committed-utterance list; the clear-transcript chord empties it (D-05).
  * @param getConnectionState - Reads the current connection state for the cleared-snapshot push.
  * @param aiOrchestrator - The single-in-flight AI orchestrator the 'ai-answer'/'ai-talking-points' chords trigger (Phase 5).
  * @param aiHistory - The shared bounded AI history; the 'clear-ai' chord empties it then pushes a `cleared` event.
@@ -99,6 +100,7 @@ function buildHandlers(
     actions: WindowControlActionsService,
     window: BrowserWindow,
     buffer: TranscriptBuffer,
+    utterances: IUtteranceEvent[],
     getConnectionState: () => SttConnectionState,
     aiOrchestrator: AiOrchestrator,
     aiHistory: AiHistory
@@ -120,9 +122,15 @@ function buildHandlers(
         'hud-toggle': (): void => actions.toggleHud(),
         'clear-transcript': (): void => {
             buffer.clear();
+            // D-05 clear-together: Ctrl+Alt+K also empties the main-owned committed-utterance list (in
+            // place so the shared reference stays authoritative) AND resets the speaker map + accumulator
+            // on the CURRENT gateway instance via the module-level re-pointable `sttGateway` ref — so a
+            // re-keyed gateway is cleared too and Person N numbering restarts at Person 1 (QA-02).
+            utterances.length = 0;
+            sttGateway?.clearSpeakers();
             // audioLevel resets to 0 here; the next captured PCM chunk re-pushes the live level within
             // ~66 ms, so the meter only momentarily dips rather than going stale.
-            pushTranscript(window, { ...buffer.renderable(), connectionState: getConnectionState(), audioLevel: 0 });
+            pushTranscript(window, { ...buffer.renderable(), utterances, connectionState: getConnectionState(), audioLevel: 0 });
         },
         'scroll-transcript-up': (): void => pushScrollTranscript(window, 'up'),
         'scroll-transcript-down': (): void => pushScrollTranscript(window, 'down'),
@@ -215,10 +223,11 @@ function bootOverlay(): BrowserWindow {
  *
  * @param window - The overlay window the transcript snapshot is pushed to.
  * @param buffer - The shared transcript buffer (also wiped by the clear-transcript chord).
+ * @param utterances - The shared main-owned committed-utterance list (grows on each committed turn, emptied by clear, D-05).
  * @param apiKeyStore - The two-key safeStorage store; a saved Deepgram key overrides a stale .env (D-08).
  * @returns A getter for the current connection state, read by the clear-transcript handler.
  */
-function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, apiKeyStore: ApiKeyStoreService): () => SttConnectionState {
+function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, utterances: IUtteranceEvent[], apiKeyStore: ApiKeyStoreService): () => SttConnectionState {
     let connectionState: SttConnectionState = 'disconnected';
 
     // D-08 precedence: a key saved via the settings window (safeStorage) wins over a stale .env value;
@@ -242,6 +251,7 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, apiKey
         gateway,
         window,
         buffer,
+        utterances,
         () => connectionState,
         (state) => (connectionState = state),
         getAudioLevel
@@ -257,7 +267,7 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, apiKey
             const nowMs = Date.now();
             if (nowMs - lastLevelPushMs >= 66) {
                 lastLevelPushMs = nowMs;
-                pushTranscript(window, { ...buffer.renderable(), connectionState, audioLevel });
+                pushTranscript(window, { ...buffer.renderable(), utterances, connectionState, audioLevel });
             }
             // Feed the CURRENT gateway instance via the module-level re-pointable ref (NOT the local
             // `gateway` const) so a live Deepgram re-key keeps the running capture pumping into the new
@@ -285,6 +295,7 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, apiKey
             next,
             window,
             buffer,
+            utterances,
             () => connectionState,
             (state) => (connectionState = state),
             getAudioLevel
@@ -306,9 +317,16 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, apiKey
  * The handlers read/write the connection state through the supplied accessors so the single
  * authoritative state variable (owned by {@link wireSttPipeline}) is shared across re-keys.
  *
+ * Phase 8 (QA-01, D-01): also binds `on('utterance')` here — INSIDE the shared attach helper — so the
+ * live re-key path re-attaches it too (Pitfall 3: a re-keyed socket must not emit utterances to no
+ * listener, or the Q/A card stream would freeze). Each committed utterance is pushed into the shared
+ * main-owned {@link IUtteranceEvent} list (the authoritative session utterance stream, mirroring how
+ * `buffer` is the authoritative transcript store) and rides the SAME read-only `jedi:transcript` push.
+ *
  * @param gateway - The gateway instance to wire (the boot instance or a re-keyed one).
  * @param window - The overlay window the transcript snapshot is pushed to.
  * @param buffer - The shared transcript buffer (interim replaced, finals committed).
+ * @param utterances - The shared main-owned committed-utterance list, grown here on each committed turn (D-01/D-05).
  * @param getConnectionState - Reads the current connection state for the transcript push.
  * @param setConnectionState - Writes the current connection state on a state-change event.
  * @param getAudioLevel - Reads the latest computed audio level for the transcript push.
@@ -317,6 +335,7 @@ function attachSttGatewayHandlers(
     gateway: DeepgramSttGateway,
     window: BrowserWindow,
     buffer: TranscriptBuffer,
+    utterances: IUtteranceEvent[],
     getConnectionState: () => SttConnectionState,
     setConnectionState: (state: SttConnectionState) => void,
     getAudioLevel: () => number
@@ -328,12 +347,21 @@ function attachSttGatewayHandlers(
             buffer.setInterim(event.text);
         }
 
-        pushTranscript(window, { ...buffer.renderable(), connectionState: getConnectionState(), audioLevel: getAudioLevel() });
+        pushTranscript(window, { ...buffer.renderable(), utterances, connectionState: getConnectionState(), audioLevel: getAudioLevel() });
+    });
+
+    // Phase 8 (QA-01, D-01): one committed, speaker-attributed, classified utterance per finalized turn.
+    // Bound here (not in wireSttPipeline) so the re-key path re-attaches it — otherwise a re-keyed socket
+    // emits utterances to no listener and the Q/A stream freezes (Pitfall 3). Appends to the shared
+    // main-owned list and rides the existing read-only jedi:transcript channel (no new control surface).
+    gateway.on('utterance', (utterance: IUtteranceEvent) => {
+        utterances.push(utterance);
+        pushTranscript(window, { ...buffer.renderable(), utterances, connectionState: getConnectionState(), audioLevel: getAudioLevel() });
     });
 
     gateway.on('connection-state-change', (state: SttConnectionState) => {
         setConnectionState(state);
-        pushTranscript(window, { ...buffer.renderable(), connectionState: state, audioLevel: getAudioLevel() });
+        pushTranscript(window, { ...buffer.renderable(), utterances, connectionState: state, audioLevel: getAudioLevel() });
     });
 
     gateway.on('error', () => {
@@ -365,8 +393,15 @@ app.whenReady().then(() => {
     // below and wiped by the clear-transcript chord.
     const buffer = new TranscriptBuffer();
 
-    // Wire capture -> resample -> Deepgram -> buffer -> jedi:transcript push once (TRN-01/02/03).
-    const getConnectionState = wireSttPipeline(window, buffer, apiKeyStore);
+    // The authoritative session-scoped committed-utterance list (main-owned, QA-01/D-01), mirroring how
+    // `buffer` is the authoritative transcript store. The gateway `utterance` binding grows it; the
+    // clear-transcript chord empties it (D-05). Passed BY REFERENCE into both wireSttPipeline (the boot +
+    // re-key attach paths append to it) and buildHandlers (the clear chord drains it) so all sites share
+    // the one list; the same array instance rides every jedi:transcript push.
+    const utterances: IUtteranceEvent[] = [];
+
+    // Wire capture -> resample -> Deepgram -> buffer -> jedi:transcript push once (TRN-01/02/03, QA-01).
+    const getConnectionState = wireSttPipeline(window, buffer, utterances, apiKeyStore);
 
     // Wire the Phase 5 AI stack. The Anthropic key is read from process.env in main only (mirroring the
     // Deepgram D-08 policy), AFTER loadDotenvFile, and constructor-injected — the gateway never reads
@@ -516,7 +551,7 @@ app.whenReady().then(() => {
     // (D-07/TRN-04) wipes the buffer and re-pushes the emptied snapshot. The 'ai-answer' chord
     // (Phase 5) triggers the injected orchestrator.
     const windowControlActions = new WindowControlActionsService(window);
-    hotkeyRegistrar = new HotkeyRegistrarService(buildHandlers(windowControlActions, window, buffer, getConnectionState, aiOrchestrator, aiHistory));
+    hotkeyRegistrar = new HotkeyRegistrarService(buildHandlers(windowControlActions, window, buffer, utterances, getConnectionState, aiOrchestrator, aiHistory));
     const result = hotkeyRegistrar.register();
     setHotkeyStatus(result);
     // Phase 7 (D-15/CTL-03 hardening): a hotkey can register fine in dev but fail in the packaged build
