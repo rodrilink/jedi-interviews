@@ -35,6 +35,38 @@ export interface ISttTranscriptEvent {
 export type SttConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'error';
 
 /**
+ * The local (no-AI) classification of a committed utterance (QA-03, D-06/D-07/D-08).
+ *
+ * A fast on-device heuristic tags each finalized turn so questions — the high-value signal —
+ * stand out, while borderline text defaults to `'statement'` (D-06). No per-utterance AI call
+ * is made to produce this value.
+ */
+export type UtteranceClassification = 'question' | 'statement';
+
+/**
+ * A single finalized utterance (one speaker turn) committed by an {@link ISttProvider} (QA-07).
+ *
+ * Unlike {@link ISttTranscriptEvent} — which carries the live, interim/final rolling line (D-02) —
+ * an utterance is emitted once per turn after diarization, speaker mapping, and local
+ * classification have run, and drives the card-based Q/A panel (one card per turn, D-01).
+ */
+export interface IUtteranceEvent {
+    /** The finalized utterance text for this turn. */
+    text: string;
+    /**
+     * The stable session-scoped speaker label: `'Person 1'`, `'Person 2'`, … for a diarized turn
+     * (kept consistent across Deepgram index drift, D-03), or the neutral `'Speaker'` bucket when
+     * the turn carries no diarization info (D-04). Read {@link IUtteranceEvent.isDiarized} to tell
+     * the two apart.
+     */
+    speaker: string;
+    /** `true` when {@link IUtteranceEvent.speaker} is a numbered `Person N`; `false` for the neutral bucket (D-04). */
+    isDiarized: boolean;
+    /** The local Question/Statement heuristic result for {@link IUtteranceEvent.text} (D-06/D-07/D-08). */
+    classification: UtteranceClassification;
+}
+
+/**
  * The swappable speech-to-text provider contract (TRN-05).
  *
  * @remarks
@@ -72,6 +104,16 @@ export interface ISttProvider {
      * @param listener - Receives each {@link ISttTranscriptEvent}.
      */
     on(event: 'transcript', listener: (transcriptEvent: ISttTranscriptEvent) => void): void;
+
+    /**
+     * Subscribes to committed utterances — one per finalized speaker turn (QA-07, D-01). Fires after
+     * diarization, speaker mapping, and local classification, and rides the same read-only push
+     * channel to the overlay as {@link ISttProvider.on} `'transcript'` (no new control channel).
+     *
+     * @param event - The literal event name `'utterance'`.
+     * @param listener - Receives each {@link IUtteranceEvent}.
+     */
+    on(event: 'utterance', listener: (utterance: IUtteranceEvent) => void): void;
 
     /**
      * Subscribes to connection-state changes, surfaced on the overlay (TRN-03).
