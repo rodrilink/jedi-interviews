@@ -59,6 +59,20 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **PKG-01**: The app builds to a runnable Windows executable on which transparency, focus discipline, and content protection still hold
 
+## Milestone v1.1 Requirements — Structured Q/A Panel
+
+Turn the flat-text Q/A panel into structured, speaker-attributed cards that distinguish questions from statements. Pulls CAP-02 (diarization) forward from v2.
+
+### Structured Q/A (QA)
+
+- [ ] **QA-01**: The transcript is captured as discrete per-speaker utterances (Deepgram diarization + utterances enabled), not one continuous text stream
+- [ ] **QA-02**: Each utterance is attributed to a speaker labeled `Person 1`, `Person 2`, … and the same voice keeps the same label for the whole session (stable speaker map)
+- [ ] **QA-03**: Each utterance is classified as a Question or a Statement, defaulting to Statement when the classification is not confident
+- [ ] **QA-04**: The Q/A panel renders each utterance as its own card labeled with a sequence + speaker (e.g. `Q1 - Person 1`, `S3 - Person 2`), replacing the flat-paragraph view
+- [ ] **QA-05**: Questions and Statements are visually distinct in the Q/A panel (styling that makes questions stand out at a glance)
+- [ ] **QA-06**: The Q/A panel shows a compact list of the people identified in the session (`Person 1`, `Person 2`, …)
+- [ ] **QA-07**: The utterance/speaker data flows through the existing STT provider seam (`ISttProvider`), so classification and attribution are backend-agnostic and do not couple consumers to Deepgram
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -66,7 +80,7 @@ Deferred to future release. Tracked but not in current roadmap.
 ### Capture & Transcription
 
 - **CAP-01**: Capture the user's own microphone in addition to system audio
-- **CAP-02**: Speaker diarization (distinguish who is speaking)
+- ~~**CAP-02**: Speaker diarization (distinguish who is speaking)~~ — **pulled into v1.1** as QA-01/QA-02 (Deepgram diarization on the mixed loopback stream)
 - **STT-V2-01**: Local on-device transcription (Whisper) as a privacy-preserving STT provider
 
 ### Context Integration
@@ -140,4 +154,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-06-16*
-*Last updated: 2026-06-16 after roadmap creation (traceability populated)*
+*Last updated: 2026-07-06 — added milestone v1.1 Structured Q/A requirements (QA-01…QA-07); CAP-02 pulled forward from v2. Traceability for v1.1 populated during roadmap creation.*
