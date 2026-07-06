@@ -1,7 +1,10 @@
 import { EventEmitter } from 'events';
 import { DeepgramClient } from '@deepgram/sdk';
 
-import type { ISttProvider, ISttTranscriptEvent, SttConnectionState } from './stt-provider.interface';
+import type { ISttProvider, ISttTranscriptEvent, IUtteranceEvent, SttConnectionState } from './stt-provider.interface';
+import { pickModalSpeakerIndex, UtteranceAccumulator } from './utterance-accumulator.utility';
+import { SpeakerMap } from './speaker-map';
+import { classifyUtterance } from './question-classifier.utility';
 
 /** The Deepgram live model used for streaming transcription (verified in @deepgram/sdk@5.4.0). */
 const DEEPGRAM_MODEL = 'nova-3';
@@ -38,10 +41,25 @@ interface IDeepgramLiveSocket {
     close(): void;
 }
 
-/** The defensive shape of a Deepgram `Results` message — every field is treated as untrusted (T-4-04). */
+/**
+ * The defensive shape of a Deepgram v5 live `message` — every field is treated as untrusted (T-4-04).
+ *
+ * The live socket delivers a union discriminated on `type` (`'Results'` | `'Metadata'` |
+ * `'UtteranceEnd'` | `'SpeechStarted'`, verified against `@deepgram/sdk@5.4.0`). Only `Results`
+ * carries transcript/word data; `UtteranceEnd` is the end-of-turn fallback finalization signal. Every
+ * field is optional so a malformed/partial payload only ever yields empty text or an empty word run,
+ * never control flow.
+ */
 interface IDeepgramMessage {
+    type?: string;
     is_final?: boolean;
-    channel?: { alternatives?: Array<{ transcript?: string }> };
+    speech_final?: boolean;
+    channel?: {
+        alternatives?: Array<{
+            transcript?: string;
+            words?: Array<{ word?: string; punctuated_word?: string; speaker?: number }>;
+        }>;
+    };
 }
 
 /**
@@ -72,6 +90,18 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
     private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
     private audioSentSinceKeepAlive = false;
     private stopped = false;
+
+    /**
+     * Buffers each turn's `is_final` word runs and drains them on commit (QA-01). Owned by the gateway
+     * so all `@deepgram/sdk` payload coupling stays in this one file (D-09).
+     */
+    private readonly accumulator = new UtteranceAccumulator();
+
+    /**
+     * The session-long diarization-index → `Person N` map (QA-02). Owned here so the committed
+     * `utterance` is fully labeled before it crosses the seam — no Deepgram type escapes the gateway.
+     */
+    private readonly speakerMap = new SpeakerMap();
 
     /**
      * @param apiKey - The Deepgram API key, read in main only (D-08). Held in memory for the client;
@@ -142,6 +172,12 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
                 // not booleans — they are serialized into the websocket query string.
                 interim_results: 'true',
                 smart_format: 'true',
+                // Enable diarization (per-word `speaker` index) and the end-of-utterance signal. Both
+                // are string-literal query params like the flags above. `utterance_end_ms` REQUIRES
+                // `interim_results`, and drives the `UtteranceEnd` fallback commit. We do NOT set
+                // `utterances` — that is batch-only and a no-op on the live socket (RESEARCH).
+                diarize: 'true',
+                utterance_end_ms: '1000',
                 // The HeaderAuthProvider supplies the real auth header from `apiKey`; the per-call
                 // Authorization field is left empty so it merges out (verified against @deepgram/sdk@5.4.0).
                 Authorization: '',
@@ -212,20 +248,82 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
     }
 
     /**
-     * Maps an untrusted Deepgram `Results` message to a transcript event. Optional-chains every field
-     * and skips empty-text messages so a malformed payload only ever produces render text, never
-     * control flow (T-4-04).
+     * Routes an untrusted Deepgram live `message` (T-4-04). Discriminates on `type`:
+     *
+     * - `UtteranceEnd` — the end-of-turn fallback: commit any pending accumulated turn (no-op when the
+     *   accumulator is already empty, so a trailing `UtteranceEnd` after a `speech_final` never
+     *   double-commits — Pitfall 4).
+     * - Anything else with a `type` that is not `Results` (`Metadata`/`SpeechStarted`) is ignored.
+     * - `Results` — interim (`is_final` falsy) still emits the D-02 live `transcript` line unchanged;
+     *   an `is_final` run is buffered, and a `speech_final` run finalizes the turn (D-01, one committed
+     *   `utterance` per turn — NOT one per `is_final`).
+     *
+     * Every field is optional-chained with `?? ''`/`?? []` fallbacks so a malformed payload only ever
+     * yields empty text or an empty word run — never control flow, never a throw.
      *
      * @param message - The raw Deepgram message payload.
      */
     private handleMessage(message: IDeepgramMessage): void {
-        const text = message.channel?.alternatives?.[0]?.transcript ?? '';
-        if (text.length === 0) {
+        if (message.type === 'UtteranceEnd') {
+            this.commitPendingUtterance();
+
             return;
         }
 
-        const transcriptEvent: ISttTranscriptEvent = { text, isFinal: message.is_final === true };
-        this.emit('transcript', transcriptEvent);
+        if (message.type !== undefined && message.type !== 'Results') {
+            return;
+        }
+
+        const alternative = message.channel?.alternatives?.[0];
+        const text = alternative?.transcript ?? '';
+
+        if (message.is_final !== true) {
+            if (text.length > 0) {
+                const transcriptEvent: ISttTranscriptEvent = { text, isFinal: false };
+                this.emit('transcript', transcriptEvent);
+            }
+
+            return;
+        }
+
+        this.accumulator.append(alternative?.words ?? [], text);
+        if (message.speech_final === true) {
+            this.commitPendingUtterance();
+        }
+    }
+
+    /**
+     * Drains the accumulated turn into exactly ONE `utterance` seam event (D-01, one entry per turn),
+     * or no-ops when the accumulator is empty (Pitfall 4 double-commit guard — a trailing
+     * `UtteranceEnd` after a `speech_final` commit produces nothing). This is the SOLE site that emits
+     * `'utterance'`. The modal per-word speaker index is resolved to a stable `Person N` label via the
+     * gateway-owned {@link SpeakerMap}, and the text is locally classified — so all `@deepgram/sdk`
+     * coupling stays inside this file and a fully-labeled, classified utterance crosses the seam (D-09).
+     */
+    private commitPendingUtterance(): void {
+        const committed = this.accumulator.commit();
+        if (committed === undefined) {
+            return;
+        }
+
+        const speakerIndex = pickModalSpeakerIndex(committed.words);
+        const { speaker, isDiarized } = this.speakerMap.label(speakerIndex);
+        const utterance: IUtteranceEvent = {
+            text: committed.text,
+            speaker,
+            isDiarized,
+            classification: classifyUtterance(committed.text),
+        };
+        this.emit('utterance', utterance);
+    }
+
+    /**
+     * Resets the session speaker numbering and discards any half-accumulated turn (D-05). Wired to the
+     * clear-transcript chord (Ctrl+Alt+K) in `index.ts` (08) so a fresh session restarts at Person 1.
+     */
+    public clearSpeakers(): void {
+        this.speakerMap.clear();
+        this.accumulator.clear();
     }
 
     /**

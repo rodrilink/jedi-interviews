@@ -162,23 +162,29 @@ describe('deepgram-stt.gateway', () => {
         expect(transcripts).toEqual([{ text: 'hello', isFinal: false }]);
     });
 
-    it('should emit a final transcript when is_final is true', async () => {
+    it('should not emit a transcript for an is_final run and instead commit it on speech_final', async () => {
         // Arrange
         const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
         const gateway = new DeepgramSttGateway(FAKE_API_KEY);
         const transcripts: ISttTranscriptEvent[] = [];
+        const utterances: IUtteranceEvent[] = [];
         const transcriptListener: ISttTranscriptListener = (transcriptEvent: ISttTranscriptEvent): void => {
             transcripts.push(transcriptEvent);
         };
+        const utteranceListener: IUtteranceListener = (utterance: IUtteranceEvent): void => {
+            utterances.push(utterance);
+        };
         gateway.on('transcript', transcriptListener);
+        gateway.on('utterance', utteranceListener);
 
         // Act
         await gateway.start();
         fakeSocket.emit('open');
-        emitTranscriptMessage('final words', true);
+        emitResultsMessage('final words', true, { speechFinal: true });
 
         // Assert
-        expect(transcripts).toEqual([{ text: 'final words', isFinal: true }]);
+        expect(transcripts).toEqual([]);
+        expect(utterances).toEqual([{ text: 'final words', speaker: 'Speaker', isDiarized: false, classification: 'statement' }]);
     });
 
     it('should not emit a transcript for an empty-text message', async () => {
