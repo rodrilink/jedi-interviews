@@ -1,12 +1,21 @@
 ---
 id: 260620-deepgram-keepalive-crash
 type: bug
-status: pending
+status: closed
 created: 2026-06-20
+closed: 2026-07-06
+closed_by: 08-02
 severity: high
 resolves_phase: 8
 source: error-1.png (on-machine, 2026-06-20)
 ---
+
+> **Closed by Phase 08 Plan 02 (D-11 audit).** The state-gate + try/catch fix in
+> `DeepgramSttGateway.startKeepAlive` (present since Phase 04-02) is confirmed the sole
+> socket-touching timer; `scheduleReconnect`'s callback calls no `send*`, and Plan 02 added no
+> new timer. The keep-alive-races-a-closed-socket regression test in
+> `deepgram-stt.gateway.test.ts` asserts `sendKeepAlive` throwing `'Socket is not open.'` never
+> escapes the timer callback. Invariant holds.
 
 # Deepgram keep-alive crashes the main process on a closed socket
 
