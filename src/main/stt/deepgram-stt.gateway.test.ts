@@ -33,14 +33,14 @@ class FakeV1Socket extends EventEmitter {
 }
 
 let fakeSocket: FakeV1Socket;
-const mockConnect = vi.fn<() => Promise<FakeV1Socket>>();
+const mockConnect = vi.fn<(options?: Record<string, unknown>) => Promise<FakeV1Socket>>();
 const mockDeepgramClientConstructor = vi.fn<(options: { apiKey: string }) => void>();
 
 vi.mock('@deepgram/sdk', () => ({
     DeepgramClient: class {
         public readonly listen = {
             v1: {
-                connect: (...args: unknown[]): Promise<FakeV1Socket> => mockConnect(...(args as [])),
+                connect: (options?: Record<string, unknown>): Promise<FakeV1Socket> => mockConnect(options),
             },
         };
 
@@ -497,6 +497,47 @@ describe('deepgram-stt.gateway', () => {
         // Assert
         expect(transcriptListener).not.toHaveBeenCalled();
         expect(utteranceListener).not.toHaveBeenCalled();
+    });
+
+    it('should enable diarization and utterance-end on the connect args', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+
+        // Act
+        await gateway.start();
+
+        // Assert
+        const connectArgs = mockConnect.mock.calls[0][0] ?? {};
+        expect(connectArgs.diarize).toBe('true');
+        expect(connectArgs.utterance_end_ms).toBe('1000');
+        expect(connectArgs.interim_results).toBe('true');
+        expect(connectArgs.smart_format).toBe('true');
+        expect(connectArgs).not.toHaveProperty('utterances');
+    });
+
+    it('should not throw and commit no utterance for a malformed diarized Results payload', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+        const utterances: IUtteranceEvent[] = [];
+        const utteranceListener: IUtteranceListener = (utterance: IUtteranceEvent): void => {
+            utterances.push(utterance);
+        };
+        gateway.on('utterance', utteranceListener);
+
+        // Act
+        await gateway.start();
+        fakeSocket.emit('open');
+        const emitMalformed = (): void => {
+            fakeSocket.emit('message', { type: 'Results', is_final: true, channel: {} });
+            fakeSocket.emit('message', { type: 'Results', is_final: true, channel: { alternatives: [{ words: [{}] }] } });
+            fakeSocket.emit('message', { type: 'Results', is_final: false });
+        };
+
+        // Assert
+        expect(emitMalformed).not.toThrow();
+        expect(utterances).toEqual([]);
     });
 
     it('should never log the api key during the connection lifecycle', async () => {
