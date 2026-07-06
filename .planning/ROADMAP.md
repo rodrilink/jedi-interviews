@@ -23,7 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: AI Orchestration (Answer + Talking Points)** - Streaming, keyboard-scrollable AI answers and talking points drawn from the recent transcript.
 - [x] **Phase 6: Session Context + Settings Window** - A focusable settings window for API keys and a persisted context editor that grounds every AI prompt. (completed 2026-06-19)
 - [x] **Phase 7: Screenshot Vision + Packaging & Hardening** - Screenshot-driven code-challenge solving and a runnable Windows .exe with transparency, focus discipline, and content protection intact. (completed 2026-06-19)
-- [x] **Phase 8: Diarized Utterance Pipeline** - Per-speaker utterances with a stable `Person N` map and a local Question/Statement tag, all riding the existing STT provider seam. *(milestone v1.1)* (completed 2026-07-06)
+- [ ] **Phase 8: Diarized Utterance Pipeline** - Per-speaker utterances with a stable `Person N` map and a local Question/Statement tag, all riding the existing STT provider seam. *(milestone v1.1)* (verification gaps_found -- 1 critical regression; see 08-VERIFICATION.md)
 - [ ] **Phase 9: Card-Based Q/A Panel Redesign** - The Q/A panel rebuilt in place as per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, with a compact people list. *(milestone v1.1)*
 
 ## Phase Details
