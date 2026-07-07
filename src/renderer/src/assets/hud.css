@@ -548,9 +548,29 @@ body {
     font-size: 11px;
 }
 
+.ai-panel__entry-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .ai-panel__entry-mode {
     color: rgb(196 181 253 / 100%);
     font-weight: 600;
+}
+
+/* D-04: the tiny auto badge on auto-answer entries. Additive only — a small inline tag next to the
+   mode label; manual entries render no badge. Deliberately minimal so it never shifts the layout. */
+.ai-panel__entry-badge {
+    padding: 0 5px;
+    border-radius: 6px;
+    background: rgb(56 189 248 / 20%);
+    color: rgb(125 211 252 / 100%);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 14px;
 }
 
 .ai-panel__entry-time {

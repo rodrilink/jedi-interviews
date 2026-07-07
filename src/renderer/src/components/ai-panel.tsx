@@ -227,7 +227,17 @@ export function AiPanel(): JSX.Element {
                 {entries.map((entry) => (
                     <article className={`ai-panel__entry ai-panel__entry--${entry.state}`} key={entry.id} data-testid={`row-ai-entry-${entry.id}`}>
                         <header className="ai-panel__entry-header">
-                            <span className="ai-panel__entry-mode">{MODE_LABEL[entry.mode]}</span>
+                            <span className="ai-panel__entry-label">
+                                <span className="ai-panel__entry-mode">{MODE_LABEL[entry.mode]}</span>
+                                {/* D-04: a tiny auto badge marks an auto-answer entry; a manual entry renders no
+                                    badge (the absence IS the manual state). Same panel, same streaming render — the
+                                    badge is purely additive next to the mode label (SC 3 preserved). */}
+                                {entry.source === 'auto' && (
+                                    <span className="ai-panel__entry-badge" data-testid="icon-auto-badge">
+                                        auto
+                                    </span>
+                                )}
+                            </span>
                             <span className="ai-panel__entry-time">{formatRelativeTime(entry.at, nowMs)}</span>
                         </header>
                         <p className="ai-panel__entry-body">{renderEntryBody(entry)}</p>
