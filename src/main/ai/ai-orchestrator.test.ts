@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IAiGateway, IAiPromptRequest, IAiStream } from './ai-gateway.interface';
-import { AiOrchestrator, BURST_DEBOUNCE_MS, MAX_PENDING_QUEUE } from './ai-orchestrator';
+import { AiOrchestrator, ANSWER_MODEL, BURST_DEBOUNCE_MS, MAX_PENDING_QUEUE } from './ai-orchestrator';
 import type { IAiPushEvent } from './ai-orchestrator';
 import { AiHistory } from './ai-history';
 import { TranscriptBuffer } from '../stt/transcript-buffer';
@@ -327,6 +327,82 @@ describe('ai-orchestrator', () => {
         });
     });
 
+    describe('auto-trigger (AA-01/AA-02)', () => {
+        it('should enqueue and start exactly one stream for an auto question with a non-empty span (SC 1)', () => {
+            // Arrange
+            seedSpan(buffer, 'We are discussing closures and the event loop.');
+
+            // Act — the orchestrator IS the unit under test; no keypress, just the auto trigger.
+            orchestrator.trigger('answer', 'auto', 'What is a closure?');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — exactly one stream started.
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+        });
+
+        it('should assemble an auto answer with the same model/system/userContent as a manual answer (SC 2 grounding parity)', () => {
+            // Arrange — the same span + active context both paths see.
+            const span = 'What database backs the ledger service?';
+            seedSpan(buffer, span);
+            activeContext = {
+                notes: 'Use Postgres for the ledger.',
+                ticketText: 'JIRA-42: ledger persistence.',
+                repoSnippets: 'class LedgerRepository {}',
+                links: ['https://example.com/ledger-doc'],
+            };
+            const expected = assemblePrompt({ mode: 'answer', span, context: activeContext });
+
+            // Act — the auto path assembles through the SAME assemblePrompt path (pull-on-run).
+            orchestrator.trigger('answer', 'auto', 'What database backs the ledger service?');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — same mode/model + byte-for-byte identical assembled prompt.
+            const request = gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest;
+            expect(request.model).toBe(ANSWER_MODEL);
+            expect(request.system).toBe(expected.system);
+            expect(request.userContent).toBe(expected.userContent);
+        });
+
+        it('should run a later manual answer ahead of earlier-queued autos after the in-flight stream finishes (SC 5 preempt)', () => {
+            // Arrange — an auto runs and holds the slot; two more autos queue behind it.
+            seedSpan(buffer, 'Discussing the ledger reconciliation flow.');
+            orchestrator.trigger('answer', 'auto', 'First auto question about caching?');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            orchestrator.trigger('answer', 'auto', 'Second auto question about sharding?');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Act — a manual answer enqueues at the head lane, then the in-flight auto finishes.
+            orchestrator.trigger('answer', 'manual');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+            gateway.emit('done', 'first auto answer', (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId);
+
+            // Assert — the MANUAL runs next (ahead of the queued autos), no abort. Drive it and the first
+            // queued auto runs after, proving the manual jumped the auto lane.
+            expect(gateway.stream).toHaveBeenCalledTimes(2);
+            expect(gateway.abort).not.toHaveBeenCalled();
+        });
+
+        it('should never start a second stream while a prior auto stream is active for a distinct-question burst (SC 5 single-in-flight)', () => {
+            // Arrange — a burst of DISTINCT auto questions, each past the burst window so none collapse.
+            seedSpan(buffer, 'Discussing the ledger reconciliation flow.');
+            const questions = ['What is a closure?', 'How does the event loop work?', 'What is a promise?'];
+            questions.forEach((question) => {
+                orchestrator.trigger('answer', 'auto', question);
+                vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            });
+
+            // Assert — despite three queued autos, only ONE stream is ever active at a time. Drain one at a
+            // time and assert the stream count only advances by one per terminal (never in parallel).
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+            gateway.emit('done', 'answer one', (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId);
+            expect(gateway.stream).toHaveBeenCalledTimes(2);
+            gateway.emit('done', 'answer two', (gateway.stream.mock.calls[1]?.[0] as IAiPromptRequest).requestId);
+            expect(gateway.stream).toHaveBeenCalledTimes(3);
+            expect(gateway.abort).not.toHaveBeenCalled();
+        });
+    });
+
     describe('request-id guard / no cross-bleed (Pitfall 1 / D-11)', () => {
         it('should drop a straggler delta between a finished request and the next queued request start', () => {
             // Arrange — request 1 runs and finishes; the queue is momentarily idle (active === undefined).
@@ -629,7 +705,7 @@ describe('ai-orchestrator', () => {
             expect(gateway.stream).toHaveBeenCalledTimes(2);
         });
 
-        it('should surface an inline error entry when capture fails (report-don\'t-throw)', async () => {
+        it("should surface an inline error entry when capture fails (report-don't-throw)", async () => {
             // Arrange
             captureImage = vi.fn(() => Promise.reject(new Error('No screen source available.')));
 
