@@ -225,9 +225,17 @@ function bootOverlay(): BrowserWindow {
  * @param buffer - The shared transcript buffer (also wiped by the clear-transcript chord).
  * @param utterances - The shared main-owned committed-utterance list (grows on each committed turn, emptied by clear, D-05).
  * @param apiKeyStore - The two-key safeStorage store; a saved Deepgram key overrides a stale .env (D-08).
+ * @param aiOrchestrator - The live AI orchestrator, forwarded to BOTH attach call sites so the boot AND
+ *   the re-key path auto-trigger on a classified question against the SAME live reference (Phase 11, D-03).
  * @returns A getter for the current connection state, read by the clear-transcript handler.
  */
-function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, utterances: IUtteranceEvent[], apiKeyStore: ApiKeyStoreService): () => SttConnectionState {
+function wireSttPipeline(
+    window: BrowserWindow,
+    buffer: TranscriptBuffer,
+    utterances: IUtteranceEvent[],
+    apiKeyStore: ApiKeyStoreService,
+    aiOrchestrator: AiOrchestrator
+): () => SttConnectionState {
     let connectionState: SttConnectionState = 'disconnected';
 
     // D-08 precedence: a key saved via the settings window (safeStorage) wins over a stale .env value;
@@ -254,7 +262,8 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, uttera
         utterances,
         () => connectionState,
         (state) => (connectionState = state),
-        getAudioLevel
+        getAudioLevel,
+        aiOrchestrator
     );
 
     // Throttle the level-only push so the meter animates smoothly (~15 fps) without flooding IPC on
@@ -291,6 +300,10 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, uttera
     rekeyDeepgram = async (newKey: string): Promise<void> => {
         await sttGateway?.stop();
         const next = new DeepgramSttGateway(newKey);
+        // Phase 11 (D-03, Pitfall 3): forward the SAME live `aiOrchestrator` reference the boot site used
+        // so a re-keyed socket's classified-question utterance still auto-triggers — never emits to a
+        // stale/dead reference. This is exactly the site where a wrong closure capture would typecheck but
+        // silently emit to a dead orchestrator; the parameter threads the live reference through unchanged.
         attachSttGatewayHandlers(
             next,
             window,
@@ -298,7 +311,8 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, uttera
             utterances,
             () => connectionState,
             (state) => (connectionState = state),
-            getAudioLevel
+            getAudioLevel,
+            aiOrchestrator
         );
         sttGateway = next;
         await next.start();
@@ -327,9 +341,25 @@ function wireSttPipeline(window: BrowserWindow, buffer: TranscriptBuffer, uttera
  * @param window - The overlay window the transcript snapshot is pushed to.
  * @param buffer - The shared transcript buffer (interim replaced, finals committed).
  * @param utterances - The shared main-owned committed-utterance list, grown here on each committed turn (D-01/D-05).
+ * Phase 11 (AA-01/AA-02, D-02/D-03): the `on('utterance')` binding ALSO auto-triggers a grounded
+ * answer when a committed turn classifies as a question. Bound here — inside the SHARED attach helper —
+ * so the live re-key path re-attaches it too (Pitfall 3: a re-keyed socket must still auto-trigger, not
+ * emit to a dead/stale orchestrator reference). The orchestrator is threaded in as a parameter and passed
+ * at BOTH call sites (mirroring `getAudioLevel`); the boot-reorder guarantees it exists at the boot site.
+ * The auto path reuses the SAME `trigger` entry the manual `Ctrl+Alt+A` chord uses — no new gateway call
+ * site, no new renderer→main channel — so grounding/model parity holds (SC 2) and cost stays bounded by
+ * the Phase-10 debounce + single-in-flight + bounded cap. Both `Person N` and neutral `'Speaker'` turns
+ * fire (D-02); `statement` never fires. Utterances are already committed/final at emit, so no extra
+ * final-only guard is needed.
+ *
+ * @param gateway - The gateway instance to wire (the boot instance or a re-keyed one).
+ * @param window - The overlay window the transcript snapshot is pushed to.
+ * @param buffer - The shared transcript buffer (interim replaced, finals committed).
+ * @param utterances - The shared main-owned committed-utterance list, grown here on each committed turn (D-01/D-05).
  * @param getConnectionState - Reads the current connection state for the transcript push.
  * @param setConnectionState - Writes the current connection state on a state-change event.
  * @param getAudioLevel - Reads the latest computed audio level for the transcript push.
+ * @param aiOrchestrator - The live AI orchestrator; a classified-question utterance auto-triggers an answer (Phase 11).
  */
 function attachSttGatewayHandlers(
     gateway: DeepgramSttGateway,
@@ -338,7 +368,8 @@ function attachSttGatewayHandlers(
     utterances: IUtteranceEvent[],
     getConnectionState: () => SttConnectionState,
     setConnectionState: (state: SttConnectionState) => void,
-    getAudioLevel: () => number
+    getAudioLevel: () => number,
+    aiOrchestrator: AiOrchestrator
 ): void {
     gateway.on('transcript', (event: ISttTranscriptEvent) => {
         if (event.isFinal) {
@@ -357,6 +388,16 @@ function attachSttGatewayHandlers(
     gateway.on('utterance', (utterance: IUtteranceEvent) => {
         utterances.push(utterance);
         pushTranscript(window, { ...buffer.renderable(), utterances, connectionState: getConnectionState(), audioLevel: getAudioLevel() });
+
+        // Phase 11 (AA-01/AA-02, D-02): a committed turn classified as a question auto-triggers a grounded
+        // answer into the Phase-10 'auto' lane — no keypress. Reuses the SAME orchestrator entry the manual
+        // Ctrl+Alt+A chord uses (source 'auto'); the utterance text is the D-01 content key so distinct
+        // questions each answer while an identical repeated question within the burst window collapses. Both
+        // 'Person N' and neutral 'Speaker' turns fire; statements never do. No new gateway call, no new
+        // renderer→main channel; cost stays bounded by the Phase-10 debounce + single-in-flight + cap.
+        if (utterance.classification === 'question') {
+            aiOrchestrator.trigger('answer', 'auto', utterance.text);
+        }
     });
 
     gateway.on('connection-state-change', (state: SttConnectionState) => {
@@ -400,17 +441,19 @@ app.whenReady().then(() => {
     // the one list; the same array instance rides every jedi:transcript push.
     const utterances: IUtteranceEvent[] = [];
 
-    // Wire capture -> resample -> Deepgram -> buffer -> jedi:transcript push once (TRN-01/02/03, QA-01).
-    const getConnectionState = wireSttPipeline(window, buffer, utterances, apiKeyStore);
-
-    // Wire the Phase 5 AI stack. The Anthropic key is read from process.env in main only (mirroring the
-    // Deepgram D-08 policy), AFTER loadDotenvFile, and constructor-injected — the gateway never reads
-    // env and never logs the key. aiHistory is a SINGLE shared instance (Fix 3): both the orchestrator
-    // (which appends to it) and 05-02's clear-ai handler must bind to the same instance. The
-    // orchestrator closes over the shared `buffer` (the span source) and a `pushAi(window, event)`
-    // closure, mirroring how wireSttPipeline closes over pushTranscript. If the key is empty, the
-    // orchestrator surfaces `AI error: missing API key` inline (Pitfall 3) — never logs the key.
-    // D-08 precedence for the Anthropic key too: a saved safeStorage key overrides a stale .env value.
+    // Wire the Phase 5 AI stack. Phase 11 (D-03 boot-reorder): this whole AI-stack construction block now
+    // runs BEFORE wireSttPipeline so the auto-trigger inside attachSttGatewayHandlers can close over a
+    // live orchestrator (the STT wiring depends on the orchestrator, not the reverse). NONE of the
+    // orchestrator's deps depend on wireSttPipeline's `getConnectionState` return — that return is consumed
+    // only later by buildHandlers — so moving this block up satisfies both D-03 invariants.
+    // The Anthropic key is read from process.env in main only (mirroring the Deepgram D-08 policy), AFTER
+    // loadDotenvFile, and constructor-injected — the gateway never reads env and never logs the key.
+    // aiHistory is a SINGLE shared instance (Fix 3): both the orchestrator (which appends to it) and
+    // 05-02's clear-ai handler must bind to the same instance. The orchestrator closes over the shared
+    // `buffer` (the span source) and a `pushAi(window, event)` closure, mirroring how wireSttPipeline
+    // closes over pushTranscript. If the key is empty, the orchestrator surfaces `AI error: missing API
+    // key` inline (Pitfall 3) — never logs the key. D-08 precedence for the Anthropic key too: a saved
+    // safeStorage key overrides a stale .env value.
     aiGateway = new AnthropicGateway(resolveApiKey(apiKeyStore.getAnthropic(), process.env.ANTHROPIC_API_KEY));
     aiHistory = new AiHistory();
     // Phase 7 (AI-03/D-01/D-05): the screenshot capture service. By-convention singleton constructed once
@@ -461,6 +504,12 @@ app.whenReady().then(() => {
         () => contextRepo.activeAsGrounding(),
         () => screenshotService.captureForOverlay(window)
     );
+
+    // Wire capture -> resample -> Deepgram -> buffer -> jedi:transcript push once (TRN-01/02/03, QA-01).
+    // Phase 11 (D-03): called AFTER the orchestrator is constructed and threaded in, so the auto-trigger
+    // inside attachSttGatewayHandlers (both the boot attach and the re-key attach) closes over a live
+    // orchestrator. `getConnectionState` is still returned here and consumed only later by buildHandlers.
+    const getConnectionState = wireSttPipeline(window, buffer, utterances, apiKeyStore, aiOrchestrator);
 
     // Register the settings window's dedicated two-way IPC surface (D-04). These four named channels are
     // the ENTIRE settings renderer->main write surface; the overlay's one-way jedi:* channels are
