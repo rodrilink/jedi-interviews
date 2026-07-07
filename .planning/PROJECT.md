@@ -36,6 +36,7 @@ focus from the meeting app.
 
 - [x] Overlay is moved and controlled by keyboard only (global hotkeys), never stealing focus from the meeting app — Validated in Phase 2: Global Hotkeys + Window Control (conflict-tested against Teams/Zoom/VS Code, 2026-06-17)
 - [x] Transcript is a stream of discrete, speaker-attributed (`Person N`), Question/Statement-classified utterances through the `ISttProvider` seam (no Deepgram coupling downstream) — Validated in Phase 8: Diarized Utterance Pipeline (QA-01/02/03/07; 8/8 automated, 2 live human-UAT items pending, 2026-07-07)
+- [x] The Q/A panel renders the utterance stream as per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct from statements, with a compact people-list color legend — Validated in Phase 9: Card-Based Q/A Panel Redesign (QA-04/05/06; 5/5 must-haves + both live human-verify checkpoints approved on-machine, 2026-07-07)
 
 ### Active
 
@@ -121,4 +122,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-07 — Phase 8 (Diarized Utterance Pipeline) complete: the STT seam now carries discrete, `Person N`-attributed, Question/Statement-classified utterances and the finalized-transcript feed to the AI orchestrator is restored (CR-01 fix). Next: Phase 9 card-based Q/A panel redesign.*
+*Last updated: 2026-07-07 — Phase 9 (Card-Based Q/A Panel Redesign) complete: the Q/A panel is rebuilt in place as a stack of per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, with a compact people-list color legend, an interim ghost card, and an empty-state placeholder — all over the existing read-only one-way bridge. A code-review Critical (card-stack wiped on a 90s lull) was caught and fixed. This completes milestone v1.1 (Structured Q/A Panel).*
