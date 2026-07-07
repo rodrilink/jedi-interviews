@@ -5,7 +5,7 @@ milestone_name: Structured Q/A Panel
 status: executing
 stopped_at: Phase 9 context gathered
 last_updated: "2026-07-07T05:38:53.093Z"
-last_activity: 2026-07-07 -- 09-01 complete (e50f965/4dd27d1/8585c97, SUMMARY f969f88); checkpoint approved
+last_activity: 2026-07-07 -- 09-02 Tasks 1-2 done (1478929/5dd8eb6 derivePeople; 4b3795f people row+ghost+placeholder); PAUSED at Task 3 blocking human-verify checkpoint
 progress:
   total_phases: 9
   completed_phases: 8
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 ## Current Position
 
 Phase: 09 (card-based-q-a-panel-redesign) — EXECUTING
-Plan: 2 of 2 — ready to execute (09-01 complete: card panel human-verify APPROVED)
-Status: Executing Phase 09 — 09-01 done (QA-04 met, QA-05 partial); 09-02 next
-Last activity: 2026-07-07 -- 09-01 complete (e50f965/4dd27d1/8585c97, SUMMARY f969f88); checkpoint approved
+Plan: 2 of 2 — IN PROGRESS, PAUSED at Task 3 blocking human-verify checkpoint (Tasks 1-2 committed)
+Status: Executing Phase 09 — 09-02 Tasks 1-2 done (derivePeople + people row/ghost/placeholder); awaiting human verify before final SUMMARY + QA-05/QA-06 completion
+Last activity: 2026-07-07 -- 09-02 Tasks 1-2 done (1478929/5dd8eb6/4b3795f); PAUSED at Task 3 blocking human-verify checkpoint
 
 ## Milestone v1.1 Roadmap (Phases 8–9)
 
