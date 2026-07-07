@@ -101,12 +101,12 @@ export type RequestSource = 'manual' | 'auto';
  * Anthropic key or any secret.
  */
 export type IAiPushEvent =
-    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number; source: RequestSource }
+    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number; source: RequestSource; question?: string }
     | { type: 'delta'; requestId: number; id: string; text: string }
     | { type: 'done'; requestId: number; id: string; text: string }
     | { type: 'error'; requestId: number; id: string; text: string }
     | { type: 'cancelled'; requestId: number; id: string }
-    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string; source: RequestSource }
+    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string; source: RequestSource; question?: string }
     // D-02: the clear-AI hotkey empties the panel — no entry id (it targets the whole list). Mirrors
     // the `cleared` variant declared identically in the main process (Phase 5; full snapshot push in 05-03).
     | { type: 'cleared' };

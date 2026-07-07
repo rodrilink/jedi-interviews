@@ -15,12 +15,12 @@ type RequestSource = 'manual' | 'auto';
  * locally for the same reason as {@link AiMode}; structurally mirrors `IAiPushEvent` in main/preload.
  */
 type IAiPushEvent =
-    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number; source: RequestSource }
+    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number; source: RequestSource; question?: string }
     | { type: 'delta'; requestId: number; id: string; text: string }
     | { type: 'done'; requestId: number; id: string; text: string }
     | { type: 'error'; requestId: number; id: string; text: string }
     | { type: 'cancelled'; requestId: number; id: string }
-    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string; source: RequestSource }
+    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string; source: RequestSource; question?: string }
     // D-02: the clear-AI hotkey empties the panel — no entry id (it resets the whole list). Mirrors the
     // `cleared` variant declared identically in main/preload (Phase 5; full snapshot reconciliation in 05-03).
     | { type: 'cleared' };
@@ -38,6 +38,9 @@ interface IAiPanelEntry {
     // The request source lane (Phase 11, D-04). An `'auto'` entry renders a tiny auto badge; `'manual'`
     // renders none (badge absence IS the manual state). `empty` placeholders default to `'manual'`.
     source: RequestSource;
+    // The detected question that triggered an AUTO answer, shown as a quoted line under the header so
+    // the user can tell WHICH question this answer is answering. `undefined` for manual entries.
+    question?: string;
 }
 
 /** The human-readable mode header label (D-03). */
@@ -88,7 +91,7 @@ function reduceEntries(entries: IAiPanelEntry[], event: IAiPushEvent): IAiPanelE
                 return entries;
             }
 
-            return [...entries, { id: event.id, mode: event.mode, text: '', state: 'thinking', at: event.at, source: event.source }];
+            return [...entries, { id: event.id, mode: event.mode, text: '', state: 'thinking', at: event.at, source: event.source, question: event.question }];
         case 'empty':
             if (event.mode === 'code-challenge') {
                 return entries;
@@ -97,7 +100,7 @@ function reduceEntries(entries: IAiPanelEntry[], event: IAiPushEvent): IAiPanelE
             // WR-03 (Phase 11): carry the source lane onto the empty placeholder so an auto trigger that
             // hit the empty-span guard still badges `auto` (a keyless auto on an empty span), instead of
             // rendering indistinguishably from a manual empty result.
-            return [...entries, { id: event.id, mode: event.mode, text: event.text, state: 'empty', at: event.at, source: event.source }];
+            return [...entries, { id: event.id, mode: event.mode, text: event.text, state: 'empty', at: event.at, source: event.source, question: event.question }];
         case 'delta':
             return entries.map((entry) => (entry.id === event.id ? { ...entry, text: event.text, state: 'streaming' } : entry));
         case 'done':
@@ -241,6 +244,13 @@ export function AiPanel(): JSX.Element {
                             </span>
                             <span className="ai-panel__entry-time">{formatRelativeTime(entry.at, nowMs)}</span>
                         </header>
+                        {/* The detected question an auto-answer is answering, shown as a quoted line under the
+                            header so the user can tell WHICH question this answer addresses. Auto entries only. */}
+                        {entry.question !== undefined && entry.question.length > 0 && (
+                            <p className="ai-panel__entry-question" data-testid={`text-auto-question-${entry.id}`}>
+                                “{entry.question}”
+                            </p>
+                        )}
                         <p className="ai-panel__entry-body">{renderEntryBody(entry)}</p>
                     </article>
                 ))}

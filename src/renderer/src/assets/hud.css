@@ -578,8 +578,20 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/* The detected question an auto-answer is answering — a quiet, quoted caption under the header so the
+   user can tell WHICH question the streamed answer addresses. Dimmed + italic so it reads as context,
+   not as the answer itself; auto entries only. */
+.ai-panel__entry-question {
+    margin: 2px 0 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: rgb(125 211 252 / 85%);
+    font-size: 11px;
+    font-style: italic;
+}
+
 .ai-panel__entry-body {
-    margin: 0;
+    margin: 4px 0 0;
     white-space: pre-wrap;
     word-break: break-word;
     color: rgb(226 232 240 / 100%);

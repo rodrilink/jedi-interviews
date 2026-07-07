@@ -101,12 +101,12 @@ export type RequestSource = 'manual' | 'auto';
  * only on terminal/clear — not per delta.
  */
 export type IAiPushEvent =
-    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number; source: RequestSource }
+    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number; source: RequestSource; question?: string }
     | { type: 'delta'; requestId: number; id: string; text: string }
     | { type: 'done'; requestId: number; id: string; text: string }
     | { type: 'error'; requestId: number; id: string; text: string }
     | { type: 'cancelled'; requestId: number; id: string }
-    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string; source: RequestSource }
+    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string; source: RequestSource; question?: string }
     // D-02: the clear-AI hotkey empties the panel. Carries no entry id (it targets the whole list);
     // the renderer resets its mirror to an empty list. This is the minimal clear signal the current
     // renderer contract supports — the full bounded `history-snapshot` reconciliation push lands in
@@ -128,6 +128,11 @@ interface IQueuedRequest {
     id: string;
     /** The monotonic start timestamp (ms) captured at enqueue — the D-10 latency baseline. */
     startMs: number;
+    /**
+     * The triggering question text for an AUTO request (the classified utterance that fired it). Carried
+     * so the panel can show WHICH question an auto-answer is answering; `undefined` for manual requests.
+     */
+    question?: string;
 }
 
 /** The active in-flight request: its mode, monotonic id, stream handle, and accumulated text. */
@@ -151,6 +156,11 @@ interface IActiveRequest {
     startMs: number;
     /** Whether the first-token latency line has already been logged for this stream (log exactly once, D-10). */
     firstTokenLogged: boolean;
+    /**
+     * The triggering question text for an AUTO request, carried from the queued item so the `thinking`
+     * push can surface WHICH question this auto-answer is answering; `undefined` for manual requests.
+     */
+    question?: string;
 }
 
 /**
@@ -259,8 +269,10 @@ export class AiOrchestrator {
             this.history.append({ id, mode, text: EMPTY_SPAN_TEXT, kind: 'empty' });
             // WR-03 (Phase 11): carry `source` onto the empty placeholder so an auto trigger that hits
             // this guard still badges `auto` in the panel (a keyless auto on an empty span), instead of
-            // rendering indistinguishably from a manual empty result.
-            this.pushAi({ type: 'empty', requestId, id, mode, at, text: EMPTY_SPAN_TEXT, source });
+            // rendering indistinguishably from a manual empty result. Also carry the triggering `question`
+            // (auto only) so the placeholder still shows what it tried to answer.
+            const question = source === 'auto' ? contentKey : undefined;
+            this.pushAi({ type: 'empty', requestId, id, mode, at, text: EMPTY_SPAN_TEXT, source, question });
             this.pushHistorySnapshot();
 
             return;
@@ -327,7 +339,10 @@ export class AiOrchestrator {
         const requestId = ++this.requestSeq;
         const id = String(requestId);
         const startMs = Date.now();
-        const item: IQueuedRequest = { mode, source, requestId, id, startMs };
+        // Carry the triggering question onto the queued item for AUTO requests so the run-time `thinking`
+        // push can show WHICH question is being answered. Manual requests have no question text.
+        const question = source === 'auto' ? contentKey : undefined;
+        const item: IQueuedRequest = { mode, source, requestId, id, startMs, question };
 
         const timer = setTimeout(() => {
             this.burstTimers.delete(key);
@@ -428,7 +443,7 @@ export class AiOrchestrator {
             return;
         }
 
-        const { mode, source, requestId, id, startMs } = item;
+        const { mode, source, requestId, id, startMs, question } = item;
         const at = Date.now();
         const model = mode === 'answer' ? ANSWER_MODEL : TALKING_POINTS_MODEL;
         // D-10 pull-on-run: read the active context FRESH here (never cached) so a mid-session context
@@ -437,11 +452,12 @@ export class AiOrchestrator {
         const { system, userContent } = assemblePrompt({ mode, span, context: this.getActiveContext() });
 
         const stream = this.gateway.stream({ requestId, model, maxTokens: MAX_TOKENS[mode], system, userContent });
-        this.active = { mode, source, requestId, id, stream, text: '', debounceTimer: undefined, pendingDelta: false, model, startMs, firstTokenLogged: false };
+        this.active = { mode, source, requestId, id, stream, text: '', debounceTimer: undefined, pendingDelta: false, model, startMs, firstTokenLogged: false, question };
 
         // Surface the in-flight 'thinking…' state at run-start so the entry appears before the first token (D-04).
-        // `source` (D-04) rides the push so the renderer can badge auto entries (renderer badge lands in Plan 02).
-        this.pushAi({ type: 'thinking', requestId, id, mode, at, source });
+        // `source` (D-04) rides the push so the renderer can badge auto entries; `question` (auto only) rides
+        // alongside so the panel shows WHICH detected question this auto-answer is answering.
+        this.pushAi({ type: 'thinking', requestId, id, mode, at, source, question });
     }
 
     /**

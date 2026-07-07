@@ -327,6 +327,47 @@ describe('ai-orchestrator', () => {
         });
     });
 
+    describe('question on the thinking push (auto attribution)', () => {
+        it('should carry the triggering question on the thinking push for an auto trigger', () => {
+            // Arrange
+            seedSpan(buffer, 'We are discussing the reconciliation service.');
+
+            // Act
+            orchestrator.trigger('answer', 'auto', 'What database backs the ledger?');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert
+            const thinking = pushed.find((event) => event.type === 'thinking');
+            expect(thinking?.type === 'thinking' && thinking.question).toBe('What database backs the ledger?');
+        });
+
+        it('should carry NO question on the thinking push for a manual trigger', () => {
+            // Arrange
+            seedSpan(buffer, 'We are discussing the reconciliation service.');
+
+            // Act
+            orchestrator.trigger('answer', 'manual');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert
+            const thinking = pushed.find((event) => event.type === 'thinking');
+            expect(thinking?.type === 'thinking' && thinking.question).toBeUndefined();
+        });
+
+        it('should carry the triggering question on an empty placeholder for a keyless-span auto trigger', () => {
+            // Arrange — empty buffer: the auto question is actionable from its own text (CR-01), so this
+            // path streams; assert the question rides the thinking push regardless of the empty buffer.
+
+            // Act
+            orchestrator.trigger('answer', 'auto', 'What is a closure?');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert
+            const thinking = pushed.find((event) => event.type === 'thinking');
+            expect(thinking?.type === 'thinking' && thinking.question).toBe('What is a closure?');
+        });
+    });
+
     describe('auto-trigger (AA-01/AA-02)', () => {
         it('should enqueue and start exactly one stream for an auto question with a non-empty span (SC 1)', () => {
             // Arrange
