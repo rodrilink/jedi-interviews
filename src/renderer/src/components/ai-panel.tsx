@@ -35,6 +35,9 @@ interface IAiPanelEntry {
     text: string;
     state: AiEntryState;
     at: number;
+    // The request source lane (Phase 11, D-04). An `'auto'` entry renders a tiny auto badge; `'manual'`
+    // renders none (badge absence IS the manual state). `empty` placeholders default to `'manual'`.
+    source: RequestSource;
 }
 
 /** The human-readable mode header label (D-03). */
@@ -85,13 +88,15 @@ function reduceEntries(entries: IAiPanelEntry[], event: IAiPushEvent): IAiPanelE
                 return entries;
             }
 
-            return [...entries, { id: event.id, mode: event.mode, text: '', state: 'thinking', at: event.at }];
+            return [...entries, { id: event.id, mode: event.mode, text: '', state: 'thinking', at: event.at, source: event.source }];
         case 'empty':
             if (event.mode === 'code-challenge') {
                 return entries;
             }
 
-            return [...entries, { id: event.id, mode: event.mode, text: event.text, state: 'empty', at: event.at }];
+            // `empty` is a terminal D-11 placeholder with no source lane; default to `'manual'` so the
+            // type is satisfied and an empty entry never renders an auto badge.
+            return [...entries, { id: event.id, mode: event.mode, text: event.text, state: 'empty', at: event.at, source: 'manual' }];
         case 'delta':
             return entries.map((entry) => (entry.id === event.id ? { ...entry, text: event.text, state: 'streaming' } : entry));
         case 'done':
