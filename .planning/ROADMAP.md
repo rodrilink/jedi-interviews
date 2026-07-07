@@ -300,7 +300,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 09-01-PLAN.md — Rebuild the panel body: pure utterance-view derivation utility (per-type seq + per-speaker color) + committed cards labeled `Q1 - Person 1` / `S3 - Person 2`, questions visually distinct; remove reconcileFinalLog (QA-04, QA-05)
+- [x] 09-01-PLAN.md — Rebuild the panel body: pure utterance-view derivation utility (per-type seq + per-speaker color) + committed cards labeled `Q1 - Person 1` / `S3 - Person 2`, questions visually distinct; remove reconcileFinalLog (QA-04, QA-05)
 
 **Wave 2** *(blocked on 09-01)*
 
@@ -323,4 +323,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Session Context + Settings Window | 4/4 | Complete   | 2026-06-19 |
 | 7. Screenshot Vision + Packaging & Hardening | 3/3 | Complete   | 2026-06-19 |
 | 8. Diarized Utterance Pipeline | 3/3 | Complete   | 2026-07-06 |
-| 9. Card-Based Q/A Panel Redesign | 0/2 | Not started | - |
+| 9. Card-Based Q/A Panel Redesign | 1/2 | In Progress|  |
