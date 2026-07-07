@@ -28,7 +28,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Diarized Utterance Pipeline** - Per-speaker utterances with a stable `Person N` map and a local Question/Statement tag, all riding the existing STT provider seam. *(milestone v1.1)* (completed 2026-07-07 -- 8/8 verified; 2 live human-UAT items pending, see 08-HUMAN-UAT.md)
 - [x] **Phase 9: Card-Based Q/A Panel Redesign** - The Q/A panel rebuilt in place as per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, with a compact people list. *(milestone v1.1)*
  (completed 2026-07-07)
-- [ ] **Phase 10: Priority Answer Queue** - Replace the orchestrator's single-in-flight "drop if busy" guard with a priority queue (manual preempts auto, nothing cancels an in-flight stream) plus debounce + single-in-flight so a burst never spawns parallel Claude calls. *(milestone v1.2)* (verification: gaps_found — D-11 late-delta bleed open)
+- [ ] **Phase 10: Priority Answer Queue** - Replace the orchestrator's single-in-flight "drop if busy" guard with a priority queue (manual preempts auto, nothing cancels an in-flight stream) plus debounce + single-in-flight so a burst never spawns parallel Claude calls. *(milestone v1.2)*
+ (verification: gaps_found — D-11 late-delta bleed open)
 - [ ] **Phase 11: Auto-Answer Trigger** - Wire classified questions from the live utterance stream into the priority queue as auto-answers that stream token-by-token into the existing AI panel, grounded exactly like a manual answer. *(milestone v1.2)*
 - [ ] **Phase 12: Scope Hotkey + Directed-at-Me** - A single 3-state scope hotkey (All → Directed-at-me → Off) with an overlay mode indicator, plus a local no-AI directed-at-me heuristic that narrows auto-answering in that mode. *(milestone v1.2)*
 
@@ -281,13 +282,14 @@ Full phase details archived to [`.planning/milestones/v1.1-ROADMAP.md`](mileston
 - **Late-delta bleed across queued requests:** the existing Pitfall-1 request-id guard must survive the refactor — a finished/aborted request's late gateway deltas must never attach to the next queued entry. Mitigation: preserve the monotonic `requestId` guard on every gateway handler; add a regression test.
 - **Regression of the existing single-in-flight cancel semantics:** Phase 5's "re-press same mode cancels" (D-06) and cross-mode behavior must be reconciled with "nothing cancels an in-flight stream." Mitigation: this phase explicitly re-specifies cancel semantics for v1.2 (manual re-press no longer aborts an in-flight auto-stream; it enqueues) and documents the decision so downstream planning does not reintroduce the old abort.
 
-**Plans**: 1 plan
+**Plans**: 2 plans
 
 Plans:
 
 **Wave 1**
 
 - [x] 10-01-PLAN.md — Refactor AiOrchestrator into a two-lane priority queue: enqueue-not-cancel semantics (D-01/02/03), single-in-flight run loop + mode-keyed burst debounce (AA-06), bounded cap + drop-oldest-auto eviction (AA-05); tests-first, dormant abort machinery preserved (D-12)
+- [ ] 10-02-PLAN.md — Gap closure (D-11): thread the reserved requestId through the gateway seam and positively guard all four handlers (text/done/error/abort) so a superseded stream's late/duplicate event can never bleed into the next queued entry; proven by a two-request-in-sequence regression test (CR-01/WR-01)
 
 ### Phase 11: Auto-Answer Trigger
 
