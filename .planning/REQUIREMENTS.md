@@ -69,8 +69,8 @@ Turn the flat-text Q/A panel into structured, speaker-attributed cards that dist
 - [ ] **QA-02**: Each utterance is attributed to a speaker labeled `Person 1`, `Person 2`, … and the same voice keeps the same label for the whole session (stable speaker map)
 - [ ] **QA-03**: Each utterance is classified as a Question or a Statement, defaulting to Statement when the classification is not confident
 - [x] **QA-04**: The Q/A panel renders each utterance as its own card labeled with a sequence + speaker (e.g. `Q1 - Person 1`, `S3 - Person 2`), replacing the flat-paragraph view
-- [ ] **QA-05**: Questions and Statements are visually distinct in the Q/A panel (styling that makes questions stand out at a glance)
-- [ ] **QA-06**: The Q/A panel shows a compact list of the people identified in the session (`Person 1`, `Person 2`, …)
+- [x] **QA-05**: Questions and Statements are visually distinct in the Q/A panel (styling that makes questions stand out at a glance)
+- [x] **QA-06**: The Q/A panel shows a compact list of the people identified in the session (`Person 1`, `Person 2`, …)
 - [ ] **QA-07**: The utterance/speaker data flows through the existing STT provider seam (`ISttProvider`), so classification and attribution are backend-agnostic and do not couple consumers to Deepgram
 
 ## v2 Requirements
@@ -151,8 +151,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QA-03 | Phase 8 | Pending |
 | QA-07 | Phase 8 | Pending |
 | QA-04 | Phase 9 | Complete |
-| QA-05 | Phase 9 | Pending |
-| QA-06 | Phase 9 | Pending |
+| QA-05 | Phase 9 | Complete |
+| QA-06 | Phase 9 | Complete |
 
 **Coverage:**
 - v1 requirements: 30 total
