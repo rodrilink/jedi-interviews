@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
  (completed 2026-07-07)
 - [x] **Phase 10: Priority Answer Queue** - Replace the orchestrator's single-in-flight "drop if busy" guard with a priority queue (manual preempts auto, nothing cancels an in-flight stream) plus debounce + single-in-flight so a burst never spawns parallel Claude calls. *(milestone v1.2)* (completed 2026-07-07)
  (verification: gaps_found — D-11 late-delta bleed open)
-- [ ] **Phase 11: Auto-Answer Trigger** - Wire classified questions from the live utterance stream into the priority queue as auto-answers that stream token-by-token into the existing AI panel, grounded exactly like a manual answer. *(milestone v1.2)*
+- [x] **Phase 11: Auto-Answer Trigger** - Wire classified questions from the live utterance stream into the priority queue as auto-answers that stream token-by-token into the existing AI panel, grounded exactly like a manual answer. *(milestone v1.2)* (completed 2026-07-07)
 - [ ] **Phase 12: Scope Hotkey + Directed-at-Me** - A single 3-state scope hotkey (All → Directed-at-me → Off) with an overlay mode indicator, plus a local no-AI directed-at-me heuristic that narrows auto-answering in that mode. *(milestone v1.2)*
 
 ## Phase Details
@@ -322,7 +322,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 11-02-PLAN.md — Renderer badge (the only renderer touch, D-04): mirror source onto the preload + renderer IAiPushEvent thinking variant, carry it onto the panel entry, render a tiny conditional auto badge in the existing AI panel (AA-01, AA-02)
+- [x] 11-02-PLAN.md — Renderer badge (the only renderer touch, D-04): mirror source onto the preload + renderer IAiPushEvent thinking variant, carry it onto the panel entry, render a tiny conditional auto badge in the existing AI panel (AA-01, AA-02)
 
 **UI hint**: yes
 
@@ -367,5 +367,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Diarized Utterance Pipeline | 3/3 | Complete   | 2026-07-06 |
 | 9. Card-Based Q/A Panel Redesign | 2/2 | Complete   | 2026-07-07 |
 | 10. Priority Answer Queue | 2/2 | Complete    | 2026-07-07 |
-| 11. Auto-Answer Trigger | 1/2 | In Progress|  |
+| 11. Auto-Answer Trigger | 2/2 | Complete   | 2026-07-07 |
 | 12. Scope Hotkey + Directed-at-Me | 0/? | Not started | - |

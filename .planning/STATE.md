@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Auto-Answer for Detected Questions
-status: executing
+status: verifying
 stopped_at: Phase 11 context gathered
-last_updated: "2026-07-07T18:15:45.843Z"
+last_updated: "2026-07-07T18:23:40.121Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 10
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 27
-  completed_plans: 26
-  percent: 80
+  completed_plans: 27
+  percent: 90
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 
 Phase: 11 (auto-answer-trigger) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-07
 
 ## Milestone v1.1 Roadmap (Phases 8–9)
@@ -79,6 +79,7 @@ Last activity: 2026-07-07
 | Phase 07 P02 | 12min | 3 tasks | 3 files |
 | Phase 07 P03 | 9min | 2 tasks | 2 files |
 | Phase 11 P01 | 9min | 3 tasks | 5 files |
+| Phase 11 P02 | 6min | 2 tasks tasks | 2 files files |
 
 ## Accumulated Context
 
@@ -124,6 +125,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 07-03: CTL-03 hardened via main-process startup log of the registrar outcome (active layer + failed-chord labels only, T-7-IL2); full chord set incl. Ctrl+Alt+C/Y/M/F already covered by register().failed. GPU fallback + vision latency log confirmed no-new-code (07-01). docs/HARDENING.md documents SmartScreen accepted friction. Whisper stub DROPPED (D-16). Pending: Ctrl+Alt+Y/M conflict re-check (260619-mcv).
 - v1.1 roadmap (2026-07-06): milestone split into Phase 8 (Diarized Utterance Pipeline — QA-01/02/03/07, the data/seam layer) then Phase 9 (Card-Based Q/A Panel Redesign — QA-04/05/06, the UI). The `ISttProvider` seam is extended to carry speaker + Question/Statement classification (QA-07) rather than coupling consumers to Deepgram; diarization/utterances enabled via `diarize:true`+`utterances:true` on the Deepgram v5 connect. Stable `Person N` map (QA-02) is a main-process session structure held alongside TranscriptBuffer. Q-vs-statement (QA-03) is a LOCAL heuristic (default Statement) — no per-utterance AI call. Panel redesign is IN PLACE in transcript-panel.tsx; 4-panel layout unchanged.
 - [Phase ?]: 11-01: D-01 reconcile — composite burst key (manual=bare mode, auto=mode#auto+normalized content); keyless auto uses a sentinel inside the #auto namespace, no collision with manual. source added to the thinking push across all three IAiPushEvent duplicates (renderer badge in Plan 02). Boot-reorder: AI-stack before wireSttPipeline; orchestrator forwarded to both attach sites for re-key survival.
+- [Phase ?]: 11-02: D-04 renderer badge — a tiny 'auto' tag renders next to the mode label gated strictly on entry.source === 'auto'; manual entries render none. source carried onto IAiPanelEntry; empty placeholders default to manual. Additive-only in the existing AI panel (SC 3). Preload/renderer IAiPushEvent union source field was already present from Plan 01.
 
 ### Pending Todos
 
@@ -162,6 +164,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-07T18:15:08.233Z
+Last session: 2026-07-07T18:23:29.243Z
 Stopped at: Phase 11 context gathered
 Resume file: None
