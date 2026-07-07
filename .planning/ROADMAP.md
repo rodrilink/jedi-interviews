@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Diarized Utterance Pipeline** - Per-speaker utterances with a stable `Person N` map and a local Question/Statement tag, all riding the existing STT provider seam. *(milestone v1.1)* (completed 2026-07-07 -- 8/8 verified; 2 live human-UAT items pending, see 08-HUMAN-UAT.md)
 - [x] **Phase 9: Card-Based Q/A Panel Redesign** - The Q/A panel rebuilt in place as per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, with a compact people list. *(milestone v1.1)*
  (completed 2026-07-07)
-- [ ] **Phase 10: Priority Answer Queue** - Replace the orchestrator's single-in-flight "drop if busy" guard with a priority queue (manual preempts auto, nothing cancels an in-flight stream) plus debounce + single-in-flight so a burst never spawns parallel Claude calls. *(milestone v1.2)*
+- [x] **Phase 10: Priority Answer Queue** - Replace the orchestrator's single-in-flight "drop if busy" guard with a priority queue (manual preempts auto, nothing cancels an in-flight stream) plus debounce + single-in-flight so a burst never spawns parallel Claude calls. *(milestone v1.2)* (completed 2026-07-07)
 - [ ] **Phase 11: Auto-Answer Trigger** - Wire classified questions from the live utterance stream into the priority queue as auto-answers that stream token-by-token into the existing AI panel, grounded exactly like a manual answer. *(milestone v1.2)*
 - [ ] **Phase 12: Scope Hotkey + Directed-at-Me** - A single 3-state scope hotkey (All → Directed-at-me → Off) with an overlay mode indicator, plus a local no-AI directed-at-me heuristic that narrows auto-answering in that mode. *(milestone v1.2)*
 
@@ -287,7 +287,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 10-01-PLAN.md — Refactor AiOrchestrator into a two-lane priority queue: enqueue-not-cancel semantics (D-01/02/03), single-in-flight run loop + mode-keyed burst debounce (AA-06), bounded cap + drop-oldest-auto eviction (AA-05); tests-first, dormant abort machinery preserved (D-12)
+- [x] 10-01-PLAN.md — Refactor AiOrchestrator into a two-lane priority queue: enqueue-not-cancel semantics (D-01/02/03), single-in-flight run loop + mode-keyed burst debounce (AA-06), bounded cap + drop-oldest-auto eviction (AA-05); tests-first, dormant abort machinery preserved (D-12)
 
 ### Phase 11: Auto-Answer Trigger
 
@@ -353,6 +353,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. Screenshot Vision + Packaging & Hardening | 3/3 | Complete   | 2026-06-19 |
 | 8. Diarized Utterance Pipeline | 3/3 | Complete   | 2026-07-06 |
 | 9. Card-Based Q/A Panel Redesign | 2/2 | Complete   | 2026-07-07 |
-| 10. Priority Answer Queue | 0/1 | Not started | - |
+| 10. Priority Answer Queue | 1/1 | Complete   | 2026-07-07 |
 | 11. Auto-Answer Trigger | 0/? | Not started | - |
 | 12. Scope Hotkey + Directed-at-Me | 0/? | Not started | - |
