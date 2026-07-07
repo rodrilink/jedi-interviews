@@ -67,10 +67,13 @@ export function TranscriptPanel(): JSX.Element {
             setInterimText(next.interimText);
             setConnectionState(next.connectionState);
 
-            // Clear-transcript (Ctrl+Alt+K) empties the main buffer and pushes an all-empty payload — main
-            // also empties `utterances` in place, so `next.utterances` is [] here. Reset explicitly and
-            // early-return so interim/derived state clears in lockstep rather than retaining stale content.
-            if (next.finalText.length === 0 && next.interimText.length === 0) {
+            // Clear-transcript (Ctrl+Alt+K) empties the main-owned `utterances` list in place, so an empty
+            // `next.utterances` IS the authoritative clear signal. Gate the reset on that field — NOT on
+            // `finalText`, which is only the last ~90s of the rolling `TranscriptBuffer` window and legitimately
+            // empties during a conversational lull while the full session `utterances` is still intact (that
+            // false-clear would wipe every committed card mid-session). Reset interim in lockstep and
+            // early-return so derived state clears together.
+            if (next.utterances.length === 0) {
                 setUtterances([]);
                 setInterimText('');
 
