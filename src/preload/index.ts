@@ -23,6 +23,25 @@ export interface IOverlayStatus {
     copyOk: boolean;
 }
 
+/** The local (no-AI) classification of a committed utterance (QA-03). Mirrors `UtteranceClassification` in main. */
+export type UtteranceClassification = 'question' | 'statement';
+
+/**
+ * A single finalized, speaker-attributed, classified utterance (QA-07). Mirrors `IUtteranceEvent` in the
+ * main process; declared here (rather than imported) because the sandboxed preload is bundled separately
+ * and must not reach into main. Text + speaker + classification only; never a secret (D-08).
+ */
+export interface IUtteranceEvent {
+    /** The finalized utterance text for this turn. */
+    text: string;
+    /** `'Person 1' | 'Person 2' | … ` for a diarized turn, or the neutral `'Speaker'` bucket. */
+    speaker: string;
+    /** `true` when `speaker` is a numbered `Person N`; `false` for the neutral bucket. */
+    isDiarized: boolean;
+    /** The local Question/Statement heuristic result for `text`. */
+    classification: UtteranceClassification;
+}
+
 /**
  * The read-only transcript payload pushed from main over `jedi:transcript` (D-04).
  *
@@ -39,6 +58,12 @@ export interface IOverlayTranscript {
     connectionState: string;
     /** The live capture RMS level in `[0, 1]`, computed in main, rendered as the overlay audio meter. */
     audioLevel: number;
+    /**
+     * The full session-scoped committed utterances, oldest first (Phase 8, QA-01). Additive over the same
+     * read-only channel — no new control surface. Main pushes the WHOLE list each push and empties it in
+     * place on Ctrl+Alt+K (an empty push carries `utterances: []`).
+     */
+    utterances: IUtteranceEvent[];
 }
 
 /** IPC channel for the read-only, non-secret status push from main (D-05). */

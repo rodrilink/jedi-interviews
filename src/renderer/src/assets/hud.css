@@ -307,12 +307,16 @@ body {
 }
 
 /*
- * The Q/A transcript body (D-04): finalized text reads in the normal value color; the current interim
- * (partial) result is rendered dimmed + italic directly after it so the in-progress guess is visually
- * distinct from committed text. Scrolls internally and wraps freely.
+ * The Q/A transcript body (Phase 9): a scrollable stack of per-utterance cards (D-02), newest at the
+ * bottom, auto-following while it grows. Question cards stand out via an accent stripe + tint (D-01);
+ * statements stay neutral/flat. The current interim (partial) line renders dimmed + italic after the
+ * cards so the in-progress guess is visually distinct from committed cards.
  */
 .transcript-panel__body {
+    display: flex;
     flex: 1 1 auto;
+    flex-direction: column;
+    gap: 8px;
     min-height: 0;
     margin: 0;
     word-break: break-word;
@@ -330,8 +334,91 @@ body {
     border-radius: 3px;
 }
 
-.transcript-panel__final {
+/*
+ * A single committed-utterance card (D-02/D-11): a roomy padded rounded box, generously spaced from its
+ * neighbors (via the body `gap`), NOT a hairline row. Base (statement) treatment is neutral/flat.
+ */
+.transcript-panel__card {
+    flex: 0 0 auto;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border-left: 3px solid transparent;
+    background: rgb(148 163 184 / 8%);
+}
+
+.transcript-panel__card-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-size: 11px;
+}
+
+.transcript-panel__card-speaker {
+    font-weight: 600;
+    color: rgb(148 163 184 / 100%);
+}
+
+.transcript-panel__card-body {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
     color: rgb(226 232 240 / 100%);
+}
+
+/*
+ * Question distinction (D-01, the primary QA-05 mechanism): a bright cyan left accent stripe AND a subtly
+ * tinted brighter background so a question card is unmistakable at a glance; statement cards recede.
+ */
+.transcript-panel__card--question {
+    border-left-color: rgb(125 211 252 / 90%);
+    background: rgb(125 211 252 / 14%);
+}
+
+.transcript-panel__card--statement {
+    border-left-color: transparent;
+    background: rgb(148 163 184 / 8%);
+}
+
+/*
+ * Per-speaker accent color (D-04): each `Person N` name renders in a stable hue derived from the person
+ * number (the `p0`..`p7` slot tokens from personAccentColor); the undiarized `Speaker` bucket stays
+ * neutral grey (D-05). Hues chosen to read on the dark translucent overlay and to stay distinguishable
+ * from the cyan question tint/accent.
+ */
+.transcript-panel__card-speaker[data-speaker-color='neutral'] {
+    color: rgb(148 163 184 / 100%);
+}
+
+.transcript-panel__card-speaker[data-speaker-color='p0'] {
+    color: rgb(134 239 172 / 100%);
+}
+
+.transcript-panel__card-speaker[data-speaker-color='p1'] {
+    color: rgb(253 186 116 / 100%);
+}
+
+.transcript-panel__card-speaker[data-speaker-color='p2'] {
+    color: rgb(196 181 253 / 100%);
+}
+
+.transcript-panel__card-speaker[data-speaker-color='p3'] {
+    color: rgb(244 114 182 / 100%);
+}
+
+.transcript-panel__card-speaker[data-speaker-color='p4'] {
+    color: rgb(250 204 21 / 100%);
+}
+
+.transcript-panel__card-speaker[data-speaker-color='p5'] {
+    color: rgb(94 234 212 / 100%);
+}
+
+.transcript-panel__card-speaker[data-speaker-color='p6'] {
+    color: rgb(216 180 254 / 100%);
+}
+
+.transcript-panel__card-speaker[data-speaker-color='p7'] {
+    color: rgb(147 197 253 / 100%);
 }
 
 .transcript-panel__interim {

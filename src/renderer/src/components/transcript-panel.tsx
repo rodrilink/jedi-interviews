@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { PANEL_LABEL, type ActivePanel } from './panel-labels';
+import { deriveCardRows, type IUtteranceEvent } from './utterance-view.utility';
 
 /**
  * The read-only transcript payload received over the `window.jedi.onTranscript` bridge (D-04).
@@ -15,60 +16,12 @@ interface IOverlayTranscript {
     connectionState: string;
     /** The live capture RMS level in `[0, 1]`, computed in main, rendered in the HUD header meter. */
     audioLevel: number;
-}
-
-/**
- * Reconciles the next rolling `finalText` snapshot into the monotonically-growing panel-side log (quick
- * fix 260619-mcv round 8 item 1).
- *
- * Main's {@link import('../../../main/stt/transcript-buffer').TranscriptBuffer} is a BOUNDED rolling
- * window (~90s / 400 segments / 20000 chars) that evicts old finalized segments at the source, so each
- * `finalText` push is a contiguous, space-joined SLICE of the full session: as the window rolls, old
- * content drops off the FRONT of the snapshot and new content appears at the END. A naive append would
- * therefore both duplicate the overlapping tail AND still lose nothing — so we reconcile by overlap.
- *
- * The new snapshot's content continues the log: find the longest suffix of the accumulated `log` that is
- * a prefix of `next` (the shared overlap) and append only the remainder. This grows the log monotonically
- * with genuinely-new finalized content and never repeats lines, even after the main window has rolled.
- *
- * Cases handled:
- *  - First content (`log === ''`): the whole snapshot is new.
- *  - Snapshot grew at the tail with no front-pruning: full overlap = old log tail, append the new suffix.
- *  - Snapshot pruned at the front (its start is now mid-log): the overlap still matches deeper in the log,
- *    so only the trailing new content is appended.
- *  - No overlap found (e.g. a long pause rolled the whole window past what we last saw): append a space +
- *    the snapshot so distinct content is not glued together.
- *
- * @param log - The accumulated full-session finalized log so far.
- * @param next - The next rolling `finalText` snapshot from main.
- * @returns The next accumulated log (>= the previous length).
- */
-function reconcileFinalLog(log: string, next: string): string {
-    if (next.length === 0) {
-        return log;
-    }
-
-    if (log.length === 0) {
-        return next;
-    }
-
-    if (next === log || log.endsWith(next)) {
-        // The snapshot is entirely already logged (no new finalized content yet) — nothing to append.
-        return log;
-    }
-
-    // Find the longest suffix of `log` that is a prefix of `next`: that is the overlap between what we
-    // already have and the rolling snapshot. Start from the largest possible overlap and shrink.
-    const maxOverlap = Math.min(log.length, next.length);
-    for (let overlap = maxOverlap; overlap > 0; overlap--) {
-        if (log.slice(log.length - overlap) === next.slice(0, overlap)) {
-            return log + next.slice(overlap);
-        }
-    }
-
-    // No overlap — the window rolled entirely past our last-seen content. Append with a separating space
-    // so the previously-logged tail and the new snapshot don't run together into one word.
-    return `${log} ${next}`;
+    /**
+     * The full session-scoped committed utterances, oldest first (Phase 8, QA-01). Main pushes the WHOLE
+     * list on every push and empties it in place on Ctrl+Alt+K, so the panel renders directly from this
+     * array without a panel-side accumulator (an empty push carries `utterances: []`).
+     */
+    utterances: IUtteranceEvent[];
 }
 
 /**
@@ -78,22 +31,19 @@ function reconcileFinalLog(log: string, next: string): string {
  * `window.jedi.onStatus` (for the focus highlight + the shared Ctrl+Alt+PgUp/PgDn scroll routing — it
  * scrolls only when 'transcript' is active, D-08).
  *
- * FULL-SESSION HISTORY (quick fix 260619-mcv round 8 item 1): main's TranscriptBuffer is a bounded rolling
- * window, so its `finalText` push only ever carries the recent slice — old lines would otherwise vanish
- * and there would be nothing to scroll back to. WITHOUT touching the main buffer (other code depends on
- * its bounded live window), this panel keeps its OWN full-session finalized log: it accumulates every new
- * finalized snapshot via {@link reconcileFinalLog} (overlap-dedup so the log grows monotonically without
- * repeating the overlapping tail) and never truncates it for the life of the session. Interim text still
- * replaces in place (never accumulated). The clear-transcript chord (Ctrl+Alt+K) empties the main buffer
- * and pushes an empty `finalText` snapshot AND empty interim — that resets this panel-side log too.
+ * CARD STACK (Phase 9, QA-04/QA-05): each committed utterance in `next.utterances` renders as its own card
+ * labeled `{seq} - {speaker}` (`Q1 - Person 1`, `S3 - Person 2`) via {@link deriveCardRows}, with question
+ * cards visually distinct from statements (D-01) and each `Person N` name in a stable per-speaker accent
+ * color (D-04). Because main pushes the full session-scoped list each push (and empties it in place on
+ * Ctrl+Alt+K), the panel renders directly from the pushed array — no panel-side accumulation, no
+ * flat-text overlap reconciliation. The live in-progress line still renders as a plain interim span after the cards
+ * (the ghost card + people row + empty-state land in Plan 09-02). Interim replaces in place, never
+ * accumulates (Phase 8 D-02).
  *
  * @returns The Q/A transcript panel element (always rendered).
  */
 export function TranscriptPanel(): JSX.Element {
-    // The monotonically-growing full-session finalized log (panel-side; never truncated). A ref holds the
-    // authoritative value for reconciliation across pushes; state drives the render.
-    const finalLogRef = useRef<string>('');
-    const [finalLog, setFinalLog] = useState<string>('');
+    const [utterances, setUtterances] = useState<IUtteranceEvent[]>([]);
     const [interimText, setInterimText] = useState<string>('');
     const [connectionState, setConnectionState] = useState<string>('');
     const [activePanel, setActivePanel] = useState<ActivePanel>('ai');
@@ -111,22 +61,19 @@ export function TranscriptPanel(): JSX.Element {
             setInterimText(next.interimText);
             setConnectionState(next.connectionState);
 
-            // Clear-transcript (Ctrl+Alt+K) empties the main buffer and pushes an empty finalText +
-            // empty interim. Treat a fully-empty push as a reset so the panel-side log clears in lockstep
-            // with the main buffer rather than retaining stale history.
+            // Clear-transcript (Ctrl+Alt+K) empties the main buffer and pushes an all-empty payload — main
+            // also empties `utterances` in place, so `next.utterances` is [] here. Reset explicitly and
+            // early-return so interim/derived state clears in lockstep rather than retaining stale content.
             if (next.finalText.length === 0 && next.interimText.length === 0) {
-                finalLogRef.current = '';
-                setFinalLog('');
+                setUtterances([]);
+                setInterimText('');
 
                 return;
             }
 
-            // Accumulate genuinely-new finalized content into the full-session log (overlap-dedup).
-            const reconciled = reconcileFinalLog(finalLogRef.current, next.finalText);
-            if (reconciled !== finalLogRef.current) {
-                finalLogRef.current = reconciled;
-                setFinalLog(reconciled);
-            }
+            // Main pushes the FULL session-scoped utterance list on every push, so render directly from it
+            // (no panel-side accumulator — the derivation counts sequences from list order each render).
+            setUtterances(next.utterances);
         });
 
         const offStatus = window.jedi?.onStatus((status) => {
@@ -159,15 +106,17 @@ export function TranscriptPanel(): JSX.Element {
         };
     }, []);
 
-    // Keep the newest transcript text in view as the log/interim grows — but only while the user hasn't
-    // scrolled up to read earlier history (stickToBottomRef). Now that the panel keeps the full session,
-    // this follow + the visible scrollbar (overflow-y:auto in CSS) let the user scroll back through it.
+    // Keep the newest card in view as the stack/interim grows — but only while the user hasn't scrolled up
+    // to read earlier history (stickToBottomRef). This follow + the visible scrollbar (overflow-y:auto in
+    // CSS) let the user scroll back through the session card stack.
     useEffect(() => {
         const element = transcriptRef.current;
         if (element !== null && stickToBottomRef.current) {
             element.scrollTop = element.scrollHeight;
         }
-    }, [finalLog, interimText]);
+    }, [utterances, interimText]);
+
+    const cardRows = deriveCardRows(utterances);
 
     return (
         <section className="transcript-panel" data-testid="card-transcript-panel" data-active={activePanel === 'transcript'} data-connection-state={connectionState}>
@@ -178,9 +127,27 @@ export function TranscriptPanel(): JSX.Element {
             </span>
             <h2 className="transcript-panel__title">{PANEL_LABEL.transcript}</h2>
             <div className="transcript-panel__body" data-testid="card-transcript" ref={transcriptRef}>
-                <span className="transcript-panel__final" data-testid="cell-transcript-final">
-                    {finalLog}
-                </span>{' '}
+                {cardRows.map((row, index) => (
+                    <article
+                        className={`transcript-panel__card transcript-panel__card--${row.classification === 'question' ? 'question' : 'statement'}`}
+                        key={index}
+                        data-testid={`row-utterance-${index}`}
+                    >
+                        <header className="transcript-panel__card-header">
+                            <span
+                                className="transcript-panel__card-speaker"
+                                data-testid={`cell-utterance-speaker-${index}`}
+                                data-diarized={row.isDiarized}
+                                data-speaker-color={row.speakerColor}
+                            >
+                                {row.label}
+                            </span>
+                        </header>
+                        <p className="transcript-panel__card-body">{row.text}</p>
+                    </article>
+                ))}
+                {/* The live in-progress line (interim) — plain span after the committed cards for continuity;
+                    the ghost-card treatment lands in Plan 09-02. */}
                 <span className="transcript-panel__interim" data-testid="cell-transcript-interim">
                     {interimText}
                 </span>
