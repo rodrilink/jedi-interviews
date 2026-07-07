@@ -264,6 +264,63 @@ describe('ai-orchestrator', () => {
             const latest = deltas[deltas.length - 1];
             expect('text' in latest && latest.text).toBe('request two token');
         });
+
+        it('should drop a request-1-tagged text delta that arrives after request 2 is active', () => {
+            // Arrange — request 1 runs, request 2 queues behind it, then request 1's terminal starts request 2.
+            seedSpan(buffer, 'First question about caching.');
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            const request1Id = (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId;
+            gateway.emit('done', 'request one final', request1Id);
+            const request2Id = (gateway.stream.mock.calls[1]?.[0] as IAiPromptRequest).requestId;
+            pushed.length = 0;
+
+            // Act — request 1's straggler delta, tagged with request 1's id, fires while request 2 is active.
+            gateway.emit('text', 'stale token from request one', request1Id);
+            vi.advanceTimersByTime(200);
+
+            // Assert — no delta bled under request 2 from the superseded request 1 straggler.
+            const stragglerDeltas = pushed.filter((event) => event.type === 'delta');
+            stragglerDeltas.forEach((delta) => {
+                expect(delta.requestId).toBe(request2Id);
+                expect('text' in delta && delta.text).not.toContain('stale token from request one');
+            });
+
+            // Act — request 2's own token, tagged with request 2's id, streams and flushes cleanly.
+            gateway.emit('text', 'request two own token', request2Id);
+            vi.advanceTimersByTime(200);
+
+            // Assert — the flushed delta is exactly request 2's own token, attributed to request 2.
+            const request2Deltas = pushed.filter((event) => event.type === 'delta');
+            const latest = request2Deltas[request2Deltas.length - 1];
+            expect('text' in latest && latest.text).toBe('request two own token');
+            expect(latest.requestId).toBe(request2Id);
+        });
+
+        it('should drop a duplicate terminal for an already-superseded stream after request 2 is active (WR-01)', () => {
+            // Arrange — request 1 runs, request 2 queues behind it, then request 1's terminal starts request 2.
+            seedSpan(buffer, 'First question about caching.');
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            const request1Id = (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId;
+            gateway.emit('done', 'request one final', request1Id);
+            const request2Id = (gateway.stream.mock.calls[1]?.[0] as IAiPromptRequest).requestId;
+            expect(gateway.stream).toHaveBeenCalledTimes(2);
+            pushed.length = 0;
+
+            // Act — a duplicate terminal, tagged with request 1's superseded id, fires while request 2 is active.
+            gateway.emit('done', 'request one duplicate terminal', request1Id);
+            vi.advanceTimersByTime(200);
+
+            // Assert — request 2 was not prematurely terminated: no third stream started, no terminal for request 2.
+            expect(gateway.stream).toHaveBeenCalledTimes(2);
+            const request2Terminals = pushed.filter((event) => (event.type === 'done' || event.type === 'error') && event.requestId === request2Id);
+            expect(request2Terminals).toHaveLength(0);
+        });
     });
 
     describe('hotkey-to-first-token latency logging (D-10)', () => {
