@@ -20,7 +20,7 @@ type IAiPushEvent =
     | { type: 'done'; requestId: number; id: string; text: string }
     | { type: 'error'; requestId: number; id: string; text: string }
     | { type: 'cancelled'; requestId: number; id: string }
-    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string }
+    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string; source: RequestSource }
     // D-02: the clear-AI hotkey empties the panel — no entry id (it resets the whole list). Mirrors the
     // `cleared` variant declared identically in main/preload (Phase 5; full snapshot reconciliation in 05-03).
     | { type: 'cleared' };
@@ -94,9 +94,10 @@ function reduceEntries(entries: IAiPanelEntry[], event: IAiPushEvent): IAiPanelE
                 return entries;
             }
 
-            // `empty` is a terminal D-11 placeholder with no source lane; default to `'manual'` so the
-            // type is satisfied and an empty entry never renders an auto badge.
-            return [...entries, { id: event.id, mode: event.mode, text: event.text, state: 'empty', at: event.at, source: 'manual' }];
+            // WR-03 (Phase 11): carry the source lane onto the empty placeholder so an auto trigger that
+            // hit the empty-span guard still badges `auto` (a keyless auto on an empty span), instead of
+            // rendering indistinguishably from a manual empty result.
+            return [...entries, { id: event.id, mode: event.mode, text: event.text, state: 'empty', at: event.at, source: event.source }];
         case 'delta':
             return entries.map((entry) => (entry.id === event.id ? { ...entry, text: event.text, state: 'streaming' } : entry));
         case 'done':

@@ -106,7 +106,7 @@ export type IAiPushEvent =
     | { type: 'done'; requestId: number; id: string; text: string }
     | { type: 'error'; requestId: number; id: string; text: string }
     | { type: 'cancelled'; requestId: number; id: string }
-    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string }
+    | { type: 'empty'; requestId: number; id: string; mode: AiMode; at: number; text: string; source: RequestSource }
     // D-02: the clear-AI hotkey empties the panel. Carries no entry id (it targets the whole list);
     // the renderer resets its mirror to an empty list. This is the minimal clear signal the current
     // renderer contract supports — the full bounded `history-snapshot` reconciliation push lands in
@@ -244,12 +244,23 @@ export class AiOrchestrator {
         // D-11/D-13 empty-span guard — BEFORE any enqueue. Phase 7 D-07: code-challenge BYPASSES this —
         // the captured screenshot alone is actionable, so an empty transcript span must NOT short-circuit
         // it (the image is the problem; the span is only supporting narration). Text modes still guard.
-        if (mode !== 'code-challenge' && span.trim().length === 0) {
+        //
+        // CR-01 (Phase 11): an AUTO request carries the triggering question as `contentKey`. The gateway
+        // emits 'utterance' BEFORE the 'transcript' that appends the turn to the buffer, so at trigger
+        // time the span does NOT yet contain the just-asked question — on the first question of a session
+        // (empty buffer) the guard would false-negative and drop the auto-answer. The question text alone
+        // is actionable, so evaluate the guard against span + contentKey for auto. (Run-time grounding is
+        // unaffected: startRequest re-reads the span pull-on-run, after the 'transcript' has landed.)
+        const guardSource = source === 'auto' && contentKey !== undefined ? `${span} ${contentKey}` : span;
+        if (mode !== 'code-challenge' && guardSource.trim().length === 0) {
             const requestId = ++this.requestSeq;
             const id = String(requestId);
             const at = Date.now();
             this.history.append({ id, mode, text: EMPTY_SPAN_TEXT, kind: 'empty' });
-            this.pushAi({ type: 'empty', requestId, id, mode, at, text: EMPTY_SPAN_TEXT });
+            // WR-03 (Phase 11): carry `source` onto the empty placeholder so an auto trigger that hits
+            // this guard still badges `auto` in the panel (a keyless auto on an empty span), instead of
+            // rendering indistinguishably from a manual empty result.
+            this.pushAi({ type: 'empty', requestId, id, mode, at, text: EMPTY_SPAN_TEXT, source });
             this.pushHistorySnapshot();
 
             return;

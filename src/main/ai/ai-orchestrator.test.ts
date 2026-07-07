@@ -340,6 +340,70 @@ describe('ai-orchestrator', () => {
             expect(gateway.stream).toHaveBeenCalledTimes(1);
         });
 
+        it('should stream an answer for an auto question when the span is EMPTY at trigger time (CR-01 first-question regression)', () => {
+            // Arrange — buffer left EMPTY: production emits 'utterance' BEFORE the 'transcript' that
+            // appends the turn, so the auto trigger fires against a span that does not yet contain the
+            // just-asked question. The question text alone is actionable — the guard must not drop it.
+
+            // Act
+            orchestrator.trigger('answer', 'auto', 'What is a closure?');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — an answer streams (not short-circuited to an empty placeholder).
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+        });
+
+        it('should NOT push an empty-kind entry for an auto question with an empty span but a content key (CR-01)', () => {
+            // Arrange — empty buffer, auto trigger carrying the question text.
+
+            // Act
+            orchestrator.trigger('answer', 'auto', 'What is a closure?');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — no empty placeholder; the auto question is answered from its own text.
+            const empties = pushed.filter((event) => event.type === 'empty');
+            expect(empties).toHaveLength(0);
+        });
+
+        it('should still push an empty-kind entry for a keyless auto trigger on an empty span (guard intact when there is nothing to act on)', () => {
+            // Arrange — empty buffer AND no content key: there is genuinely nothing to answer.
+
+            // Act
+            orchestrator.trigger('answer', 'auto');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — the guard still fires (no stream, empty placeholder pushed).
+            expect(gateway.stream).not.toHaveBeenCalled();
+            const empties = pushed.filter((event) => event.type === 'empty');
+            expect(empties.length).toBeGreaterThan(0);
+        });
+
+        it('should carry source:auto on the empty placeholder for a keyless auto trigger (WR-03 badge attribution)', () => {
+            // Arrange — empty buffer, keyless auto: hits the guard and produces an empty placeholder.
+
+            // Act
+            orchestrator.trigger('answer', 'auto');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — the placeholder still attributes the auto lane so the renderer can badge it.
+            const empty = pushed.find((event) => event.type === 'empty');
+            expect(empty).toBeDefined();
+            expect(empty?.type === 'empty' && empty.source).toBe('auto');
+        });
+
+        it('should carry source:manual on the empty placeholder for a manual trigger (WR-03)', () => {
+            // Arrange — empty buffer, manual trigger.
+
+            // Act
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — a manual empty placeholder attributes the manual lane.
+            const empty = pushed.find((event) => event.type === 'empty');
+            expect(empty).toBeDefined();
+            expect(empty?.type === 'empty' && empty.source).toBe('manual');
+        });
+
         it('should assemble an auto answer with the same model/system/userContent as a manual answer (SC 2 grounding parity)', () => {
             // Arrange — the same span + active context both paths see.
             const span = 'What database backs the ledger service?';
