@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Diarized Utterance Pipeline** - Per-speaker utterances with a stable `Person N` map and a local Question/Statement tag, all riding the existing STT provider seam. *(milestone v1.1)* (completed 2026-07-07 -- 8/8 verified; 2 live human-UAT items pending, see 08-HUMAN-UAT.md)
 - [x] **Phase 9: Card-Based Q/A Panel Redesign** - The Q/A panel rebuilt in place as per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, with a compact people list. *(milestone v1.1)*
  (completed 2026-07-07)
-- [x] **Phase 10: Priority Answer Queue** - Replace the orchestrator's single-in-flight "drop if busy" guard with a priority queue (manual preempts auto, nothing cancels an in-flight stream) plus debounce + single-in-flight so a burst never spawns parallel Claude calls. *(milestone v1.2)* (completed 2026-07-07)
+- [ ] **Phase 10: Priority Answer Queue** - Replace the orchestrator's single-in-flight "drop if busy" guard with a priority queue (manual preempts auto, nothing cancels an in-flight stream) plus debounce + single-in-flight so a burst never spawns parallel Claude calls. *(milestone v1.2)* (verification: gaps_found — D-11 late-delta bleed open)
 - [ ] **Phase 11: Auto-Answer Trigger** - Wire classified questions from the live utterance stream into the priority queue as auto-answers that stream token-by-token into the existing AI panel, grounded exactly like a manual answer. *(milestone v1.2)*
 - [ ] **Phase 12: Scope Hotkey + Directed-at-Me** - A single 3-state scope hotkey (All → Directed-at-me → Off) with an overlay mode indicator, plus a local no-AI directed-at-me heuristic that narrows auto-answering in that mode. *(milestone v1.2)*
 
