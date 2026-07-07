@@ -101,7 +101,7 @@ export type RequestSource = 'manual' | 'auto';
  * only on terminal/clear — not per delta.
  */
 export type IAiPushEvent =
-    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number }
+    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number; source: RequestSource }
     | { type: 'delta'; requestId: number; id: string; text: string }
     | { type: 'done'; requestId: number; id: string; text: string }
     | { type: 'error'; requestId: number; id: string; text: string }
@@ -182,11 +182,17 @@ export class AiOrchestrator {
      */
     private pendingAuto: IQueuedRequest[] = [];
     /**
-     * Per-mode burst-debounce timers (D-06). A pending timer for a mode means a same-mode press within
-     * the window collapses (no second enqueue), mirroring the `debounceTimer !== undefined` coalesce
-     * guard in {@link scheduleDeltaFlush}. Keyed by mode so DIFFERENT modes are never collapsed.
+     * Burst-debounce timers (D-06/D-01), keyed by a COMPOSITE collapse key rather than the bare mode.
+     * A pending timer for a key means a matching press within the window collapses (no second enqueue),
+     * mirroring the `debounceTimer !== undefined` coalesce guard in {@link scheduleDeltaFlush}.
+     *
+     * The composite key (see {@link burstKey}) preserves Phase-10 D-06 behavior for MANUAL requests
+     * (mode-only, so a rapid double-tap of the same hotkey collapses) while making AUTO requests
+     * content-aware (D-01): two DIFFERENT question texts each answer, but an identical repeated question
+     * within the window collapses. The manual and auto lanes live in DISJOINT key spaces (`answer` vs
+     * `answer#auto …`), so a keyless auto never folds into the manual mode-only key.
      */
-    private readonly burstTimers = new Map<AiMode, ReturnType<typeof setTimeout>>();
+    private readonly burstTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     /**
      * @param gateway - The AI generation seam (Anthropic in production, a fake in tests).
@@ -227,8 +233,12 @@ export class AiOrchestrator {
      * @param mode - The AI mode to run.
      * @param source - The queue lane (D-05). Defaults to `'manual'` so `index.ts` stays byte-for-byte
      *   unchanged (its three hotkeys call `trigger(mode)`); Phase 11 passes `'auto'`.
+     * @param contentKey - Optional content key for the AUTO lane's content-aware burst collapse (D-01):
+     *   Phase 11 passes the classified question text so two DISTINCT questions each answer while an
+     *   identical repeated question within the window collapses. Ignored for manual requests (they keep
+     *   the Phase-10 mode-only collapse). See {@link burstKey}.
      */
-    public trigger(mode: AiMode, source: RequestSource = 'manual'): void {
+    public trigger(mode: AiMode, source: RequestSource = 'manual', contentKey?: string): void {
         const span = this.transcriptBuffer.recentSince(RECENT_SPAN_MS);
 
         // D-11/D-13 empty-span guard — BEFORE any enqueue. Phase 7 D-07: code-challenge BYPASSES this —
@@ -245,8 +255,39 @@ export class AiOrchestrator {
             return;
         }
 
-        // D-01/D-02/D-03: enqueue (never cancel), subject to the mode-keyed burst debounce (D-06).
-        this.enqueue(mode, source);
+        // D-01/D-02/D-03: enqueue (never cancel), subject to the burst debounce (D-06/D-01).
+        this.enqueue(mode, source, contentKey);
+    }
+
+    /**
+     * Builds the composite burst-collapse key (D-06/D-01) for the {@link burstTimers} map.
+     *
+     * MANUAL requests collapse on the bare `mode` (byte-for-byte Phase-10 D-06/D-10): a rapid double-tap
+     * of the SAME hotkey folds into one queued request; a DIFFERENT mode has its own key.
+     *
+     * AUTO requests collapse on a mode + normalized-content composite so two DISTINCT question texts each
+     * answer while an identical repeated question within the window collapses (D-01). Content is
+     * normalized (trimmed + lowercased + inner-whitespace-collapsed) so trivially-different renderings of
+     * the same question still collapse. A keyless auto (no `contentKey`) falls back to a defined
+     * auto-namespaced sentinel key — REQUIRED so it lands in a key space DISJOINT from the manual
+     * mode-only key and never folds a manual request (or vice versa).
+     *
+     * @param mode - The AI mode being enqueued.
+     * @param source - The queue lane; only `'auto'` is content-keyed.
+     * @param contentKey - The optional auto-lane content key (the question text).
+     * @returns The composite string used to key {@link burstTimers}.
+     */
+    private burstKey(mode: AiMode, source: RequestSource, contentKey?: string): string {
+        if (source !== 'auto') {
+            // Manual: bare mode key (Phase-10 D-06 behavior, byte-for-byte).
+            return mode;
+        }
+
+        // Auto: mode#auto-namespaced key, content-aware. The `#auto` namespace guarantees disjointness
+        // from the manual `mode` key even when the content key is absent (the sentinel below).
+        const normalized = contentKey === undefined ? '<no-content>' : contentKey.trim().toLowerCase().replace(/\s+/g, ' ');
+
+        return `${mode}#auto ${normalized}`;
     }
 
     /**
@@ -259,11 +300,14 @@ export class AiOrchestrator {
      *
      * @param mode - The AI mode to enqueue.
      * @param source - The queue lane (D-05).
+     * @param contentKey - The optional auto-lane content key threaded into the composite collapse key (D-01).
      */
-    private enqueue(mode: AiMode, source: RequestSource): void {
-        // Burst collapse (D-06): a pending timer for this mode means a rapid same-mode re-press folds
-        // into the already-scheduled enqueue rather than queuing a second request.
-        if (this.burstTimers.has(mode)) {
+    private enqueue(mode: AiMode, source: RequestSource, contentKey?: string): void {
+        // Burst collapse (D-06/D-01): a pending timer for this COMPOSITE key means a matching re-press
+        // folds into the already-scheduled enqueue rather than queuing a second request. Manual keys on
+        // the bare mode (Phase-10); auto keys on mode + normalized content, in a disjoint namespace.
+        const key = this.burstKey(mode, source, contentKey);
+        if (this.burstTimers.has(key)) {
             return;
         }
 
@@ -275,11 +319,11 @@ export class AiOrchestrator {
         const item: IQueuedRequest = { mode, source, requestId, id, startMs };
 
         const timer = setTimeout(() => {
-            this.burstTimers.delete(mode);
+            this.burstTimers.delete(key);
             this.placeInLane(item);
             this.startNext();
         }, BURST_DEBOUNCE_MS);
-        this.burstTimers.set(mode, timer);
+        this.burstTimers.set(key, timer);
     }
 
     /**
@@ -385,7 +429,8 @@ export class AiOrchestrator {
         this.active = { mode, source, requestId, id, stream, text: '', debounceTimer: undefined, pendingDelta: false, model, startMs, firstTokenLogged: false };
 
         // Surface the in-flight 'thinking…' state at run-start so the entry appears before the first token (D-04).
-        this.pushAi({ type: 'thinking', requestId, id, mode, at });
+        // `source` (D-04) rides the push so the renderer can badge auto entries (renderer badge lands in Plan 02).
+        this.pushAi({ type: 'thinking', requestId, id, mode, at, source });
     }
 
     /**
@@ -420,7 +465,7 @@ export class AiOrchestrator {
             startMs,
             firstTokenLogged: false,
         };
-        this.pushAi({ type: 'thinking', requestId, id, mode: 'code-challenge', at });
+        this.pushAi({ type: 'thinking', requestId, id, mode: 'code-challenge', at, source });
 
         void this.captureImage()
             .then((image) => {

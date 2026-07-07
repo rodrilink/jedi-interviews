@@ -7,12 +7,15 @@ import { PANEL_LABEL, type ActivePanel } from './panel-labels';
  */
 type AiMode = 'answer' | 'talking-points' | 'code-challenge';
 
+/** The request source lane (Phase 11, D-04); structurally mirrors `RequestSource` in main/preload. */
+type RequestSource = 'manual' | 'auto';
+
 /**
  * The read-only AI push event received over the `window.jedi.onAi` bridge (Phase 5, AI-04). Declared
  * locally for the same reason as {@link AiMode}; structurally mirrors `IAiPushEvent` in main/preload.
  */
 type IAiPushEvent =
-    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number }
+    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number; source: RequestSource }
     | { type: 'delta'; requestId: number; id: string; text: string }
     | { type: 'done'; requestId: number; id: string; text: string }
     | { type: 'error'; requestId: number; id: string; text: string }

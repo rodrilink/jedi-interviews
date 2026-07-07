@@ -91,6 +91,9 @@ export type ScrollTranscriptDirection = 'up' | 'down';
 /** The AI mode that produced an entry (mirrors `AiMode` in the main process; Phase 7 adds 'code-challenge'). */
 export type AiMode = 'answer' | 'talking-points' | 'code-challenge';
 
+/** The request source lane (Phase 11, D-04); mirrors `RequestSource` in the main process. */
+export type RequestSource = 'manual' | 'auto';
+
 /**
  * The read-only AI push payload received over `jedi:ai` (Phase 5, AI-04). Structurally mirrors
  * `IAiPushEvent` in the main process; declared here (rather than imported) because the sandboxed
@@ -98,7 +101,7 @@ export type AiMode = 'answer' | 'talking-points' | 'code-challenge';
  * Anthropic key or any secret.
  */
 export type IAiPushEvent =
-    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number }
+    | { type: 'thinking'; requestId: number; id: string; mode: AiMode; at: number; source: RequestSource }
     | { type: 'delta'; requestId: number; id: string; text: string }
     | { type: 'done'; requestId: number; id: string; text: string }
     | { type: 'error'; requestId: number; id: string; text: string }
