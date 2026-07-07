@@ -1,17 +1,28 @@
 /**
- * The single-in-flight AI request orchestrator (D-06/D-07/D-09/D-10/D-11, AI-04).
+ * The priority-answer-queue AI request orchestrator (D-01..D-13, AA-05/AA-06).
  *
  * It owns the entire AI request lifecycle in the main process: read the recent transcript span,
- * guard the empty span, assemble the prompt, start exactly ONE gateway stream at a time, debounce
- * the streamed text deltas to the renderer, and append the finished entry to the bounded history.
- * The renderer is a pure view of the pushed {@link IAiPushEvent}s (IN-01) — there is no
- * renderer->main control surface; triggers come only from main-side hotkeys.
+ * guard the empty span, enqueue the request, and run exactly ONE gateway stream at a time, draining
+ * the queue in priority order as each stream reaches a terminal event. It debounces the streamed
+ * text deltas to the renderer and appends the finished entry to the bounded history. The renderer is
+ * a pure view of the pushed {@link IAiPushEvent}s (IN-01) — there is no renderer->main control
+ * surface; triggers come only from main-side hotkeys (and, from Phase 11, an auto source).
  *
- * Single-in-flight invariant (D-06/D-07): at most one stream is active. Re-pressing the SAME mode
- * cancels its own stream (D-06); pressing the OTHER mode cancels the current and starts the new one
- * (D-07). Every stream + its target entry is tagged with a monotonic request id; gateway events
- * whose id is no longer the active one are ignored, so an aborted stream's late deltas can never
- * bleed into a new entry (Pitfall 1).
+ * Priority-queue semantics (v1.2, reverses v1.1 D-06/D-07):
+ * - Nothing cancels an in-flight stream (D-01). Re-pressing the SAME mode (D-02) or pressing a
+ *   DIFFERENT mode (D-03) mid-stream ENQUEUES the new request; the running stream always finishes
+ *   first, then the queued item runs.
+ * - Two-lane FIFO (D-05): manual requests run in press-order at the HEAD; auto requests (Phase 11)
+ *   run in arrival-order BEHIND all manuals. A newly-enqueued manual sits behind already-queued
+ *   manuals but ahead of every queued auto (no LIFO).
+ * - A mode-keyed burst debounce (D-06) collapses a rapid same-mode burst into one queued request.
+ * - Single-in-flight gate (D-07): at most one gateway {@link IAiGateway.stream} call is ever active.
+ * - Bounded cap (D-08/D-09): the pending queue is bounded by {@link MAX_PENDING_QUEUE}; overflow
+ *   silently drops the oldest AUTO; manuals are never evicted.
+ *
+ * Every stream + its target entry is tagged with a monotonic request id; gateway events whose id is
+ * no longer the active one are ignored, so a finished stream's late deltas can never bleed into the
+ * next queued entry (Pitfall 1 / D-11).
  */
 
 import type { AiMode, IAiGateway, IAiStream } from './ai-gateway.interface';
@@ -47,11 +58,29 @@ export const MAX_TOKENS: Record<AiMode, number> = {
  */
 export const DELTA_DEBOUNCE_MS = 40;
 
+/**
+ * The request-level burst debounce window (ms) that collapses a rapid same-mode press burst into a
+ * single queued request (D-06/AA-06). This is the sibling of {@link DELTA_DEBOUNCE_MS} at the
+ * request granularity: where the 40ms delta window coalesces token IPC, this ~200ms window coalesces
+ * an accidental double-/triple-tap of the SAME hotkey so a fumbled press never spawns two Claude
+ * calls (the money boundary). It is deliberately wider than the delta window — a human double-tap is
+ * ~150–250ms apart, while a deliberate re-press to queue a second answer comes well after that. The
+ * key is the mode, so pressing a DIFFERENT mode inside the window is NOT collapsed (D-06).
+ */
+export const BURST_DEBOUNCE_MS = 200;
+
 /** The empty-span placeholder text shown when there is nothing recent to act on (D-11). */
 export const EMPTY_SPAN_TEXT = 'No recent transcript to act on';
 
 /** The inline message shown when the Anthropic key is absent (Pitfall 3 / T-5-02). Never logs the key. */
 export const MISSING_KEY_TEXT = 'AI error: missing API key';
+
+/**
+ * The request source lane (D-05). `'manual'` = a user hotkey press (runs at the queue head);
+ * `'auto'` = a future Phase-11 auto-answer (runs behind all manuals, subject to eviction, D-08).
+ * String-union `type` mirrors the local {@link AiMode} house style.
+ */
+export type RequestSource = 'manual' | 'auto';
 
 /**
  * The one-way push payload sent to the renderer over the `jedi:ai` channel (Pitfall 4). Every
@@ -73,9 +102,27 @@ export type IAiPushEvent =
     // 05-03 (pushHistorySnapshot is still a no-op here).
     | { type: 'cleared' };
 
+/**
+ * A pending (not-yet-running) queued request (D-05). It stores only the INPUTS needed to build its
+ * stream when it RUNS — prompt assembly is pull-on-run, so a manual's grounding reflects the moment
+ * it runs (consistent with the old pull-on-trigger). The reserved `requestId`/`id` are allocated at
+ * enqueue time so the item has a stable identity while it waits; `startMs` is captured at enqueue so
+ * the D-10 latency measures the interval the user actually feels (press-to-first-token).
+ */
+interface IQueuedRequest {
+    mode: AiMode;
+    source: RequestSource;
+    requestId: number;
+    /** The entry id (the monotonic requestId rendered as a string) used as the renderer row key. */
+    id: string;
+    /** The monotonic start timestamp (ms) captured at enqueue — the D-10 latency baseline. */
+    startMs: number;
+}
+
 /** The active in-flight request: its mode, monotonic id, stream handle, and accumulated text. */
 interface IActiveRequest {
     mode: AiMode;
+    source: RequestSource;
     requestId: number;
     /** The entry id (the monotonic requestId rendered as a string) used as the renderer row key. */
     id: string;
@@ -86,9 +133,9 @@ interface IActiveRequest {
     /** The model id this stream runs on, captured so the first-token latency log can attribute it (D-10). */
     model: string;
     /**
-     * Monotonic start timestamp (ms) captured when the stream is created, used to compute the
-     * hotkey-to-first-token latency (D-10). Reset per requestId so a cross-mode cancel-and-restart gets
-     * its own measurement; the requestId guard means an aborted stream's late first delta never logs here.
+     * Monotonic start timestamp (ms) captured when the request is enqueued, used to compute the
+     * hotkey-to-first-token latency (D-10). The requestId guard means a finished stream's late first
+     * delta never logs here.
      */
     startMs: number;
     /** Whether the first-token latency line has already been logged for this stream (log exactly once, D-10). */
@@ -96,7 +143,7 @@ interface IActiveRequest {
 }
 
 /**
- * Orchestrates single-in-flight AI requests.
+ * Orchestrates the priority answer queue with a single-in-flight execution gate.
  *
  * @remarks
  * The Electron main process has no TSyringe DI container, so this is not an `@singleton()`; it is
@@ -106,9 +153,29 @@ interface IActiveRequest {
  * `wireSttPipeline` closes over `pushTranscript(window, …)`.
  */
 export class AiOrchestrator {
+    /** The ONE running slot (single-in-flight gate, D-07); `undefined` when idle. */
     private active: IActiveRequest | undefined;
+    /** The sole monotonic request-id source (Pitfall 1 / D-11): every reserved id comes from `++this.requestSeq`. */
     private requestSeq = 0;
     private handlersWired = false;
+
+    /**
+     * The manual lane of the pending queue (D-05): FIFO, runs at the HEAD ahead of all autos. `push()`
+     * appends, `shift()` dequeues oldest-first. Manuals are cap-exempt (D-08).
+     */
+    private pendingManual: IQueuedRequest[] = [];
+    /**
+     * The auto lane of the pending queue (D-05): FIFO, runs BEHIND every manual. Bounded by
+     * {@link MAX_PENDING_QUEUE} with drop-oldest-auto eviction (D-08/D-09). Empty in Phase 10 in
+     * production (no auto source yet); exercised via tests and fed by Phase 11.
+     */
+    private pendingAuto: IQueuedRequest[] = [];
+    /**
+     * Per-mode burst-debounce timers (D-06). A pending timer for a mode means a same-mode press within
+     * the window collapses (no second enqueue), mirroring the `debounceTimer !== undefined` coalesce
+     * guard in {@link scheduleDeltaFlush}. Keyed by mode so DIFFERENT modes are never collapsed.
+     */
+    private readonly burstTimers = new Map<AiMode, ReturnType<typeof setTimeout>>();
 
     /**
      * @param gateway - The AI generation seam (Anthropic in production, a fake in tests).
@@ -116,7 +183,7 @@ export class AiOrchestrator {
      * @param history - The shared bounded AI history; MUST be the same instance the clear-AI handler binds to.
      * @param pushAi - Pushes an {@link IAiPushEvent} to the renderer (a closure over the overlay window).
      * @param getActiveContext - Pulls the active session context to ground the prompt (D-10). Called
-     *   FRESH on every {@link trigger} (pull-on-trigger) so a mid-session context Save is picked up on
+     *   FRESH when each queued item RUNS (pull-on-run) so a mid-session context Save is picked up on
      *   the very next AI request with no restart and no cached orchestrator state. Returns `undefined`
      *   when there is no active context, which keeps the assembled prompt byte-for-byte Phase-5-identical
      *   (the seam fails safe via `formatContext` → `''`).
@@ -138,19 +205,22 @@ export class AiOrchestrator {
     }
 
     /**
-     * Triggers an AI request for the given mode (the hotkey entry point, D-05/D-06/D-07).
+     * Triggers an AI request for the given mode (the hotkey entry point, D-02/D-03/D-05/D-10).
      *
      * Reads the ~60s span (D-09); if it is empty, appends the D-11 placeholder and makes NO gateway
-     * call. Otherwise enforces the single-in-flight invariant: re-pressing the SAME mode cancels its
-     * own stream and returns (D-06); the OTHER mode cancels the current then starts the new one
-     * (D-07). The new stream + its entry are tagged with a fresh monotonic request id (Pitfall 1).
+     * call (D-13; code-challenge bypasses this — the image is actionable alone). Otherwise ENQUEUES
+     * the request (D-01: nothing cancels the in-flight stream) subject to the mode-keyed burst
+     * debounce (D-06). If the orchestrator is idle the drain loop starts it immediately; if a stream
+     * is running the item waits its turn (manuals ahead of autos, D-05).
      *
      * @param mode - The AI mode to run.
+     * @param source - The queue lane (D-05). Defaults to `'manual'` so `index.ts` stays byte-for-byte
+     *   unchanged (its three hotkeys call `trigger(mode)`); Phase 11 passes `'auto'`.
      */
-    public trigger(mode: AiMode): void {
+    public trigger(mode: AiMode, source: RequestSource = 'manual'): void {
         const span = this.transcriptBuffer.recentSince(RECENT_SPAN_MS);
 
-        // D-11 empty-span guard — BEFORE any gateway call. Phase 7 D-07: code-challenge BYPASSES this —
+        // D-11/D-13 empty-span guard — BEFORE any enqueue. Phase 7 D-07: code-challenge BYPASSES this —
         // the captured screenshot alone is actionable, so an empty transcript span must NOT short-circuit
         // it (the image is the problem; the span is only supporting narration). Text modes still guard.
         if (mode !== 'code-challenge' && span.trim().length === 0) {
@@ -164,69 +234,146 @@ export class AiOrchestrator {
             return;
         }
 
-        // D-06: re-press the SAME mode while its stream is in flight -> cancel, done.
-        if (this.active !== undefined && this.active.mode === mode) {
-            this.cancelActive();
+        // D-01/D-02/D-03: enqueue (never cancel), subject to the mode-keyed burst debounce (D-06).
+        this.enqueue(mode, source);
+    }
 
+    /**
+     * Enqueues a request through the mode-keyed burst debounce (D-06), then places it in its lane and
+     * drains (D-01/D-05). A same-mode press while its burst timer is pending COLLAPSES (returns without
+     * a second enqueue), mirroring the "already scheduled → coalesce" guard in {@link scheduleDeltaFlush};
+     * different modes have independent timers so they are never collapsed. On the trailing edge the
+     * single reserved item is placed into its lane, the cap is enforced (D-08/D-09), and the run loop
+     * is invoked.
+     *
+     * @param mode - The AI mode to enqueue.
+     * @param source - The queue lane (D-05).
+     */
+    private enqueue(mode: AiMode, source: RequestSource): void {
+        // Burst collapse (D-06): a pending timer for this mode means a rapid same-mode re-press folds
+        // into the already-scheduled enqueue rather than queuing a second request.
+        if (this.burstTimers.has(mode)) {
             return;
         }
 
-        // D-07: the OTHER mode mid-stream -> cancel the current, then start the new one. Holds across all
-        // THREE modes (Phase 7 D-11): pressing answer/talking-points mid-vision cancels vision and starts
-        // the new one; re-pressing vision mid-stream is the same-mode cancel above. One active request, ever.
-        if (this.active !== undefined) {
-            this.cancelActive();
-        }
-
-        // Capture the monotonic start NOW so the logged latency measures the hotkey-to-first-token
-        // interval the user actually feels (D-10). For code-challenge this is captured BEFORE the async
-        // screenshot capture so capture time is included in the measured latency (RESEARCH §6).
-        const startMs = Date.now();
-
-        if (mode === 'code-challenge') {
-            this.triggerCodeChallenge(span, startMs);
-
-            return;
-        }
-
+        // Reserve the request identity NOW (Pitfall 1): a fresh monotonic id and the press-time start so
+        // the D-10 latency measures the interval the user feels, even though the stream starts later.
         const requestId = ++this.requestSeq;
         const id = String(requestId);
+        const startMs = Date.now();
+        const item: IQueuedRequest = { mode, source, requestId, id, startMs };
+
+        const timer = setTimeout(() => {
+            this.burstTimers.delete(mode);
+            this.placeInLane(item);
+            this.startNext();
+        }, BURST_DEBOUNCE_MS);
+        this.burstTimers.set(mode, timer);
+    }
+
+    /**
+     * Places a debounced item into its lane (D-05), then enforces the bounded cap (D-08/D-09).
+     *
+     * Manuals append behind already-queued manuals (FIFO, no LIFO); autos append behind all autos.
+     * Because the manual lane is drained entirely before the auto lane in {@link dequeue}, a manual is
+     * always ahead of every queued auto without any cross-lane reordering.
+     *
+     * @param item - The reserved request to enqueue.
+     */
+    private placeInLane(item: IQueuedRequest): void {
+        if (item.source === 'manual') {
+            this.pendingManual.push(item);
+        } else {
+            this.pendingAuto.push(item);
+        }
+    }
+
+    /**
+     * Dequeues the highest-priority pending item: the oldest MANUAL first (head lane, D-05), then the
+     * oldest AUTO. Returns `undefined` when both lanes are empty.
+     *
+     * @returns The next request to run, or `undefined` if the queue is empty.
+     */
+    private dequeue(): IQueuedRequest | undefined {
+        if (this.pendingManual.length > 0) {
+            return this.pendingManual.shift();
+        }
+
+        return this.pendingAuto.shift();
+    }
+
+    /**
+     * The run loop / drain-to-next (D-01/D-07). Starts the next queued item, but ONLY when idle — the
+     * single-in-flight gate: while `active` is set, this returns immediately, so the emitter always
+     * maps to exactly one live request. Called from {@link enqueue} (so an idle orchestrator starts
+     * immediately) and from every terminal path AFTER {@link clearActive} (so the queue drains).
+     */
+    private startNext(): void {
+        // Single-in-flight gate (D-07): never start a second stream while one is running.
+        if (this.active !== undefined) {
+            return;
+        }
+
+        const item = this.dequeue();
+        if (item === undefined) {
+            return;
+        }
+
+        this.startRequest(item);
+    }
+
+    /**
+     * Starts a dequeued item: assembles its prompt (pull-on-run, D-10), starts exactly one gateway
+     * stream, sets it as the active in-flight request, and surfaces `thinking…` (D-04). A
+     * code-challenge item routes to the async-capture reserve path ({@link startCodeChallenge}), NOT a
+     * direct `gateway.stream`, preserving the Phase-7 capture flow.
+     *
+     * @param item - The reserved request to run.
+     */
+    private startRequest(item: IQueuedRequest): void {
+        if (item.mode === 'code-challenge') {
+            this.startCodeChallenge(item);
+
+            return;
+        }
+
+        const { mode, source, requestId, id, startMs } = item;
         const at = Date.now();
         const model = mode === 'answer' ? ANSWER_MODEL : TALKING_POINTS_MODEL;
-        // D-10 pull-on-trigger: read the active context FRESH here (never cached) so a mid-session
-        // context Save grounds the very next trigger. `undefined` → Phase-5-identical prompt (fail-safe).
+        // D-10 pull-on-run: read the active context FRESH here (never cached) so a mid-session context
+        // Save grounds this run. `undefined` → Phase-5-identical prompt (fail-safe).
+        const span = this.transcriptBuffer.recentSince(RECENT_SPAN_MS);
         const { system, userContent } = assemblePrompt({ mode, span, context: this.getActiveContext() });
 
         const stream = this.gateway.stream({ model, maxTokens: MAX_TOKENS[mode], system, userContent });
-        this.active = { mode, requestId, id, stream, text: '', debounceTimer: undefined, pendingDelta: false, model, startMs, firstTokenLogged: false };
+        this.active = { mode, source, requestId, id, stream, text: '', debounceTimer: undefined, pendingDelta: false, model, startMs, firstTokenLogged: false };
 
-        // Surface the in-flight 'thinking…' state immediately so the entry appears before the first token (D-04).
+        // Surface the in-flight 'thinking…' state at run-start so the entry appears before the first token (D-04).
         this.pushAi({ type: 'thinking', requestId, id, mode, at });
     }
 
     /**
-     * The code-challenge (vision) branch of {@link trigger} (Phase 7 D-01/D-04/D-05/D-07).
+     * The code-challenge (vision) run path (Phase 7 D-01/D-04/D-05/D-07, D-13).
      *
-     * Reserves the request id + surfaces `thinking…` SYNCHRONOUSLY (so re-pressing the chord during the
-     * async capture cancels this in-flight request, holding the single-in-flight invariant), then
-     * captures + downscales the overlay's monitor, assembles the image+text prompt grounded in the active
-     * context + transcript span (D-07), and starts the Opus stream. A capture fault is surfaced as an
-     * inline `error` entry (report-don't-throw) rather than crashing main. The request-id guard means a
-     * capture that resolves after the request was cancelled/superseded is dropped — its stream never starts.
+     * Reserves the active slot with a placeholder stream + surfaces `thinking…` SYNCHRONOUSLY, then
+     * captures + downscales the overlay's monitor, assembles the image+text prompt grounded in the
+     * active context + transcript span (pull-on-run), and starts the Opus stream. A capture fault is
+     * surfaced as an inline `error` entry (report-don't-throw) and drains to the next queued item so a
+     * failed capture never strands the queue. The request-id guard means a capture that resolves after
+     * this request was superseded is dropped — its stream never starts.
      *
-     * @param span - The recent transcript span (may be empty for vision — D-07).
-     * @param startMs - The monotonic start captured at the chord press (before capture — RESEARCH §6).
+     * @param item - The reserved code-challenge request to run.
      */
-    private triggerCodeChallenge(span: string, startMs: number): void {
-        const requestId = ++this.requestSeq;
-        const id = String(requestId);
+    private startCodeChallenge(item: IQueuedRequest): void {
+        const { mode, source, requestId, id, startMs } = item;
         const at = Date.now();
+        // The span for a queued code-challenge is read at run time (pull-on-run); it may be empty (D-13).
+        const span = this.transcriptBuffer.recentSince(RECENT_SPAN_MS);
 
-        // Reserve the request synchronously WITHOUT a stream yet: `thinking…` appears immediately and a
-        // re-press / cross-mode press during the async capture cancels this pending request (the abort
-        // is a no-op until the stream exists, but clearing `active` drops the resolved capture below).
+        // Reserve the request synchronously WITHOUT a stream yet: `thinking…` appears immediately.
         this.active = {
-            mode: 'code-challenge',
+            mode,
+            source,
             requestId,
             id,
             stream: { abort: (): void => undefined },
@@ -241,8 +388,8 @@ export class AiOrchestrator {
 
         void this.captureImage()
             .then((image) => {
-                // Request-id guard: if this request was cancelled/superseded during the async capture, the
-                // active request changed — drop the resolved capture, do NOT start a stream (Pitfall 1).
+                // Request-id guard: if this request was superseded during the async capture, the active
+                // request changed — drop the resolved capture, do NOT start a stream (Pitfall 1).
                 if (this.active === undefined || this.active.requestId !== requestId) {
                     return;
                 }
@@ -264,12 +411,16 @@ export class AiOrchestrator {
                 this.history.append({ id, mode: 'code-challenge', text, kind: 'error' });
                 this.pushAi({ type: 'error', requestId, id, text });
                 this.pushHistorySnapshot();
+                // Drain to the next queued item so a failed capture never strands the queue.
+                this.startNext();
             });
     }
 
     /**
      * Wires the gateway's typed events once. Each handler ignores events that are not for the active
-     * request id (Pitfall 1), so an aborted stream's late deltas/terminals never affect a new entry.
+     * request id (Pitfall 1 / D-11), so a finished stream's late deltas/terminals never affect the
+     * next queued entry. The terminal handlers clear the active slot FIRST, then record/push, then
+     * drain to the next queued item — the order that keeps the single-in-flight invariant.
      */
     private wireGatewayHandlers(): void {
         if (this.handlersWired) {
@@ -279,19 +430,19 @@ export class AiOrchestrator {
         this.handlersWired = true;
 
         this.gateway.on('text', (textDelta: string) => {
-            // Pitfall-1 request-id guard: with a shared gateway emitter, a delta from an aborted stream
-            // can still fire after its request was cancelled. We only have one active request at a time
-            // (single-in-flight, D-07), so once `active` is cleared on cancel/terminal, a late delta has
-            // no active request to attach to and is dropped — it can never bleed into the new entry.
+            // Pitfall-1 request-id guard: with a shared gateway emitter and requests running back-to-back,
+            // a delta from a finished stream can still fire after its request cleared. Once `active` is
+            // cleared on terminal, a late delta has no active request to attach to and is dropped — it can
+            // never bleed into the next dequeued entry (D-11).
             if (this.active === undefined) {
                 return;
             }
 
             // D-10: log the hotkey-to-first-token latency ONCE per stream, to the MAIN LOG ONLY (never
             // pushed to the renderer). Keyed on the active request (the Pitfall-1 guard above already
-            // dropped late deltas from an aborted stream), so a cross-mode cancel-and-restart logs the
-            // NEW stream's own measurement. Only `mode`, `model`, and `latencyMs` are logged — never the
-            // transcript text, the key, or an error payload (T-5-10; mirrors index.ts:131-135 discipline).
+            // dropped late deltas from a finished stream), so each dequeued request logs its OWN
+            // measurement. Only `mode`, `model`, and `latencyMs` are logged — never the transcript text,
+            // the key, or an error payload (T-5-10; mirrors index.ts:131-135 discipline).
             if (!this.active.firstTokenLogged) {
                 this.active.firstTokenLogged = true;
                 const latencyMs = Date.now() - this.active.startMs;
@@ -313,6 +464,8 @@ export class AiOrchestrator {
             this.history.append({ id, mode, text, kind: 'done' });
             this.pushAi({ type: 'done', requestId, id, text });
             this.pushHistorySnapshot();
+            // Drain to the next queued item (D-01/D-05): the manual lane first, then the auto lane.
+            this.startNext();
         });
 
         this.gateway.on('error', (error: Error) => {
@@ -327,6 +480,8 @@ export class AiOrchestrator {
             this.history.append({ id, mode, text, kind: 'error' });
             this.pushAi({ type: 'error', requestId, id, text });
             this.pushHistorySnapshot();
+            // Drain to the next queued item so a transport fault never strands the queue.
+            this.startNext();
         });
 
         this.gateway.on('abort', () => {
@@ -385,13 +540,17 @@ export class AiOrchestrator {
     }
 
     /**
-     * Cancels the active request from a hotkey re-press (D-06) or a cross-mode switch (D-07).
+     * Cancels the active request by aborting its stream and recording a `(cancelled)` entry.
+     *
+     * DORMANT in v1.2 (D-12): v1.2 removed cancel-on-re-press (D-01), so nothing in {@link trigger}
+     * calls this. It is intentionally RETAINED — a future explicit-cancel hotkey or clean-shutdown
+     * abort reuses it (and the `'abort'` handler, the `'cancelled'` push variant, and
+     * {@link IAiStream.abort}), so the decision is reversible without a rewrite. Do NOT delete.
      *
      * Aborts the underlying stream, then records the `(cancelled)` entry and clears `active`
-     * SYNCHRONOUSLY rather than waiting for the gateway's async `'abort'` event. Doing it here is the
-     * Pitfall-1 guard: once `active` is cleared, a late `text`/`done` from the aborted stream finds no
-     * active request and is ignored, so cancelled-stream tokens can never bleed into a new entry. The
-     * gateway `'abort'` handler then no-ops (its `active === undefined` guard), avoiding a double record.
+     * SYNCHRONOUSLY rather than waiting for the gateway's async `'abort'` event — the Pitfall-1 guard:
+     * once `active` is cleared, a late `text`/`done` from the aborted stream finds no active request
+     * and is ignored. The gateway `'abort'` handler then no-ops (its `active === undefined` guard).
      */
     private cancelActive(): void {
         if (this.active === undefined) {
@@ -406,7 +565,7 @@ export class AiOrchestrator {
         this.pushHistorySnapshot();
     }
 
-    /** Clears the active request and its pending debounce timer so the next trigger starts clean. */
+    /** Clears the active request and its pending debounce timer so the next run starts clean. */
     private clearActive(): void {
         if (this.active?.debounceTimer !== undefined) {
             clearTimeout(this.active.debounceTimer);
