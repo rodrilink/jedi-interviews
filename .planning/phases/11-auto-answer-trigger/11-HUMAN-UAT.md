@@ -3,7 +3,7 @@ status: partial
 phase: 11-auto-answer-trigger
 source: [11-VERIFICATION.md]
 started: 2026-07-07T19:28:47Z
-updated: 2026-07-07T19:28:47Z
+updated: 2026-07-07T20:05:00Z
 ---
 
 ## Current Test
@@ -20,12 +20,16 @@ result: [pending]
 expected: Start a session, then re-key via Ctrl+Alt+S (live API-key change → `rekeyDeepgram` re-attaches the STT handlers). After re-key, ask a question out loud and confirm the auto-answer still fires (the re-attached `on('utterance')` handler still closes over the live orchestrator; no dead closure).
 result: [pending]
 
+### 3. Auto-answer shows the detected question (post-ship feedback, commit b6cc8aa)
+expected: When an auto-answer streams into the panel, a small quoted caption of the detected question appears under the "Answer · auto" header, above the streamed answer (e.g. `"What database backs the ledger?"`). Confirms the user can tell WHICH spoken question each auto-answer addresses. A manual `Ctrl+Alt+A` answer shows NO caption. Check that a long/oddly-punctuated real-transcript question wraps readably.
+result: [pending]
+
 ## Summary
 
-total: 2
+total: 3
 passed: 0
 issues: 0
-pending: 2
+pending: 3
 skipped: 0
 blocked: 0
 

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Auto-Answer for Detected Questions
-status: verifying
-stopped_at: Phase 11 context gathered
-last_updated: "2026-07-07T18:23:40.121Z"
+status: ready_to_plan
+stopped_at: Phase 11 complete (2/2) — ready to discuss Phase 12
+last_updated: 2026-07-07T21:11:47.207Z
 last_activity: 2026-07-07
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 27
-  completed_plans: 27
+  completed_plans: 32
   percent: 90
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-06)
 
 **Core value:** When the user presses a hotkey during a meeting, a grounded, relevant AI response appears on the overlay fast enough to be useful — without ever stealing keyboard/mouse focus from the meeting app.
-**Current focus:** Phase 11 — auto-answer-trigger
+**Current focus:** Phase 12 — scope hotkey + directed at me
 
 ## Current Position
 
-Phase: 11 (auto-answer-trigger) — EXECUTING
-Plan: 2 of 2
-Status: Phase complete — ready for verification
+Phase: 12
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-07-07
 
 ## Milestone v1.1 Roadmap (Phases 8–9)
@@ -39,7 +39,7 @@ Last activity: 2026-07-07
 
 **Velocity:**
 
-- Total plans completed: 22
+- Total plans completed: 24
 - Average duration: — min
 - Total execution time: 0.0 hours
 
@@ -55,6 +55,7 @@ Last activity: 2026-07-07
 | 08 | 3 | - | - |
 | 09 | 2 | - | - |
 | 10 | 2 | - | - |
+| 11 | 2 | - | - |
 
 **Recent Trend:**
 
