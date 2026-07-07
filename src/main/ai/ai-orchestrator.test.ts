@@ -226,24 +226,43 @@ describe('ai-orchestrator', () => {
     });
 
     describe('request-id guard / no cross-bleed (Pitfall 1 / D-11)', () => {
-        it('should NOT attach request 1 late delta to request 2 after request 1 finished and request 2 started', () => {
-            // Arrange — request 1 runs; request 2 queued behind it.
+        it('should drop a straggler delta between a finished request and the next queued request start', () => {
+            // Arrange — request 1 runs and finishes; the queue is momentarily idle (active === undefined).
+            seedSpan(buffer, 'First question about caching.');
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            gateway.emit('done', 'request one final text');
+            pushed.length = 0;
+
+            // Act — request 1's late straggler delta fires while nothing is active; it must be dropped.
+            gateway.emit('text', 'stale token from request one');
+            vi.advanceTimersByTime(200);
+
+            // Assert — no delta pushed (the requestId guard dropped the straggler with no active request).
+            const deltas = pushed.filter((event) => event.type === 'delta');
+            expect(deltas).toHaveLength(0);
+        });
+
+        it('should start the next queued request with a CLEAN text buffer (no bleed from request 1)', () => {
+            // Arrange — request 1 accumulates text, then finishes; request 2 was queued behind it.
             seedSpan(buffer, 'First question about caching.');
             orchestrator.trigger('answer');
             vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
             orchestrator.trigger('answer');
             vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
-            // Finish request 1 so request 2 is dequeued and started.
-            gateway.emit('done', 'request one text');
+            gateway.emit('text', 'request one partial');
+            gateway.emit('done', 'request one final');
             pushed.length = 0;
 
-            // Act — a late delta from request 1 arrives while request 2 is the active request.
-            gateway.emit('text', 'stale token from request one');
+            // Act — request 2 is now active; its own token streams and flushes.
+            gateway.emit('text', 'request two token');
             vi.advanceTimersByTime(200);
 
-            // Assert — the late delta does not surface as a delta on request 2's entry.
+            // Assert — request 2's delta carries ONLY its own text, never request 1's accumulated text.
             const deltas = pushed.filter((event) => event.type === 'delta');
-            expect(deltas.every((event) => !('text' in event) || !event.text.includes('stale token from request one'))).toBe(true);
+            expect(deltas.length).toBeGreaterThan(0);
+            const latest = deltas[deltas.length - 1];
+            expect('text' in latest && latest.text).toBe('request two token');
         });
     });
 

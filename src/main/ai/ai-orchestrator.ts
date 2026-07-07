@@ -69,6 +69,17 @@ export const DELTA_DEBOUNCE_MS = 40;
  */
 export const BURST_DEBOUNCE_MS = 200;
 
+/**
+ * The hard ceiling on pending (not-yet-running) AUTO requests (D-08), mirroring
+ * {@link AiHistory}'s `MAX_AI_ENTRIES` bounded-buffer discipline. The real runaway risk is the AUTO
+ * lane once Phase 11 feeds it from question classification — a long meeting could otherwise queue
+ * dozens of auto-answers behind a slow stream. On overflow the oldest AUTO is dropped (FIFO, D-09);
+ * MANUALS are cap-exempt (a user's deliberate presses are never silently discarded). A small
+ * single-digit bound: enough that a short burst of auto-answers survives, small enough that stale
+ * autos never pile up and blow the Claude-call budget.
+ */
+export const MAX_PENDING_QUEUE = 5;
+
 /** The empty-span placeholder text shown when there is nothing recent to act on (D-11). */
 export const EMPTY_SPAN_TEXT = 'No recent transcript to act on';
 
@@ -285,6 +296,31 @@ export class AiOrchestrator {
             this.pendingManual.push(item);
         } else {
             this.pendingAuto.push(item);
+        }
+
+        this.evictIfOverCap();
+    }
+
+    /**
+     * Enforces the bounded pending cap (D-08/D-09), modeled on {@link AiHistory}'s `prune()` FIFO
+     * drop-oldest loop. While the TOTAL pending count (both lanes) exceeds {@link MAX_PENDING_QUEUE},
+     * drop the OLDEST AUTO (`pendingAuto.shift()`). If there is NO auto to evict (an all-manual
+     * backlog), STOP and leave the manuals enqueued — MANUALS are cap-exempt (D-08): the cap bounds
+     * runaway AUTO growth, not a user's deliberate presses.
+     *
+     * Eviction is deliberately SILENT (D-09): unlike every terminal path, it pushes NO `jedi:ai`
+     * event and appends NOTHING to history, so a dropped auto leaves no trace and the glanceable
+     * overlay stays uncluttered.
+     */
+    private evictIfOverCap(): void {
+        while (this.pendingManual.length + this.pendingAuto.length > MAX_PENDING_QUEUE) {
+            if (this.pendingAuto.length === 0) {
+                // All-manual backlog: manuals are cap-exempt, so leave them and stop (D-08).
+                return;
+            }
+
+            // Drop the oldest auto silently — no push, no history append (D-09).
+            this.pendingAuto.shift();
         }
     }
 
@@ -540,12 +576,23 @@ export class AiOrchestrator {
     }
 
     /**
+     * DORMANT explicit-cancel seam (D-12). v1.2 removed cancel-on-re-press (D-01), so NO hotkey is
+     * wired to this yet — `index.ts` never calls it. It is retained as the reachable entrypoint the
+     * deferred "cancel current stream" hotkey (see CONTEXT Deferred Ideas) will bind to, keeping the
+     * whole abort chain (`cancelActive`, the `'abort'` handler, the `'cancelled'` push variant, and
+     * {@link IAiStream.abort}) live and typecheck-honest without a lint suppression. Aborting a queued
+     * (not-yet-running) request is out of scope here — this cancels only the in-flight stream.
+     */
+    public cancelActiveRequest(): void {
+        this.cancelActive();
+    }
+
+    /**
      * Cancels the active request by aborting its stream and recording a `(cancelled)` entry.
      *
-     * DORMANT in v1.2 (D-12): v1.2 removed cancel-on-re-press (D-01), so nothing in {@link trigger}
-     * calls this. It is intentionally RETAINED — a future explicit-cancel hotkey or clean-shutdown
-     * abort reuses it (and the `'abort'` handler, the `'cancelled'` push variant, and
-     * {@link IAiStream.abort}), so the decision is reversible without a rewrite. Do NOT delete.
+     * DORMANT in v1.2 (D-12): reached only via the dormant {@link cancelActiveRequest} seam, never
+     * from {@link trigger} (nothing cancels an in-flight stream, D-01). Retained so a future
+     * explicit-cancel hotkey or clean-shutdown abort reuses it without a rewrite. Do NOT delete.
      *
      * Aborts the underlying stream, then records the `(cancelled)` entry and clears `active`
      * SYNCHRONOUSLY rather than waiting for the gateway's async `'abort'` event — the Pitfall-1 guard:
