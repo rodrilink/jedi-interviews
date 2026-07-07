@@ -421,9 +421,96 @@ body {
     color: rgb(147 197 253 / 100%);
 }
 
-.transcript-panel__interim {
+/*
+ * The compact people row (QA-06/D-06): a pinned, wrapping flex row of counted chips above the scrolling
+ * card body, always visible while the cards scroll. `flex: 0 0 auto` keeps it out of the scroll region.
+ * It doubles as the per-speaker color legend (chip color === that speaker's card-name color).
+ */
+.transcript-panel__people {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 6px;
+}
+
+/*
+ * A single people-row chip (D-07): a small rounded pill showing `Person N (count)`. The label text is
+ * tinted in the speaker's accent hue via the shared `[data-speaker-color]` slot tokens (reused from the
+ * card-speaker rules below) so the row is the card color legend (D-06).
+ */
+.transcript-panel__person-chip {
+    padding: 1px 8px;
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    background: rgb(148 163 184 / 12%);
+    border: 1px solid rgb(148 163 184 / 24%);
+    color: rgb(148 163 184 / 100%);
+}
+
+.transcript-panel__person-chip[data-speaker-color='neutral'] {
+    color: rgb(148 163 184 / 100%);
+}
+
+.transcript-panel__person-chip[data-speaker-color='p0'] {
+    color: rgb(134 239 172 / 100%);
+}
+
+.transcript-panel__person-chip[data-speaker-color='p1'] {
+    color: rgb(253 186 116 / 100%);
+}
+
+.transcript-panel__person-chip[data-speaker-color='p2'] {
+    color: rgb(196 181 253 / 100%);
+}
+
+.transcript-panel__person-chip[data-speaker-color='p3'] {
+    color: rgb(244 114 182 / 100%);
+}
+
+.transcript-panel__person-chip[data-speaker-color='p4'] {
+    color: rgb(250 204 21 / 100%);
+}
+
+.transcript-panel__person-chip[data-speaker-color='p5'] {
+    color: rgb(94 234 212 / 100%);
+}
+
+.transcript-panel__person-chip[data-speaker-color='p6'] {
+    color: rgb(216 180 254 / 100%);
+}
+
+.transcript-panel__person-chip[data-speaker-color='p7'] {
+    color: rgb(147 197 253 / 100%);
+}
+
+/*
+ * The interim "ghost" card (D-09/D-10): the forming turn shown as a faint, dashed, unlabeled card at the
+ * bottom of the stack — no accent stripe, no tint, low opacity + italic body so it reads as "still
+ * forming" and is distinguishable from both question and statement cards. It solidifies into a real card
+ * on finalize (the same single `interimText` state is replaced in place, so there is no flicker/remount).
+ */
+.transcript-panel__card--ghost {
+    border: 1px dashed rgb(148 163 184 / 40%);
+    border-left: 1px dashed rgb(148 163 184 / 40%);
+    background: rgb(148 163 184 / 5%);
+    opacity: 0.75;
+}
+
+.transcript-panel__card--ghost .transcript-panel__card-body {
     color: rgb(148 163 184 / 85%);
     font-style: italic;
+}
+
+/* The muted centered empty-state line (D-12), cloned from `.vision-panel__placeholder`: shown at session
+   start / after Ctrl+Alt+K until the first card or interim ghost appears. */
+.transcript-panel__placeholder {
+    margin: auto;
+    color: rgb(148 163 184 / 85%);
+    font-style: italic;
+    text-align: center;
 }
 
 /* The scrollable stack of AI entries, newest at the bottom (D-02), auto-following while streaming (D-03). */

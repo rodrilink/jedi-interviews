@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { PANEL_LABEL, type ActivePanel } from './panel-labels';
-import { deriveCardRows, type IUtteranceEvent } from './utterance-view.utility';
+import { deriveCardRows, derivePeople, type IUtteranceEvent } from './utterance-view.utility';
 
 /**
  * The read-only transcript payload received over the `window.jedi.onTranscript` bridge (D-04).
@@ -36,9 +36,15 @@ interface IOverlayTranscript {
  * cards visually distinct from statements (D-01) and each `Person N` name in a stable per-speaker accent
  * color (D-04). Because main pushes the full session-scoped list each push (and empties it in place on
  * Ctrl+Alt+K), the panel renders directly from the pushed array — no panel-side accumulation, no
- * flat-text overlap reconciliation. The live in-progress line still renders as a plain interim span after the cards
- * (the ghost card + people row + empty-state land in Plan 09-02). Interim replaces in place, never
- * accumulates (Phase 8 D-02).
+ * flat-text overlap reconciliation.
+ *
+ * PEOPLE ROW + GHOST + EMPTY STATE (Plan 09-02, QA-06/D-09/D-12): a compact people row of counted colored
+ * chips ({@link derivePeople}) is pinned at the top as the color legend, shown only once the first
+ * `Person N` appears (D-06/D-12). The live in-progress line (`interimText`) renders as one faint unlabeled
+ * "ghost" card at the bottom of the stack that solidifies into a real card on finalize (D-09/D-10); it is
+ * driven by the single `interimText` state, so it is replaced in place and never accumulates (Phase 8 D-02).
+ * When there are no cards and no interim, a muted centered "Listening…" placeholder reassures the user the
+ * panel is live (D-12).
  *
  * @returns The Q/A transcript panel element (always rendered).
  */
@@ -117,6 +123,10 @@ export function TranscriptPanel(): JSX.Element {
     }, [utterances, interimText]);
 
     const cardRows = deriveCardRows(utterances);
+    const people = derivePeople(utterances);
+    // The empty state (D-12) is only when there is neither a committed card NOR a forming interim line, so
+    // the "Listening…" placeholder disappears the instant the first ghost card or real card appears.
+    const isEmpty = cardRows.length === 0 && interimText.length === 0;
 
     return (
         <section className="transcript-panel" data-testid="card-transcript-panel" data-active={activePanel === 'transcript'} data-connection-state={connectionState}>
@@ -126,6 +136,23 @@ export function TranscriptPanel(): JSX.Element {
                 {PANEL_LABEL.transcript}
             </span>
             <h2 className="transcript-panel__title">{PANEL_LABEL.transcript}</h2>
+            {/* Compact people row (QA-06/D-06): pinned above the scrolling body as the color legend. Rendered
+                only once at least one numbered Person N exists (the undiarized 'Speaker' bucket is already
+                excluded by derivePeople, D-05/D-07); hidden entirely on an empty session (D-12). */}
+            {people.length > 0 && (
+                <div className="transcript-panel__people" data-testid="list-people">
+                    {people.map((person) => (
+                        <span
+                            className="transcript-panel__person-chip"
+                            key={person.speaker}
+                            data-testid={`row-person-${person.speaker.replace(/\D/g, '')}`}
+                            data-speaker-color={person.color}
+                        >
+                            {`${person.speaker} (${person.count})`}
+                        </span>
+                    ))}
+                </div>
+            )}
             <div className="transcript-panel__body" data-testid="card-transcript" ref={transcriptRef}>
                 {cardRows.map((row, index) => (
                     <article
@@ -146,11 +173,22 @@ export function TranscriptPanel(): JSX.Element {
                         <p className="transcript-panel__card-body">{row.text}</p>
                     </article>
                 ))}
-                {/* The live in-progress line (interim) — plain span after the committed cards for continuity;
-                    the ghost-card treatment lands in Plan 09-02. */}
-                <span className="transcript-panel__interim" data-testid="cell-transcript-interim">
-                    {interimText}
-                </span>
+                {/* Interim "ghost" card (D-09/D-10): ONE trailing unlabeled card for the forming turn, driven
+                    solely by the single `interimText` state so it is replaced in place each interim update
+                    (never accumulated, never remounted) and resolves cleanly into a real card on finalize —
+                    no label, no Q/S accent, a faint/dashed frame reading as "still forming". */}
+                {interimText.length > 0 && (
+                    <article className="transcript-panel__card transcript-panel__card--ghost" data-testid="row-utterance-interim">
+                        <p className="transcript-panel__card-body">{interimText}</p>
+                    </article>
+                )}
+                {/* Empty-state placeholder (D-12): a muted centered line while the session has no cards and no
+                    interim; returns automatically after Ctrl+Alt+K via the empty-push reset. */}
+                {isEmpty && (
+                    <p className="transcript-panel__placeholder" data-testid="cell-transcript-placeholder">
+                        Listening…
+                    </p>
+                )}
             </div>
         </section>
     );
