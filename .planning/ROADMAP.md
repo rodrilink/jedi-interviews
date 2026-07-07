@@ -24,7 +24,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Session Context + Settings Window** - A focusable settings window for API keys and a persisted context editor that grounds every AI prompt. (completed 2026-06-19)
 - [x] **Phase 7: Screenshot Vision + Packaging & Hardening** - Screenshot-driven code-challenge solving and a runnable Windows .exe with transparency, focus discipline, and content protection intact. (completed 2026-06-19)
 - [x] **Phase 8: Diarized Utterance Pipeline** - Per-speaker utterances with a stable `Person N` map and a local Question/Statement tag, all riding the existing STT provider seam. *(milestone v1.1)* (completed 2026-07-07 -- 8/8 verified; 2 live human-UAT items pending, see 08-HUMAN-UAT.md)
-- [x] **Phase 9: Card-Based Q/A Panel Redesign** - The Q/A panel rebuilt in place as per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, with a compact people list. *(milestone v1.1)* (completed 2026-07-07)
+- [x] **Phase 9: Card-Based Q/A Panel Redesign** - The Q/A panel rebuilt in place as per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, with a compact people list. *(milestone v1.1)*
+ (completed 2026-07-07)
 
 ## Phase Details
 
@@ -247,66 +248,12 @@ Plans:
 **Notes**: Vision mode reuses the entire Phase 5 AI path; it adds only an image source and an Opus model switch, so it is last among features and the most expensive per call. Confirm the current Anthropic vision request shape and model IDs via the claude-api skill (research flag: Phase 7 API shape). Base64 image field must have no data-URL prefix. PKG-01 is fully owned here; the Phase 1 packaged smoke test only de-risked transparency rendering. Standard patterns for electron-builder NSIS.
 **UI hint**: yes
 
-### Phase 8: Diarized Utterance Pipeline
+### Milestone v1.1: Structured Q/A Panel (Phases 8-9) — ✅ SHIPPED 2026-07-07
 
-**Goal**: The transcript stream stops being one flat text blob and becomes a stream of discrete, speaker-attributed, classified utterances — each carrying a stable `Person N` label and a Question/Statement tag — delivered through the existing `ISttProvider` seam so nothing downstream is coupled to Deepgram. This is the data/seam layer the Phase 9 card UI consumes.
-**Mode:** mvp
-**Depends on**: Phase 7
-**Requirements**: QA-01, QA-02, QA-03, QA-07
-**Success Criteria** (what must be TRUE):
+Full phase details archived to [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md).
 
-  1. With diarization + utterance segmentation enabled on the Deepgram v5 connection, the live stream yields discrete per-speaker utterances (each with its own text and speaker), not one continuous concatenated transcript — observable as separate utterance events reaching the overlay.
-  2. Each utterance carries a stable session-long speaker label (`Person 1`, `Person 2`, …): the same voice keeps the same `Person N` for the whole session even as Deepgram's raw speaker indices drift, and a new distinct voice gets the next `Person N`.
-  3. Each utterance carries a Question/Statement classification produced by a local heuristic (no per-utterance AI call), defaulting to Statement when confidence is low.
-  4. The utterance shape — text, speaker label, and Question/Statement tag — is emitted through the existing `ISttProvider` seam (the transcript event contract), so consumers depend on the seam and remain swappable/backend-agnostic; no consumer imports `@deepgram/sdk`.
-  5. When the transcript is cleared (Ctrl+Alt+K) the utterance stream and the session speaker map reset together, so `Person N` numbering restarts cleanly for the next session.
-
-**Plans**: 3 plans
-
-Plans:
-
-**Wave 1**
-
-- [x] 08-01-PLAN.md — Pure core + seam extension: `IUtteranceEvent`/`on('utterance')` on the seam (no Deepgram import), `classifyUtterance` heuristic (D-07/D-08), `pickModalSpeakerIndex` + empty-commit-safe `UtteranceAccumulator`, first-seen `SpeakerMap` with neutral bucket + reset — with all three Wave 0 test files (QA-02, QA-03, QA-07)
-
-**Wave 2** *(blocked on 08-01)*
-
-- [x] 08-02-PLAN.md — Gateway wiring: `diarize:'true'` + `utterance_end_ms:'1000'` on the live connect, message-type switch, accumulate-then-commit (one `utterance` per `speech_final`, `UtteranceEnd` fallback, no double-commit), `Person N` + Q/S labeling emitted through the seam, D-11 timer audit + regression (closes todo 260620) (QA-01, QA-07)
-
-**Wave 3** *(blocked on 08-02)*
-
-- [x] 08-03-PLAN.md — Main wiring: additively extend `IOverlayTranscript` with the committed-utterance list on the existing read-only `jedi:transcript` channel (no new control channel), re-key-safe `on('utterance')` binding, and Ctrl+Alt+K reset of buffer + utterance list + Person N numbering together (QA-01, QA-02, QA-07)
-
-**Notes**: The `ISttProvider` seam (`src/main/stt/stt-provider.interface.ts`) MUST be preserved (QA-07/TRN-05): extend `ISttTranscriptEvent` (or add a sibling utterance event) to carry `speaker` + classification rather than coupling consumers to Deepgram. Enable diarization via `diarize: 'true'` + end-of-utterance via `utterance_end_ms: '1000'` on the Deepgram v5 `listen.v1.connect` options in `deepgram-stt.gateway.ts` (RESEARCH correction: there is NO live `utterances` option and NO per-utterance `speaker` — `speaker` is per-word at `words[].speaker`, utterance boundaries come from `speech_final`/`UtteranceEnd`); the exact per-word `speaker` index / utterance-boundary payload shape is a plan-time research item (Context7 `/deepgram/deepgram-js-sdk` + the `claude-api` skill is NOT needed — this is Deepgram-only). The stable speaker map (QA-02) is a main-process session-scoped structure that maps drifting Deepgram indices → stable `Person N`; hold it alongside the `TranscriptBuffer`. Q-vs-statement (QA-03) is a LOCAL heuristic (punctuation `?`, leading interrogatives like who/what/when/where/why/how/do/does/is/are/can/could/would/will, rising-question cues) — no AI call, honoring the "AI calls are user-triggered only" constraint; default Statement when unsure. Keep the classification/speaker-map logic in pure, unit-testable utilities per the seam pattern.
-
-### Phase 9: Card-Based Q/A Panel Redesign
-
-**Goal**: The Q/A panel (`src/renderer/src/components/transcript-panel.tsx`, the left column) is rebuilt IN PLACE from a single flat text blob into a scrollable stack of per-utterance cards — each labeled `Q1 - Person 1` / `S3 - Person 2`, questions visually distinct from statements — with a compact people list of the identified speakers. The surrounding 4-panel overlay layout is unchanged; only this panel's internals change.
-**Mode:** mvp
-**Depends on**: Phase 8
-**Requirements**: QA-04, QA-05, QA-06
-**Success Criteria** (what must be TRUE):
-
-  1. The Q/A panel renders each utterance as its own card labeled with a sequence + speaker (`Q1 - Person 1`, `S3 - Person 2`), replacing the flat-paragraph `finalLog`/`interimText` view.
-  2. Questions and Statements are visually distinct at a glance (e.g. distinct styling/accent for question cards), driven by the Phase 8 classification tag.
-  3. The panel shows a compact list of the people identified in the session (`Person 1`, `Person 2`, …), updating as new speakers appear.
-  4. The existing overlay affordances still work on the redesigned panel: the full-session cards are keyboard-scrollable via the shared Ctrl+Alt+PgUp/PgDn routing when Q/A is the active (Ctrl+Alt+F) panel, and Ctrl+Alt+K clears the cards and people list.
-  5. The overlay never takes keyboard/mouse focus and stays click-through; the redesign is view-only over the one-way transcript/utterance channel (no new renderer→main control surface beyond the existing status/scroll channels).
-
-**Plans**: 2 plans
-**UI hint**: yes
-
-Plans:
-
-**Wave 1**
-
-- [x] 09-01-PLAN.md — Rebuild the panel body: pure utterance-view derivation utility (per-type seq + per-speaker color) + committed cards labeled `Q1 - Person 1` / `S3 - Person 2`, questions visually distinct; remove reconcileFinalLog (QA-04, QA-05)
-
-**Wave 2** *(blocked on 09-01)*
-
-- [x] 09-02-PLAN.md — People row (counted colored chips, `Speaker` excluded) + interim ghost card (replaced-not-accumulated) + empty-state placeholder (QA-06, QA-05)
-
-**Notes**: Redesign is IN PLACE — keep the 4-panel row and the panel's data-testid seams (`card-transcript-panel`, active-indicator, scroll routing via `onScrollTranscript` gated on `activePanel === 'transcript'`). The panel is a pure one-way view (IN-01): it consumes the Phase 8 structured utterance stream over the existing read-only bridge; do NOT add a renderer→main control channel. Sequence numbering (`Q1`, `S3`) is per-type within the session. Interim text handling: show the in-progress utterance distinctly (as today's interim span) until it finalizes into a card. Follow IDEXX frontend conventions — SCSS module / Tailwind, no inline `style` props; `data-testid` on new testable elements (`card-`, `row-`, `list-`).
+- **Phase 8: Diarized Utterance Pipeline** (3 plans) — QA-01/02/03/07. Deepgram diarization + utterance segmentation, stable session-scoped `Person N` map, local Question/Statement heuristic, all through the `ISttProvider` seam. Code-verified; 2 live human-UAT items deferred (see STATE.md Deferred Items).
+- **Phase 9: Card-Based Q/A Panel Redesign** (2 plans) — QA-04/05/06. Q/A panel rebuilt in place as per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, compact people-list color legend, interim ghost card, empty-state placeholder. 5/5 must-haves verified; both live checkpoints approved; threats 6/6 closed (09-SECURITY.md).
 
 ## Progress
 

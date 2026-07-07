@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Structured Q/A Panel
 status: milestone_complete
-stopped_at: Milestone complete (Phase 09 was final phase)
+stopped_at: v1.1 SHIPPED 2026-07-07 (archived + tagged) — awaiting /gsd:new-milestone
 last_updated: 2026-07-07T06:16:43.444Z
 last_activity: 2026-07-07 -- 09-02 COMPLETE (Task 3 human-verify APPROVED); SUMMARY written, QA-05/QA-06 marked complete; Phase 09 done 2/2
 progress:
@@ -148,7 +148,14 @@ Items acknowledged and carried forward from previous milestone close:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
+| verification | Phase 08 08-VERIFICATION.md — live diarization checks | human_needed | 2026-07-07 (v1.1 close) |
+| uat_gap | Phase 08 08-HUMAN-UAT.md — 2 pending live-UAT scenarios | partial | 2026-07-07 (v1.1 close) |
+| uat_gap | Phase 02 02-HUMAN-UAT.md — 1 pending scenario | partial | 2026-07-07 (v1.1 close) |
+| debug | knowledge-base debug session | unknown | 2026-07-07 (v1.1 close) |
+| todo | 260617-code-review-audio-seam-warnings (Phase 4-era) | pending | 2026-07-07 (v1.1 close) |
+| todo | 260618-hud-session-date-and-duration-timer | pending | 2026-07-07 (v1.1 close) |
+| todo | 260618-scrollbar-disappears-history-unreachable | pending | 2026-07-07 (v1.1 close) |
+| requirement | QA-01/QA-02/QA-03/QA-07 (Phase 8) — code-verified, live human-UAT deferred | code-complete | 2026-07-07 (v1.1 close) |
 
 ## Session Continuity
 

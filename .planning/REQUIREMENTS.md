@@ -59,19 +59,19 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **PKG-01**: The app builds to a runnable Windows executable on which transparency, focus discipline, and content protection still hold
 
-## Milestone v1.1 Requirements — Structured Q/A Panel
+## Milestone v1.1 Requirements — Structured Q/A Panel ✅ SHIPPED 2026-07-07
 
-Turn the flat-text Q/A panel into structured, speaker-attributed cards that distinguish questions from statements. Pulls CAP-02 (diarization) forward from v2.
+Archived to [`.planning/milestones/v1.1-REQUIREMENTS.md`](milestones/v1.1-REQUIREMENTS.md). All 7 QA requirements delivered (QA-01/02/03/07 code-verified with live human-UAT deferred — see STATE.md Deferred Items; QA-04/05/06 fully verified). CAP-02 (diarization) was pulled forward from v2 into QA-01/QA-02.
 
 ### Structured Q/A (QA)
 
-- [ ] **QA-01**: The transcript is captured as discrete per-speaker utterances (Deepgram diarization + utterances enabled), not one continuous text stream
-- [ ] **QA-02**: Each utterance is attributed to a speaker labeled `Person 1`, `Person 2`, … and the same voice keeps the same label for the whole session (stable speaker map)
-- [ ] **QA-03**: Each utterance is classified as a Question or a Statement, defaulting to Statement when the classification is not confident
+- [x] **QA-01**: The transcript is captured as discrete per-speaker utterances (Deepgram diarization + utterances enabled), not one continuous text stream — code-verified, live-UAT deferred
+- [x] **QA-02**: Each utterance is attributed to a speaker labeled `Person 1`, `Person 2`, … and the same voice keeps the same label for the whole session (stable speaker map) — code-verified, live-UAT deferred
+- [x] **QA-03**: Each utterance is classified as a Question or a Statement, defaulting to Statement when the classification is not confident — code-verified
 - [x] **QA-04**: The Q/A panel renders each utterance as its own card labeled with a sequence + speaker (e.g. `Q1 - Person 1`, `S3 - Person 2`), replacing the flat-paragraph view
 - [x] **QA-05**: Questions and Statements are visually distinct in the Q/A panel (styling that makes questions stand out at a glance)
 - [x] **QA-06**: The Q/A panel shows a compact list of the people identified in the session (`Person 1`, `Person 2`, …)
-- [ ] **QA-07**: The utterance/speaker data flows through the existing STT provider seam (`ISttProvider`), so classification and attribution are backend-agnostic and do not couple consumers to Deepgram
+- [x] **QA-07**: The utterance/speaker data flows through the existing STT provider seam (`ISttProvider`), so classification and attribution are backend-agnostic and do not couple consumers to Deepgram — code-verified, live-UAT deferred
 
 ## v2 Requirements
 
@@ -146,10 +146,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AI-06 | Phase 6 | Complete |
 | AI-03 | Phase 7 | Complete |
 | PKG-01 | Phase 7 | Complete |
-| QA-01 | Phase 8 | Pending |
-| QA-02 | Phase 8 | Pending |
-| QA-03 | Phase 8 | Pending |
-| QA-07 | Phase 8 | Pending |
+| QA-01 | Phase 8 | Complete (code-verified; live-UAT deferred) |
+| QA-02 | Phase 8 | Complete (code-verified; live-UAT deferred) |
+| QA-03 | Phase 8 | Complete (code-verified) |
+| QA-07 | Phase 8 | Complete (code-verified; live-UAT deferred) |
 | QA-04 | Phase 9 | Complete |
 | QA-05 | Phase 9 | Complete |
 | QA-06 | Phase 9 | Complete |

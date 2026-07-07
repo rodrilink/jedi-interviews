@@ -19,11 +19,13 @@ When the user presses a hotkey during a meeting, a grounded, relevant AI respons
 overlay fast enough to be useful in the flow of conversation — without ever stealing keyboard/mouse
 focus from the meeting app.
 
-## Current Milestone: v1.1 Structured Q/A Panel
+## Milestone v1.1: Structured Q/A Panel — ✅ SHIPPED 2026-07-07
 
-**Goal:** Turn the flat-text Q/A panel into structured, speaker-attributed cards that clearly distinguish questions from statements at a glance.
+Archived to [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) / [`v1.1-REQUIREMENTS.md`](milestones/v1.1-REQUIREMENTS.md). All 7 QA requirements delivered (QA-04/05/06 fully verified; QA-01/02/03/07 code-verified with live human-UAT deferred — see STATE.md Deferred Items). Next milestone not yet started — run `/gsd:new-milestone` to define v1.2/v2.
 
-**Target features:**
+**Goal (delivered):** Turn the flat-text Q/A panel into structured, speaker-attributed cards that clearly distinguish questions from statements at a glance.
+
+**Delivered features:**
 - Enable Deepgram diarization + utterance segmentation so the mixed loopback stream is split into per-speaker utterances (moves CAP-02 into this milestone)
 - A session-long speaker map that keeps each voice labeled consistently as Person 1, Person 2, … despite Deepgram index drift
 - A fast local heuristic that tags each utterance as Question or Statement (defaulting to Statement when unsure) — no per-segment AI cost
