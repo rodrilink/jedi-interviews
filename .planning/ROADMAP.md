@@ -355,6 +355,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. Screenshot Vision + Packaging & Hardening | 3/3 | Complete   | 2026-06-19 |
 | 8. Diarized Utterance Pipeline | 3/3 | Complete   | 2026-07-06 |
 | 9. Card-Based Q/A Panel Redesign | 2/2 | Complete   | 2026-07-07 |
-| 10. Priority Answer Queue | 2/2 | Complete   | 2026-07-07 |
+| 10. Priority Answer Queue | 2/2 | Complete    | 2026-07-07 |
 | 11. Auto-Answer Trigger | 0/? | Not started | - |
 | 12. Scope Hotkey + Directed-at-Me | 0/? | Not started | - |

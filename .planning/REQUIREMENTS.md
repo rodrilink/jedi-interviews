@@ -83,8 +83,8 @@ Auto-generate an AI answer when the Q/A panel identifies a question — the same
 - [ ] **AA-02**: The auto-generated answer streams token-by-token into the existing AI panel (the same surface and rendering as a manual answer), not a new panel
 - [ ] **AA-03**: A single global hotkey cycles auto-answer scope through three states — **All questions → Directed-at-me → Off** — defaulting to All questions; "Off" fully disables auto-answering for the session, and the current mode is visible on the overlay
 - [ ] **AA-04**: In "Directed-at-me" scope, a local no-AI heuristic decides whether a question is aimed at the user (2nd-person cues such as "you", the user's name, absence of another named addressee) and only those questions auto-answer; question detection introduces no per-utterance AI call (consistent with QA-03)
-- [ ] **AA-05**: Answer requests are served from a priority queue that replaces the current single-in-flight "drop if busy" behavior: a manual Ctrl+Alt+A request takes priority over queued auto-answers, and neither an auto-answer nor a manual request cancels an in-flight stream — new requests queue and run in order when the current answer finishes
-- [ ] **AA-06**: Rapid-fire questions are debounced and executed single-in-flight so a burst of detected questions never spawns parallel Claude calls; auto-answer cost stays bounded without requiring a keypress
+- [x] **AA-05**: Answer requests are served from a priority queue that replaces the current single-in-flight "drop if busy" behavior: a manual Ctrl+Alt+A request takes priority over queued auto-answers, and neither an auto-answer nor a manual request cancels an in-flight stream — new requests queue and run in order when the current answer finishes
+- [x] **AA-06**: Rapid-fire questions are debounced and executed single-in-flight so a burst of detected questions never spawns parallel Claude calls; auto-answer cost stays bounded without requiring a keypress
 
 ## v2 Requirements
 
@@ -166,8 +166,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QA-04 | Phase 9 | Complete |
 | QA-05 | Phase 9 | Complete |
 | QA-06 | Phase 9 | Complete |
-| AA-05 | Phase 10 | Pending |
-| AA-06 | Phase 10 | Pending |
+| AA-05 | Phase 10 | Complete |
+| AA-06 | Phase 10 | Complete |
 | AA-01 | Phase 11 | Pending |
 | AA-02 | Phase 11 | Pending |
 | AA-03 | Phase 12 | Pending |
