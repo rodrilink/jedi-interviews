@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Structured Q/A Panel
-status: milestone_complete
-stopped_at: v1.1 SHIPPED 2026-07-07 (archived + tagged) — awaiting /gsd:new-milestone
-last_updated: 2026-07-07T06:16:43.444Z
-last_activity: 2026-07-07 -- 09-02 COMPLETE (Task 3 human-verify APPROVED); SUMMARY written, QA-05/QA-06 marked complete; Phase 09 done 2/2
+milestone: v1.2
+milestone_name: Auto-Answer for Detected Questions
+status: planning
+last_updated: "2026-07-07T06:59:57.383Z"
+last_activity: 2026-07-07
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 28
-  completed_plans: 28
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-06)
 
 ## Current Position
 
-Phase: 09
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-07-07
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-07-07 — Milestone v1.2 started
 
 ## Milestone v1.1 Roadmap (Phases 8–9)
 

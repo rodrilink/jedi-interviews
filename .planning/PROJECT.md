@@ -19,9 +19,22 @@ When the user presses a hotkey during a meeting, a grounded, relevant AI respons
 overlay fast enough to be useful in the flow of conversation — without ever stealing keyboard/mouse
 focus from the meeting app.
 
+## Current Milestone: v1.2 Auto-Answer for Detected Questions
+
+**Goal:** When the Q/A panel identifies a question, automatically generate the same AI answer that Ctrl+Alt+A produces today — streamed into the existing AI panel — with a hotkey to control scope and a queue so it never fights a manual answer.
+
+**Target features:**
+- Auto-answer on detected questions: a question classified in the live stream triggers an AI answer (grounded in session context + transcript span, like the manual path) that streams into the existing AI panel
+- A 3-state scope hotkey cycling **All questions → Directed-at-me → Off** (default: All); "Off" fully disables auto-answer for sensitive meetings
+- A local, no-AI "directed-at-me" heuristic (2nd-person cues: "you", the user's name, no other named addressee) that narrows auto-answering in that mode — question *detection* stays AI-free, consistent with QA-03
+- A priority answer queue replacing today's single-in-flight "drop if busy": manual Ctrl+Alt+A always takes priority; auto + manual requests queue and process in order rather than cancelling an in-flight stream
+- Cost control: debounce rapid-fire questions + single-in-flight execution so a burst of questions never spawns parallel Claude calls
+
+**Key context / deliberate reversal:** This milestone **reverses the v1 "AI calls are user-triggered only" constraint** — auto-answers now fire off the live transcript stream. Cost is bounded by the debounce + single-in-flight guard + the "Off" mode rather than by requiring a keypress. Question *detection* remains local/no-AI (reuses the v1.1 QA-03 heuristic); only *answer generation* is the AI call. Reuses the existing AI panel and the AI orchestrator + grounding path; the orchestrator gains a priority queue. Continues phase numbering (next phase = 10).
+
 ## Milestone v1.1: Structured Q/A Panel — ✅ SHIPPED 2026-07-07
 
-Archived to [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) / [`v1.1-REQUIREMENTS.md`](milestones/v1.1-REQUIREMENTS.md). All 7 QA requirements delivered (QA-04/05/06 fully verified; QA-01/02/03/07 code-verified with live human-UAT deferred — see STATE.md Deferred Items). Next milestone not yet started — run `/gsd:new-milestone` to define v1.2/v2.
+Archived to [`.planning/milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md) / [`v1.1-REQUIREMENTS.md`](milestones/v1.1-REQUIREMENTS.md). All 7 QA requirements delivered (QA-04/05/06 fully verified; QA-01/02/03/07 code-verified with live human-UAT deferred — see STATE.md Deferred Items).
 
 **Goal (delivered):** Turn the flat-text Q/A panel into structured, speaker-attributed cards that clearly distinguish questions from statements at a glance.
 
@@ -124,4 +137,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-07 — Phase 9 (Card-Based Q/A Panel Redesign) complete: the Q/A panel is rebuilt in place as a stack of per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, with a compact people-list color legend, an interim ghost card, and an empty-state placeholder — all over the existing read-only one-way bridge. A code-review Critical (card-stack wiped on a 90s lull) was caught and fixed. This completes milestone v1.1 (Structured Q/A Panel).*
+*Last updated: 2026-07-07 — Milestone v1.1 (Structured Q/A Panel) shipped, archived, and tagged v1.1.0. Started milestone v1.2 (Auto-Answer for Detected Questions): auto-generate an AI answer when the Q/A panel identifies a question, streamed into the existing AI panel, with a 3-state scope hotkey (All → Directed-at-me → Off), a local no-AI directed-at-me heuristic, and a priority answer queue (manual preempts) replacing the single-in-flight drop-if-busy behavior. Deliberately reverses the v1 "AI calls user-triggered only" constraint for answer generation; detection stays local.*
