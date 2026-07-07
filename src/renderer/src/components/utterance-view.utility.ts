@@ -48,6 +48,16 @@ export interface ICardRow {
     speakerColor: string;
 }
 
+/** A single identified speaker in the compact people row (QA-06) — one counted colored chip. */
+export interface IPersonSummary {
+    /** The numbered speaker label, e.g. `'Person 1'` (the undiarized `'Speaker'` bucket is excluded, D-05/D-07). */
+    speaker: string;
+    /** The total number of this speaker's utterances in the session (both questions and statements, D-07). */
+    count: number;
+    /** The deterministic accent-color slot token from {@link personAccentColor}, so the row IS the card color legend (D-06). */
+    color: string;
+}
+
 /** The ordered set of per-speaker accent slots (D-04); their concrete hues are defined in hud.css. */
 const SPEAKER_COLOR_SLOTS: readonly string[] = ['p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'];
 
@@ -106,4 +116,34 @@ export function deriveCardRows(utterances: IUtteranceEvent[]): ICardRow[] {
             speakerColor: personAccentColor(utterance.speaker),
         };
     });
+}
+
+/**
+ * Derives the compact people row from the session-scoped utterance array (QA-06, D-05/D-07/D-08).
+ *
+ * Walks the utterances in list order, skipping the undiarized neutral `'Speaker'` bucket
+ * (`isDiarized === false`, D-05) so it is never listed as a person. For each numbered `Person N` it
+ * accumulates a running utterance count keyed by the speaker label, preserving first-appearance order via
+ * an insertion-ordered {@link Map}. Both questions and statements count toward that person's total (D-07).
+ * Each summary carries {@link personAccentColor}(speaker) so the row doubles as the card color legend (D-06).
+ *
+ * @param utterances - The full session-scoped committed utterances, oldest first.
+ * @returns One {@link IPersonSummary} per distinct numbered speaker, in first-appearance order.
+ */
+export function derivePeople(utterances: IUtteranceEvent[]): IPersonSummary[] {
+    const counts = new Map<string, number>();
+
+    for (const utterance of utterances) {
+        if (!utterance.isDiarized) {
+            continue;
+        }
+
+        counts.set(utterance.speaker, (counts.get(utterance.speaker) ?? 0) + 1);
+    }
+
+    return Array.from(counts, ([speaker, count]) => ({
+        speaker,
+        count,
+        color: personAccentColor(speaker),
+    }));
 }
