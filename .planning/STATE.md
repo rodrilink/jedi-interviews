@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Auto-Answer for Detected Questions
-status: ready_to_plan
-stopped_at: Phase 11 complete (2/2) — ready to discuss Phase 12
-last_updated: 2026-07-07T21:11:47.207Z
+status: planning
+stopped_at: Phase 12 context gathered
+last_updated: "2026-07-07T21:36:26.855Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 27
-  completed_plans: 32
+  completed_plans: 27
   percent: 90
 ---
 
@@ -165,6 +165,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-07T18:23:29.243Z
-Stopped at: Phase 11 context gathered
-Resume file: None
+Last session: 2026-07-07T21:36:26.840Z
+Stopped at: Phase 12 context gathered
+Resume file: .planning/phases/12-scope-hotkey-directed-at-me/12-CONTEXT.md
