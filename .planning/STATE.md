@@ -4,13 +4,13 @@ milestone: v1.2
 milestone_name: Auto-Answer for Detected Questions
 status: executing
 stopped_at: Phase 11 context gathered
-last_updated: "2026-07-07T16:56:19.072Z"
-last_activity: 2026-07-07 -- Phase 11 planning complete
+last_updated: "2026-07-07T18:15:45.843Z"
+last_activity: 2026-07-07
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 27
-  completed_plans: 25
+  completed_plans: 26
   percent: 80
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-06)
 
 **Core value:** When the user presses a hotkey during a meeting, a grounded, relevant AI response appears on the overlay fast enough to be useful — without ever stealing keyboard/mouse focus from the meeting app.
-**Current focus:** Phase 11 — auto answer trigger
+**Current focus:** Phase 11 — auto-answer-trigger
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
+Phase: 11 (auto-answer-trigger) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
-Last activity: 2026-07-07 -- Phase 11 planning complete
+Last activity: 2026-07-07
 
 ## Milestone v1.1 Roadmap (Phases 8–9)
 
@@ -78,6 +78,7 @@ Last activity: 2026-07-07 -- Phase 11 planning complete
 | Phase 07 P01 | 17 | 5 tasks | 19 files |
 | Phase 07 P02 | 12min | 3 tasks | 3 files |
 | Phase 07 P03 | 9min | 2 tasks | 2 files |
+| Phase 11 P01 | 9min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -122,6 +123,7 @@ Recent decisions affecting current work:
 - [Phase 07]: 07-02: Portable .exe (Electron 35.7.5) verified GO 6/6 on-machine (PKG-01) — both native modules asarUnpack'd, load from app.asar.unpacked/. npmRebuild:false (no MSVC; N-API prebuilds ABI-stable, asarUnpack is the real fix, Pitfall 4). Packaged .exe does NOT load .env — keys via Settings/safeStorage (intended v1 path); follow-up todo to consider co-located .env.
 - [Phase ?]: 07-03: CTL-03 hardened via main-process startup log of the registrar outcome (active layer + failed-chord labels only, T-7-IL2); full chord set incl. Ctrl+Alt+C/Y/M/F already covered by register().failed. GPU fallback + vision latency log confirmed no-new-code (07-01). docs/HARDENING.md documents SmartScreen accepted friction. Whisper stub DROPPED (D-16). Pending: Ctrl+Alt+Y/M conflict re-check (260619-mcv).
 - v1.1 roadmap (2026-07-06): milestone split into Phase 8 (Diarized Utterance Pipeline — QA-01/02/03/07, the data/seam layer) then Phase 9 (Card-Based Q/A Panel Redesign — QA-04/05/06, the UI). The `ISttProvider` seam is extended to carry speaker + Question/Statement classification (QA-07) rather than coupling consumers to Deepgram; diarization/utterances enabled via `diarize:true`+`utterances:true` on the Deepgram v5 connect. Stable `Person N` map (QA-02) is a main-process session structure held alongside TranscriptBuffer. Q-vs-statement (QA-03) is a LOCAL heuristic (default Statement) — no per-utterance AI call. Panel redesign is IN PLACE in transcript-panel.tsx; 4-panel layout unchanged.
+- [Phase ?]: 11-01: D-01 reconcile — composite burst key (manual=bare mode, auto=mode#auto+normalized content); keyless auto uses a sentinel inside the #auto namespace, no collision with manual. source added to the thinking push across all three IAiPushEvent duplicates (renderer badge in Plan 02). Boot-reorder: AI-stack before wireSttPipeline; orchestrator forwarded to both attach sites for re-key survival.
 
 ### Pending Todos
 
@@ -160,6 +162,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-07T16:14:06.338Z
+Last session: 2026-07-07T18:15:08.233Z
 Stopped at: Phase 11 context gathered
-Resume file: .planning/phases/11-auto-answer-trigger/11-CONTEXT.md
+Resume file: None

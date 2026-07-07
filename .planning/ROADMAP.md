@@ -318,7 +318,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 11-01-PLAN.md — Main-side auto-answer slice: content-keyed auto-lane dedup + source on the thinking push (orchestrator, D-01/D-04), D-03 boot-reorder + auto-trigger wired through attachSttGatewayHandlers (survives re-key), grounding-parity + single-in-flight tests (AA-01, AA-02)
+- [x] 11-01-PLAN.md — Main-side auto-answer slice: content-keyed auto-lane dedup + source on the thinking push (orchestrator, D-01/D-04), D-03 boot-reorder + auto-trigger wired through attachSttGatewayHandlers (survives re-key), grounding-parity + single-in-flight tests (AA-01, AA-02)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -367,5 +367,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Diarized Utterance Pipeline | 3/3 | Complete   | 2026-07-06 |
 | 9. Card-Based Q/A Panel Redesign | 2/2 | Complete   | 2026-07-07 |
 | 10. Priority Answer Queue | 2/2 | Complete    | 2026-07-07 |
-| 11. Auto-Answer Trigger | 0/? | Not started | - |
+| 11. Auto-Answer Trigger | 1/2 | In Progress|  |
 | 12. Scope Hotkey + Directed-at-Me | 0/? | Not started | - |
