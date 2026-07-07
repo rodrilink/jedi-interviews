@@ -32,6 +32,14 @@ export interface IAiStream {
 
 /** The assembled prompt the gateway sends (the {@link "./prompt-assembler"} output, D-13). */
 export interface IAiPromptRequest {
+    /**
+     * The monotonic id of the orchestrator request this stream serves. The gateway echoes it back on
+     * every emitted event so the orchestrator can positively match a delta/terminal to the currently
+     * active request and DROP a superseded stream's late events. Without this the shared emitter's
+     * back-to-back requests could cross-bleed (a finished request's straggler corrupting the next
+     * queued entry, D-11 / T-10-05).
+     */
+    requestId: number;
     /** Per-mode model id, a named constant chosen by the orchestrator (D-10). */
     model: string;
     /** Hard output-token cap (Pitfall 6). */
@@ -73,31 +81,37 @@ export interface IAiGateway {
      * Subscribes to per-token text deltas (AI-04).
      *
      * @param event - The literal event name `'text'`.
-     * @param listener - Receives each text delta string.
+     * @param listener - Receives each text delta string and the `requestId` of the originating stream
+     *   (echoed from {@link IAiPromptRequest.requestId}) so the consumer can drop a superseded stream's
+     *   late deltas (D-11).
      */
-    on(event: 'text', listener: (textDelta: string) => void): void;
+    on(event: 'text', listener: (textDelta: string, requestId: number) => void): void;
 
     /**
      * Subscribes to successful completion, carrying the full final text.
      *
      * @param event - The literal event name `'done'`.
-     * @param listener - Receives the assembled final text.
+     * @param listener - Receives the assembled final text and the `requestId` of the originating stream
+     *   (echoed from {@link IAiPromptRequest.requestId}) so a duplicate terminal for a superseded stream
+     *   is dropped rather than terminating the now-active request (WR-01).
      */
-    on(event: 'done', listener: (finalText: string) => void): void;
+    on(event: 'done', listener: (finalText: string, requestId: number) => void): void;
 
     /**
      * Subscribes to a transport/API fault. Implementations surface errors here rather than throwing.
      *
      * @param event - The literal event name `'error'`.
-     * @param listener - Receives the {@link Error}.
+     * @param listener - Receives the {@link Error} and the `requestId` of the originating stream
+     *   (echoed from {@link IAiPromptRequest.requestId}) so a superseded stream's late error is dropped.
      */
-    on(event: 'error', listener: (error: Error) => void): void;
+    on(event: 'error', listener: (error: Error, requestId: number) => void): void;
 
     /**
      * Subscribes to stream-aborted notifications (the stream was cancelled via {@link IAiStream.abort}).
      *
      * @param event - The literal event name `'abort'`.
-     * @param listener - Invoked with no arguments when the stream aborts.
+     * @param listener - Invoked with the `requestId` of the originating stream (echoed from
+     *   {@link IAiPromptRequest.requestId}) so a superseded stream's late abort is dropped.
      */
-    on(event: 'abort', listener: () => void): void;
+    on(event: 'abort', listener: (requestId: number) => void): void;
 }

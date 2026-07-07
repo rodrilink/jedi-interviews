@@ -127,7 +127,7 @@ describe('ai-orchestrator', () => {
             expect(gateway.stream).toHaveBeenCalledTimes(1);
 
             // Act — drive the first to a terminal; the queued second now starts.
-            gateway.emit('done', 'first answer');
+            gateway.emit('done', 'first answer', (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId);
 
             // Assert — both streamed, sequentially.
             expect(gateway.stream).toHaveBeenCalledTimes(2);
@@ -161,7 +161,7 @@ describe('ai-orchestrator', () => {
 
             // Assert — the first flushed to a running stream; drive it and the second runs too.
             expect(gateway.stream).toHaveBeenCalledTimes(1);
-            gateway.emit('done', 'first');
+            gateway.emit('done', 'first', (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId);
             expect(gateway.stream).toHaveBeenCalledTimes(2);
             expect(gateway.abort).not.toHaveBeenCalled();
         });
@@ -192,7 +192,7 @@ describe('ai-orchestrator', () => {
             vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
             // Act — finish the first; the queued talking-points runs next.
-            gateway.emit('done', 'answer text');
+            gateway.emit('done', 'answer text', (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId);
 
             // Assert
             expect(gateway.stream).toHaveBeenCalledTimes(2);
@@ -215,7 +215,7 @@ describe('ai-orchestrator', () => {
             orchestrator.trigger('talking-points', 'manual');
             vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
             expect(gateway.stream).toHaveBeenCalledTimes(1);
-            gateway.emit('done', 'first answer');
+            gateway.emit('done', 'first answer', (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId);
 
             // Assert — the manual (talking-points) runs NEXT, ahead of the queued autos, no abort.
             expect(gateway.stream).toHaveBeenCalledTimes(2);
@@ -231,11 +231,12 @@ describe('ai-orchestrator', () => {
             seedSpan(buffer, 'First question about caching.');
             orchestrator.trigger('answer');
             vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
-            gateway.emit('done', 'request one final text');
+            const request1Id = (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId;
+            gateway.emit('done', 'request one final text', request1Id);
             pushed.length = 0;
 
             // Act — request 1's late straggler delta fires while nothing is active; it must be dropped.
-            gateway.emit('text', 'stale token from request one');
+            gateway.emit('text', 'stale token from request one', request1Id);
             vi.advanceTimersByTime(200);
 
             // Assert — no delta pushed (the requestId guard dropped the straggler with no active request).
@@ -250,12 +251,14 @@ describe('ai-orchestrator', () => {
             vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
             orchestrator.trigger('answer');
             vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
-            gateway.emit('text', 'request one partial');
-            gateway.emit('done', 'request one final');
+            const cleanStartRequest1Id = (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId;
+            gateway.emit('text', 'request one partial', cleanStartRequest1Id);
+            gateway.emit('done', 'request one final', cleanStartRequest1Id);
+            const cleanStartRequest2Id = (gateway.stream.mock.calls[1]?.[0] as IAiPromptRequest).requestId;
             pushed.length = 0;
 
             // Act — request 2 is now active; its own token streams and flushes.
-            gateway.emit('text', 'request two token');
+            gateway.emit('text', 'request two token', cleanStartRequest2Id);
             vi.advanceTimersByTime(200);
 
             // Assert — request 2's delta carries ONLY its own text, never request 1's accumulated text.
@@ -263,6 +266,63 @@ describe('ai-orchestrator', () => {
             expect(deltas.length).toBeGreaterThan(0);
             const latest = deltas[deltas.length - 1];
             expect('text' in latest && latest.text).toBe('request two token');
+        });
+
+        it('should drop a request-1-tagged text delta that arrives after request 2 is active', () => {
+            // Arrange — request 1 runs, request 2 queues behind it, then request 1's terminal starts request 2.
+            seedSpan(buffer, 'First question about caching.');
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            const request1Id = (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId;
+            gateway.emit('done', 'request one final', request1Id);
+            const request2Id = (gateway.stream.mock.calls[1]?.[0] as IAiPromptRequest).requestId;
+            pushed.length = 0;
+
+            // Act — request 1's straggler delta, tagged with request 1's id, fires while request 2 is active.
+            gateway.emit('text', 'stale token from request one', request1Id);
+            vi.advanceTimersByTime(200);
+
+            // Assert — no delta bled under request 2 from the superseded request 1 straggler.
+            const stragglerDeltas = pushed.filter((event) => event.type === 'delta');
+            stragglerDeltas.forEach((delta) => {
+                expect(delta.requestId).toBe(request2Id);
+                expect('text' in delta && delta.text).not.toContain('stale token from request one');
+            });
+
+            // Act — request 2's own token, tagged with request 2's id, streams and flushes cleanly.
+            gateway.emit('text', 'request two own token', request2Id);
+            vi.advanceTimersByTime(200);
+
+            // Assert — the flushed delta is exactly request 2's own token, attributed to request 2.
+            const request2Deltas = pushed.filter((event) => event.type === 'delta');
+            const latest = request2Deltas[request2Deltas.length - 1];
+            expect('text' in latest && latest.text).toBe('request two own token');
+            expect(latest.requestId).toBe(request2Id);
+        });
+
+        it('should drop a duplicate terminal for an already-superseded stream after request 2 is active (WR-01)', () => {
+            // Arrange — request 1 runs, request 2 queues behind it, then request 1's terminal starts request 2.
+            seedSpan(buffer, 'First question about caching.');
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            const request1Id = (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId;
+            gateway.emit('done', 'request one final', request1Id);
+            const request2Id = (gateway.stream.mock.calls[1]?.[0] as IAiPromptRequest).requestId;
+            expect(gateway.stream).toHaveBeenCalledTimes(2);
+            pushed.length = 0;
+
+            // Act — a duplicate terminal, tagged with request 1's superseded id, fires while request 2 is active.
+            gateway.emit('done', 'request one duplicate terminal', request1Id);
+            vi.advanceTimersByTime(200);
+
+            // Assert — request 2 was not prematurely terminated: no third stream started, no terminal for request 2.
+            expect(gateway.stream).toHaveBeenCalledTimes(2);
+            const request2Terminals = pushed.filter((event) => (event.type === 'done' || event.type === 'error') && event.requestId === request2Id);
+            expect(request2Terminals).toHaveLength(0);
         });
     });
 
@@ -275,8 +335,9 @@ describe('ai-orchestrator', () => {
             vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
             // Act
-            gateway.emit('text', 'Tok');
-            gateway.emit('text', 'en');
+            const latencyRequestId = (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId;
+            gateway.emit('text', 'Tok', latencyRequestId);
+            gateway.emit('text', 'en', latencyRequestId);
 
             // Assert
             const firstTokenLines = logSpy.mock.calls.filter((call) => typeof call[0] === 'string' && call[0].includes('[ai] first-token'));
@@ -293,7 +354,7 @@ describe('ai-orchestrator', () => {
             vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
             // Act
-            gateway.emit('text', 'Bullet');
+            gateway.emit('text', 'Bullet', (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId);
 
             // Assert
             const line = logSpy.mock.calls.map((call) => String(call[0])).find((message) => message.includes('[ai] first-token'));
@@ -313,12 +374,13 @@ describe('ai-orchestrator', () => {
             orchestrator.trigger('talking-points');
             vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
             // First stream's first delta logs, then it finishes and the queued one starts.
-            gateway.emit('text', 'Answer');
-            gateway.emit('done', 'answer done');
+            const freshLogRequest1Id = (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId;
+            gateway.emit('text', 'Answer', freshLogRequest1Id);
+            gateway.emit('done', 'answer done', freshLogRequest1Id);
             logSpy.mockClear();
 
             // Act — the newly-started queued stream's first delta arrives.
-            gateway.emit('text', 'Bullet');
+            gateway.emit('text', 'Bullet', (gateway.stream.mock.calls[1]?.[0] as IAiPromptRequest).requestId);
 
             // Assert
             const firstTokenLines = logSpy.mock.calls.map((call) => String(call[0])).filter((message) => message.includes('[ai] first-token'));
@@ -381,7 +443,7 @@ describe('ai-orchestrator', () => {
             activeContext = { notes: 'We use a write-through Redis cache.' };
             orchestrator.trigger('talking-points');
             vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
-            gateway.emit('done', 'first');
+            gateway.emit('done', 'first', (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId);
 
             // Assert — the first trigger saw no context; the second pulled the freshly-saved context.
             expect(firstRequest.userContent).not.toContain('write-through Redis cache');
@@ -461,7 +523,7 @@ describe('ai-orchestrator', () => {
             expect(gateway.stream).toHaveBeenCalledTimes(1);
 
             // The queued answer runs after vision finishes.
-            gateway.emit('done', 'vision solution');
+            gateway.emit('done', 'vision solution', (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId);
             expect(gateway.stream).toHaveBeenCalledTimes(2);
         });
 
@@ -490,7 +552,7 @@ describe('ai-orchestrator', () => {
             pushed.length = 0;
 
             // Act
-            gateway.emit('text', 'Tok');
+            gateway.emit('text', 'Tok', (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId);
 
             // Assert
             expect(pushed.filter((event) => event.type === 'delta')).toHaveLength(0);
@@ -504,8 +566,9 @@ describe('ai-orchestrator', () => {
             pushed.length = 0;
 
             // Act
-            gateway.emit('text', 'Tok');
-            gateway.emit('text', 'en');
+            const debounceRequestId = (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId;
+            gateway.emit('text', 'Tok', debounceRequestId);
+            gateway.emit('text', 'en', debounceRequestId);
             vi.advanceTimersByTime(200);
 
             // Assert
@@ -534,10 +597,13 @@ describe('ai-orchestrator', () => {
             // is capped at MAX_PENDING_QUEUE, proving the auto lane never exceeded the cap.
             let guard = 0;
             while (gateway.stream.mock.calls.length < MAX_PENDING_QUEUE + 1 && guard < overflow + 5) {
-                gateway.emit('done', 'done');
+                // Tag each terminal with the currently-active request (the latest started stream) so the
+                // positive request-id guard matches and the queue drains one item at a time.
+                const activeRequestId = (gateway.stream.mock.calls[gateway.stream.mock.calls.length - 1]?.[0] as IAiPromptRequest).requestId;
+                gateway.emit('done', 'done', activeRequestId);
                 guard += 1;
             }
-            gateway.emit('done', 'done');
+            gateway.emit('done', 'done', (gateway.stream.mock.calls[gateway.stream.mock.calls.length - 1]?.[0] as IAiPromptRequest).requestId);
             expect(gateway.stream.mock.calls.length).toBeLessThanOrEqual(MAX_PENDING_QUEUE + 1);
         });
 
@@ -579,10 +645,13 @@ describe('ai-orchestrator', () => {
             // Assert — drain everything; all manuals (the running one + all queued) reach gateway.stream.
             let guard = 0;
             while (gateway.stream.mock.calls.length < manualCount + 1 && guard < manualCount + 5) {
-                gateway.emit('done', 'done');
+                // Tag each terminal with the currently-active request (the latest started stream) so the
+                // positive request-id guard matches and the queue drains one item at a time.
+                const activeRequestId = (gateway.stream.mock.calls[gateway.stream.mock.calls.length - 1]?.[0] as IAiPromptRequest).requestId;
+                gateway.emit('done', 'done', activeRequestId);
                 guard += 1;
             }
-            gateway.emit('done', 'done');
+            gateway.emit('done', 'done', (gateway.stream.mock.calls[gateway.stream.mock.calls.length - 1]?.[0] as IAiPromptRequest).requestId);
             expect(gateway.stream.mock.calls.length).toBe(manualCount + 1);
         });
     });

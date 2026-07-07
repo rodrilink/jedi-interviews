@@ -81,22 +81,26 @@ export class AnthropicGateway extends EventEmitter implements IAiGateway {
                 messages: [{ role: 'user', content: request.userContent }],
             });
 
-            stream.on('text', (textDelta: string) => this.emit('text', textDelta));
-            stream.on('abort', () => this.emit('abort'));
-            stream.on('error', (error: unknown) => this.emitError(error));
+            // Echo the request's monotonic id on every event so the orchestrator can positively match a
+            // delta/terminal to the currently-active request and drop a superseded stream's late events
+            // (D-11 / T-10-05). The id is a plain integer — disclosing it carries no PII (T-10-06).
+            const { requestId } = request;
+            stream.on('text', (textDelta: string) => this.emit('text', textDelta, requestId));
+            stream.on('abort', () => this.emit('abort', requestId));
+            stream.on('error', (error: unknown) => this.emitError(error, requestId));
             // Terminal success — finalText() resolves on message_stop. The catch is intentionally a
             // no-op: a failure here has already surfaced via the 'error' / 'abort' events above, and
             // we must never log the rejection (the SDK error object can embed request headers, T-5-02).
             void stream
                 .finalText()
-                .then((finalText: string) => this.emit('done', finalText))
+                .then((finalText: string) => this.emit('done', finalText, requestId))
                 .catch(() => undefined);
 
             return { abort: (): void => stream.abort() };
         } catch (error) {
             // A synchronous fault before the stream object exists (e.g. an invalid/missing key the SDK
             // rejects on construct). Surface it without throwing; return a no-op abort handle.
-            this.emitError(error);
+            this.emitError(error, request.requestId);
 
             return { abort: (): void => undefined };
         }
@@ -115,10 +119,12 @@ export class AnthropicGateway extends EventEmitter implements IAiGateway {
      * never logged and never emitted.
      *
      * @param error - The raw value thrown by the SDK or a transport fault.
+     * @param requestId - The originating request's monotonic id, echoed so the orchestrator can drop a
+     *   superseded stream's late error (D-11). It is a plain integer and carries no PII (T-10-06).
      */
-    private emitError(error: unknown): void {
+    private emitError(error: unknown, requestId: number): void {
         if (this.listenerCount('error') > 0) {
-            this.emit('error', new Error(sanitizeAiError(error)));
+            this.emit('error', new Error(sanitizeAiError(error)), requestId);
         }
     }
 }

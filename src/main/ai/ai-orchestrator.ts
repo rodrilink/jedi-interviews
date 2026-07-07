@@ -381,7 +381,7 @@ export class AiOrchestrator {
         const span = this.transcriptBuffer.recentSince(RECENT_SPAN_MS);
         const { system, userContent } = assemblePrompt({ mode, span, context: this.getActiveContext() });
 
-        const stream = this.gateway.stream({ model, maxTokens: MAX_TOKENS[mode], system, userContent });
+        const stream = this.gateway.stream({ requestId, model, maxTokens: MAX_TOKENS[mode], system, userContent });
         this.active = { mode, source, requestId, id, stream, text: '', debounceTimer: undefined, pendingDelta: false, model, startMs, firstTokenLogged: false };
 
         // Surface the in-flight 'thinking…' state at run-start so the entry appears before the first token (D-04).
@@ -431,7 +431,7 @@ export class AiOrchestrator {
                 }
 
                 const { system, userContent } = assemblePrompt({ mode: 'code-challenge', span, context: this.getActiveContext(), image });
-                this.active.stream = this.gateway.stream({ model: CODE_CHALLENGE_MODEL, maxTokens: MAX_TOKENS['code-challenge'], system, userContent });
+                this.active.stream = this.gateway.stream({ requestId, model: CODE_CHALLENGE_MODEL, maxTokens: MAX_TOKENS['code-challenge'], system, userContent });
             })
             .catch((error: unknown) => {
                 // Report-don't-throw: a capture fault surfaces as an inline error entry (reusing the
@@ -465,12 +465,14 @@ export class AiOrchestrator {
 
         this.handlersWired = true;
 
-        this.gateway.on('text', (textDelta: string) => {
-            // Pitfall-1 request-id guard: with a shared gateway emitter and requests running back-to-back,
-            // a delta from a finished stream can still fire after its request cleared. Once `active` is
-            // cleared on terminal, a late delta has no active request to attach to and is dropped — it can
-            // never bleed into the next dequeued entry (D-11).
-            if (this.active === undefined) {
+        this.gateway.on('text', (textDelta: string, requestId: number) => {
+            // Pitfall-1 request-id guard (D-11 / T-10-05): the gateway is a shared emitter and requests
+            // run back-to-back — when request 1 terminates it synchronously starts request 2 (clearActive
+            // + startNext in the same tick), so `active` is NOT undefined when a request-1 straggler
+            // arrives. We positively match the event's originating `requestId` to the active request's id
+            // (mirroring flushDelta/startCodeChallenge); a delta from any superseded stream is dropped and
+            // can never bleed into the now-active next entry.
+            if (this.active === undefined || requestId !== this.active.requestId) {
                 return;
             }
 
@@ -489,8 +491,10 @@ export class AiOrchestrator {
             this.scheduleDeltaFlush(this.active.requestId);
         });
 
-        this.gateway.on('done', (finalText: string) => {
-            if (this.active === undefined) {
+        this.gateway.on('done', (finalText: string, eventRequestId: number) => {
+            // Positive request-id guard (D-11 / WR-01): drop a duplicate/straggler terminal from a
+            // superseded stream so it never prematurely terminates the now-active next request.
+            if (this.active === undefined || eventRequestId !== this.active.requestId) {
                 return;
             }
 
@@ -504,8 +508,10 @@ export class AiOrchestrator {
             this.startNext();
         });
 
-        this.gateway.on('error', (error: Error) => {
-            if (this.active === undefined) {
+        this.gateway.on('error', (error: Error, eventRequestId: number) => {
+            // Positive request-id guard (D-11): a superseded stream's late error must not terminate the
+            // now-active next request.
+            if (this.active === undefined || eventRequestId !== this.active.requestId) {
                 return;
             }
 
@@ -520,8 +526,11 @@ export class AiOrchestrator {
             this.startNext();
         });
 
-        this.gateway.on('abort', () => {
-            if (this.active === undefined) {
+        // DORMANT (D-12): no trigger references the abort path in v1.2 (cancel-on-re-press removed, D-01),
+        // but the handler keeps the same positive request-id guard as the others so the dormant seam stays
+        // consistent if a future phase re-wires an explicit cancel.
+        this.gateway.on('abort', (eventRequestId: number) => {
+            if (this.active === undefined || eventRequestId !== this.active.requestId) {
                 return;
             }
 
