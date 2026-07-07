@@ -166,21 +166,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QA-04 | Phase 9 | Complete |
 | QA-05 | Phase 9 | Complete |
 | QA-06 | Phase 9 | Complete |
-| AA-01 | TBD (v1.2) | Pending |
-| AA-02 | TBD (v1.2) | Pending |
-| AA-03 | TBD (v1.2) | Pending |
-| AA-04 | TBD (v1.2) | Pending |
-| AA-05 | TBD (v1.2) | Pending |
-| AA-06 | TBD (v1.2) | Pending |
+| AA-05 | Phase 10 | Pending |
+| AA-06 | Phase 10 | Pending |
+| AA-01 | Phase 11 | Pending |
+| AA-02 | Phase 11 | Pending |
+| AA-03 | Phase 12 | Pending |
+| AA-04 | Phase 12 | Pending |
 
 **Coverage:**
 - v1 requirements: 30 total
 - Mapped to phases: 30 ✓
 - Milestone v1.1 requirements: 7 total (QA-01…QA-07) — Complete
 - Mapped to phases: 7 ✓ (Phase 8: QA-01/02/03/07; Phase 9: QA-04/05/06)
-- Milestone v1.2 requirements: 6 total (AA-01…AA-06) — awaiting roadmap phase mapping
-- Unmapped: 6 (AA-01…AA-06 — filled by the v1.2 roadmap)
+- Milestone v1.2 requirements: 6 total (AA-01…AA-06)
+- Mapped to phases: 6 ✓ (Phase 10: AA-05/06; Phase 11: AA-01/02; Phase 12: AA-03/04)
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-16*
-*Last updated: 2026-07-07 — added milestone v1.2 Auto-Answer requirements (AA-01…AA-06): auto-generate an AI answer for detected questions into the existing AI panel, 3-state scope hotkey (All/Directed-at-me/Off), local directed-at-me heuristic, priority answer queue (manual preempts), debounce + single-in-flight. Reverses the v1 "AI calls user-triggered only" constraint for answer generation; supersedes v2 AI-V2-01.*
+*Last updated: 2026-07-07 — mapped milestone v1.2 Auto-Answer requirements (AA-01…AA-06) to Phases 10–12: Phase 10 Priority Answer Queue (AA-05/06 — priority queue replacing drop-if-busy, debounce + single-in-flight), Phase 11 Auto-Answer Trigger (AA-01/02 — classified questions enqueue a grounded answer into the existing AI panel), Phase 12 Scope Hotkey + Directed-at-Me (AA-03/04 — 3-state All/Directed-at-me/Off scope hotkey with overlay indicator + local no-AI directed-at-me heuristic). Coverage 6/6, 0 unmapped. Reverses the v1 "AI calls user-triggered only" constraint for answer generation; supersedes v2 AI-V2-01.*

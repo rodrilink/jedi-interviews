@@ -6,6 +6,8 @@ Jedi Interviews is built dependency-first: the two existential, version-coupled 
 
 **Milestone v1.1 — Structured Q/A Panel (Phases 8–9):** Turn the flat-text Q/A panel into structured, speaker-attributed cards. The data/seam layer lands first — Deepgram diarization + utterance segmentation, a session-long stable speaker map, and a local question-vs-statement heuristic, all carried through the existing `ISttProvider` seam so consumers stay backend-agnostic — then the card-based Q/A redesign is built in place on top of that structured stream.
 
+**Milestone v1.2 — Auto-Answer for Detected Questions (Phases 10–12):** Close the loop from the v1.1 Q/A stream to the v1 AI answer path — when the classifier tags a live utterance as a question, automatically fire the same grounded answer `Ctrl+Alt+A` produces today, streamed into the *existing* AI panel. Built enabler-first: the orchestrator's single-in-flight "drop if busy" guard is replaced by a **priority queue** (manual preempts auto; nothing cancels an in-flight stream) with a debounce so a burst never spawns parallel Claude calls — the backend layer everything else feeds. Then the auto-trigger is wired from the `on('utterance')` classification into that queue and streamed into the existing AI panel. Then a single 3-state scope hotkey (**All → Directed-at-me → Off**, default All) plus an overlay mode indicator and a local, no-AI "directed-at-me" heuristic gate *which* questions auto-answer. Question **detection stays AI-free** throughout — it reuses/extends the v1.1 QA-03 heuristic in `src/main/stt/`; only **answer generation** is the AI call. **Deliberate constraint reversal:** this milestone reverses the v1 CLAUDE.md/PROJECT.md constraint *"AI calls are user-triggered only."* Auto-answers now fire off the live transcript stream, bounded by debounce + single-in-flight + the **Off** mode rather than by requiring a keypress. This supersedes the v2 item **AI-V2-01** ("auto-detect; suggest, never answer") — v1.2 answers, under user-controlled scope. Everything reuses the existing AI orchestrator, grounding path (AI-06, Phase 6), AI panel, and one-way `jedi:ai` / `jedi:status` push channels; no new panel and no new renderer→main control channel for the answer itself.
+
 ## Phases
 
 **Phase Numbering:**
@@ -26,6 +28,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Diarized Utterance Pipeline** - Per-speaker utterances with a stable `Person N` map and a local Question/Statement tag, all riding the existing STT provider seam. *(milestone v1.1)* (completed 2026-07-07 -- 8/8 verified; 2 live human-UAT items pending, see 08-HUMAN-UAT.md)
 - [x] **Phase 9: Card-Based Q/A Panel Redesign** - The Q/A panel rebuilt in place as per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, with a compact people list. *(milestone v1.1)*
  (completed 2026-07-07)
+- [ ] **Phase 10: Priority Answer Queue** - Replace the orchestrator's single-in-flight "drop if busy" guard with a priority queue (manual preempts auto, nothing cancels an in-flight stream) plus debounce + single-in-flight so a burst never spawns parallel Claude calls. *(milestone v1.2)*
+- [ ] **Phase 11: Auto-Answer Trigger** - Wire classified questions from the live utterance stream into the priority queue as auto-answers that stream token-by-token into the existing AI panel, grounded exactly like a manual answer. *(milestone v1.2)*
+- [ ] **Phase 12: Scope Hotkey + Directed-at-Me** - A single 3-state scope hotkey (All → Directed-at-me → Off) with an overlay mode indicator, plus a local no-AI directed-at-me heuristic that narrows auto-answering in that mode. *(milestone v1.2)*
 
 ## Phase Details
 
@@ -255,10 +260,81 @@ Full phase details archived to [`.planning/milestones/v1.1-ROADMAP.md`](mileston
 - **Phase 8: Diarized Utterance Pipeline** (3 plans) — QA-01/02/03/07. Deepgram diarization + utterance segmentation, stable session-scoped `Person N` map, local Question/Statement heuristic, all through the `ISttProvider` seam. Code-verified; 2 live human-UAT items deferred (see STATE.md Deferred Items).
 - **Phase 9: Card-Based Q/A Panel Redesign** (2 plans) — QA-04/05/06. Q/A panel rebuilt in place as per-utterance cards (`Q1 - Person 1` / `S3 - Person 2`), questions visually distinct, compact people-list color legend, interim ghost card, empty-state placeholder. 5/5 must-haves verified; both live checkpoints approved; threats 6/6 closed (09-SECURITY.md).
 
+### Phase 10: Priority Answer Queue
+
+**Goal**: Replace the AI orchestrator's single-in-flight "drop if busy" guard with a priority answer queue so an auto-answer and a manual answer can both be requested without racing: a manual `Ctrl+Alt+A` request preempts queued auto-answers, neither an auto nor a manual request cancels an in-flight stream, and a burst of requests is debounced + run single-in-flight so it never spawns parallel Claude calls. This is the enabling backend layer for the rest of v1.2 — the queue must exist before auto-answers can feed it — and it is delivered as a pure orchestrator refactor with no auto-trigger source yet (a test/manual double-press proves the queue behavior).
+**Mode:** mvp
+**Depends on**: Phase 9 (v1.1 complete), Phase 5/7 (the `AiOrchestrator` this refactors)
+**Requirements**: AA-05, AA-06
+**Success Criteria** (what must be TRUE):
+
+  1. When one answer is already streaming and another answer request arrives, the second request is **enqueued** (not dropped, as today's `active !== undefined` guard does) and runs in order when the current stream finishes — verified by a unit test that fires two requests and observes both stream to completion in sequence.
+  2. A **manual** `Ctrl+Alt+A` request placed while auto-answers are queued jumps ahead of those queued auto-answers (priority), but does **not** abort or cancel the answer currently streaming — the in-flight stream always finishes first, then the manual request runs next.
+  3. A rapid burst of enqueue requests within a short debounce window collapses so that at most **one** Claude call is ever in flight at a time and duplicate/near-duplicate rapid requests do not each spawn a call — verified by a unit test asserting the gateway `stream()` is invoked the bounded number of times, never in parallel.
+  4. The existing manual flows are unchanged from the user's point of view: a single `Ctrl+Alt+A` / `Ctrl+Alt+T` / `Ctrl+Alt+C` press still produces exactly the same grounded, streamed result it does today (the queue with one item behaves identically to the old single-in-flight path); talking-points and code-challenge modes still route through the orchestrator unchanged.
+  5. The queue is bounded (a hard cap on pending items) so a long silence-free meeting can never grow the queue without limit; overflow is dropped oldest-auto-first, and manual requests are never dropped.
+
+**Threat Model**:
+- **Cost blowout / parallel calls (AA-06):** the whole point of the queue is a single-in-flight execution gate; a bug that lets two `stream()` calls overlap = double Claude spend. Mitigation: single-in-flight invariant is unit-tested by asserting `stream()` call count and non-overlap; the debounce collapses bursts before they reach the gateway.
+- **Unbounded queue growth:** a meeting that never goes quiet could enqueue faster than answers drain. Mitigation: hard cap + drop-oldest-auto eviction (SC 5); manual requests exempt from eviction.
+- **Manual starvation:** if auto-answers always jumped the queue in FIFO order, a manual press could wait behind a backlog. Mitigation: manual requests are inserted at queue **head** (priority), ahead of all queued auto items.
+- **Late-delta bleed across queued requests:** the existing Pitfall-1 request-id guard must survive the refactor — a finished/aborted request's late gateway deltas must never attach to the next queued entry. Mitigation: preserve the monotonic `requestId` guard on every gateway handler; add a regression test.
+- **Regression of the existing single-in-flight cancel semantics:** Phase 5's "re-press same mode cancels" (D-06) and cross-mode behavior must be reconciled with "nothing cancels an in-flight stream." Mitigation: this phase explicitly re-specifies cancel semantics for v1.2 (manual re-press no longer aborts an in-flight auto-stream; it enqueues) and documents the decision so downstream planning does not reintroduce the old abort.
+
+**Plans**: TBD
+
+### Phase 11: Auto-Answer Trigger
+
+**Goal**: Close the loop — when the live utterance stream classifies a turn as a question (the v1.1 QA-03 `classification: 'question'` tag), automatically enqueue an answer request into the Phase 10 priority queue so the same grounded answer content the manual `Ctrl+Alt+A` path produces (active Session Context + recent transcript span, AI-06) streams token-by-token into the **existing** AI panel — no keypress, no new panel, no new renderer→main control channel. The auto-trigger is a main-side wiring on the existing `gateway.on('utterance')` binding; it reuses the orchestrator, the grounding path, and the one-way `jedi:ai` push channel exactly as the manual path does.
+**Mode:** mvp
+**Depends on**: Phase 10 (the priority queue that auto-answers feed)
+**Requirements**: AA-01, AA-02
+**Success Criteria** (what must be TRUE):
+
+  1. When an utterance arrives with `classification: 'question'`, an answer request is automatically enqueued with **no keypress**, and its answer streams into the AI panel — verified live in a meeting and by a unit test that feeds a classified-question `IUtteranceEvent` and observes an answer request enqueued.
+  2. The auto-generated answer is the **same content** the manual `Ctrl+Alt+A` path produces: same answer mode, same model, and grounded in the active Session Context + the recent transcript span (AI-06) — assembled through the existing `assemblePrompt` path, not a new prompt.
+  3. The answer streams token-by-token into the **existing** AI panel using the same `jedi:ai` push + rendering as a manual answer; no new panel and no second AI surface is introduced.
+  4. Utterances classified as `statement` never trigger an auto-answer (only `question` does), and question **detection introduces no per-utterance AI call** — it consumes the existing local QA-03 classification, so cost stays on answer generation only.
+  5. An auto-answer and a manual answer coexist correctly through the Phase 10 queue: a manual `Ctrl+Alt+A` pressed while auto-answers are queued still preempts them, and a burst of detected questions is debounced + single-in-flight (no parallel calls) — the Phase 10 guarantees hold with a real auto-trigger driving them.
+
+**Threat Model**:
+- **Reversal of "AI calls are user-triggered only" (deliberate):** this is where the v1 constraint is actually reversed — answers now fire off the transcript stream. Mitigation is by design: cost is bounded by the Phase 10 debounce + single-in-flight + the Phase 12 **Off** mode; documented in the milestone overview and PROJECT.md as a deliberate, superseding decision (supersedes AI-V2-01).
+- **Answer spam / cost from chatty meetings:** every classified question auto-answering could be noisy and expensive. Mitigation: Phase 10 debounce + bounded queue + single-in-flight; Phase 12 adds the scope narrowing (Directed-at-me) and the hard Off. In this phase, default scope is All (Phase 12 owns the gate) — so the debounce/queue must already be doing real work here.
+- **Grounding drift vs the manual path:** if the auto path assembled its own prompt it could diverge from the manual answer. Mitigation: reuse the exact `assemblePrompt` + orchestrator answer path; a test asserts the auto request carries the same mode/model/grounding shape as a manual answer.
+- **False-positive questions:** the QA-03 heuristic defaults borderline text to `statement`, so false questions are rare by design, but a mis-tag would spend a Claude call. Mitigation: accept the QA-03 default-to-statement bias as the guard; do not add AI to detection; the Off/Directed-at-me scopes (Phase 12) give the user a manual escape hatch.
+- **Key-adjacent leakage on the auto path:** auto-answers hit the same gateway; the existing sanitize-error + main-only-key discipline must cover the auto path too. Mitigation: reuse the existing orchestrator error path (no new gateway call site); no auto-specific logging of transcript/key content.
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 12: Scope Hotkey + Directed-at-Me
+
+**Goal**: Give the user control over *which* questions auto-answer, via a single global hotkey that cycles auto-answer scope through three states — **All questions → Directed-at-me → Off** (default All) — with the current mode shown on the overlay, plus a local, no-AI "directed-at-me" heuristic (2nd-person cues: "you", the user's name, absence of another named addressee) that, in that scope, decides whether a detected question is aimed at the user so only those auto-answer. **Off** fully disables auto-answering for the session (for sensitive meetings). Question detection stays AI-free — the directed-at-me decision extends the local, pure, unit-tested utility pattern in `src/main/stt/` (alongside the QA-03 classifier); only answer generation is ever an AI call. The mode cycle is a new main-side hotkey handler and the indicator uses the existing status push pattern (like `activePanel` / `hudVisible`).
+**Mode:** mvp
+**Depends on**: Phase 11 (the auto-answer trigger this gates)
+**Requirements**: AA-03, AA-04
+**Success Criteria** (what must be TRUE):
+
+  1. A single global hotkey cycles auto-answer scope **All → Directed-at-me → Off → All**, defaulting to **All** at session start, and the cycle works while a meeting app holds focus (like every other chord).
+  2. The current scope is **visible on the overlay** at all times, pushed over the existing `jedi:status` channel using the same main-owned-flag / status-push pattern as `activePanel` and `hudVisible` — no new control channel.
+  3. In **Off**, no question auto-answers at all — the auto-trigger from Phase 11 is fully suppressed for the session; the manual `Ctrl+Alt+A` path still works unchanged.
+  4. In **Directed-at-me**, only questions the local heuristic judges as aimed at the user auto-answer (2nd-person cues such as "you", the user's configured name, and the absence of another named addressee); questions aimed at someone else do not — verified by a pure unit test over representative utterances. In **All**, every classified question auto-answers regardless of the heuristic.
+  5. The directed-at-me decision adds **no per-utterance AI call** — it is a local pure function consistent with QA-03, and its result only gates the *answer* call; the heuristic itself never calls Claude.
+
+**Threat Model**:
+- **New-chord conflict with the meeting app (strong project pattern):** every new global chord in this project is conflict-checked on the target machine vs Teams/Zoom/VS Code (see Phases 2/5/6/7). The 3-state scope chord is new and MUST be re-checked on-machine — treat this as a human-verify GO/NO-GO item, not an assumption. Mitigation: pick a Ctrl+Alt chord, register through `HotkeyRegistrarService` (so `register()` failure surfaces via CTL-03), and run the standard on-machine conflict re-test before finalizing.
+- **Off is not truly off (privacy for sensitive meetings):** if Off only hid the indicator but still fired answers, it would violate the whole point. Mitigation: Off must suppress the enqueue at the source (the Phase 11 auto-trigger checks scope before enqueuing); a test asserts zero `stream()` calls from the auto path while Off.
+- **Directed-at-me false negatives/positives:** a heuristic that mislabels addressee could answer questions meant for others (noisy) or miss ones meant for the user. Mitigation: keep it a pure, unit-tested utility with representative cases; bias conservatively; accept that All mode is the fallback when the user wants everything, and the user's name is configurable to sharpen the 2nd-person cue.
+- **User name as sensitive/PII in logs:** the directed-at-me heuristic reads the user's name; it must not leak into logs alongside transcript text. Mitigation: the name lives in the existing local config/context store, is used only in the pure heuristic, and is never logged (consistent with the existing no-transcript-logging discipline).
+- **Mode indicator focus discipline:** the indicator renders on the `focusable:false` overlay and must not introduce any focusable element or new input. Mitigation: it is a read-only status view (like the existing HUD rows), pushed one-way; the mode-cycle input is a global hotkey, never an overlay control.
+
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -271,3 +347,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. Screenshot Vision + Packaging & Hardening | 3/3 | Complete   | 2026-06-19 |
 | 8. Diarized Utterance Pipeline | 3/3 | Complete   | 2026-07-06 |
 | 9. Card-Based Q/A Panel Redesign | 2/2 | Complete   | 2026-07-07 |
+| 10. Priority Answer Queue | 0/? | Not started | - |
+| 11. Auto-Answer Trigger | 0/? | Not started | - |
+| 12. Scope Hotkey + Directed-at-Me | 0/? | Not started | - |
