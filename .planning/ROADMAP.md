@@ -312,7 +312,18 @@ Plans:
 - **False-positive questions:** the QA-03 heuristic defaults borderline text to `statement`, so false questions are rare by design, but a mis-tag would spend a Claude call. Mitigation: accept the QA-03 default-to-statement bias as the guard; do not add AI to detection; the Off/Directed-at-me scopes (Phase 12) give the user a manual escape hatch.
 - **Key-adjacent leakage on the auto path:** auto-answers hit the same gateway; the existing sanitize-error + main-only-key discipline must cover the auto path too. Mitigation: reuse the existing orchestrator error path (no new gateway call site); no auto-specific logging of transcript/key content.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 11-01-PLAN.md — Main-side auto-answer slice: content-keyed auto-lane dedup + source on the thinking push (orchestrator, D-01/D-04), D-03 boot-reorder + auto-trigger wired through attachSttGatewayHandlers (survives re-key), grounding-parity + single-in-flight tests (AA-01, AA-02)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 11-02-PLAN.md — Renderer badge (the only renderer touch, D-04): mirror source onto the preload + renderer IAiPushEvent thinking variant, carry it onto the panel entry, render a tiny conditional auto badge in the existing AI panel (AA-01, AA-02)
+
 **UI hint**: yes
 
 ### Phase 12: Scope Hotkey + Directed-at-Me
