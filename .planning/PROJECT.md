@@ -35,6 +35,7 @@ focus from the meeting app.
 ### Validated
 
 - [x] Overlay is moved and controlled by keyboard only (global hotkeys), never stealing focus from the meeting app — Validated in Phase 2: Global Hotkeys + Window Control (conflict-tested against Teams/Zoom/VS Code, 2026-06-17)
+- [x] Transcript is a stream of discrete, speaker-attributed (`Person N`), Question/Statement-classified utterances through the `ISttProvider` seam (no Deepgram coupling downstream) — Validated in Phase 8: Diarized Utterance Pipeline (QA-01/02/03/07; 8/8 automated, 2 live human-UAT items pending, 2026-07-07)
 
 ### Active
 
@@ -120,4 +121,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-06 — Started milestone v1.1 (Structured Q/A Panel): Deepgram diarization + utterance segmentation, stable Person N speaker mapping, local question-vs-statement heuristic, and a card-based Q/A redesign with a people list.*
+*Last updated: 2026-07-07 — Phase 8 (Diarized Utterance Pipeline) complete: the STT seam now carries discrete, `Person N`-attributed, Question/Statement-classified utterances and the finalized-transcript feed to the AI orchestrator is restored (CR-01 fix). Next: Phase 9 card-based Q/A panel redesign.*
