@@ -225,6 +225,108 @@ describe('ai-orchestrator', () => {
         });
     });
 
+    describe('content-keyed auto-lane dedup (D-01)', () => {
+        it('should stream both DISTINCT auto questions within the burst window (distinct content is NOT collapsed)', () => {
+            // Arrange
+            seedSpan(buffer, 'We are discussing the reconciliation service.');
+
+            // Act — two DIFFERENT question contents inside the same burst window.
+            orchestrator.trigger('answer', 'auto', 'What is a closure?');
+            orchestrator.trigger('answer', 'auto', 'How does the event loop work?');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — the first flushed to a running stream; drive it and the second runs too.
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+            gateway.emit('done', 'first', (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId);
+            expect(gateway.stream).toHaveBeenCalledTimes(2);
+            expect(gateway.abort).not.toHaveBeenCalled();
+        });
+
+        it('should collapse the SAME auto question content fired twice within the burst window to one stream', () => {
+            // Arrange
+            seedSpan(buffer, 'We are discussing the reconciliation service.');
+
+            // Act — the identical question content twice inside the burst window.
+            orchestrator.trigger('answer', 'auto', 'What is a closure?');
+            orchestrator.trigger('answer', 'auto', 'What is a closure?');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — collapsed to exactly one stream for that content.
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+        });
+
+        it('should collapse the SAME auto question content ignoring surrounding whitespace/case', () => {
+            // Arrange
+            seedSpan(buffer, 'We are discussing the reconciliation service.');
+
+            // Act — same content, differing only in leading/trailing whitespace + case.
+            orchestrator.trigger('answer', 'auto', 'What is a closure?');
+            orchestrator.trigger('answer', 'auto', '  what is a closure?  ');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — normalized equality collapses them to one.
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+        });
+
+        it('should keep manual mode-only collapse byte-for-byte: a rapid double manual answer still collapses to one', () => {
+            // Arrange
+            seedSpan(buffer, 'Tell me about a hard bug you fixed.');
+
+            // Act — a rapid double MANUAL answer press inside the window.
+            orchestrator.trigger('answer', 'manual');
+            orchestrator.trigger('answer', 'manual');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — manual keeps the Phase-10 mode-only collapse (one stream).
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+        });
+
+        it('should NOT collapse a keyless auto answer into the manual answer key space within the same window', () => {
+            // Arrange
+            seedSpan(buffer, 'Discussing the ledger reconciliation flow.');
+
+            // Act — a keyless auto and a manual answer inside the same burst window.
+            orchestrator.trigger('answer', 'manual');
+            orchestrator.trigger('answer', 'auto');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — distinct key spaces: the first runs, the second queues; drive the first and the
+            // second runs too (they were NOT folded into one).
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+            gateway.emit('done', 'first', (gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest).requestId);
+            expect(gateway.stream).toHaveBeenCalledTimes(2);
+            expect(gateway.abort).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('source on the thinking push (D-04)', () => {
+        it('should carry source: auto on the run-start thinking push for an auto trigger', () => {
+            // Arrange
+            seedSpan(buffer, 'We are discussing the reconciliation service.');
+
+            // Act
+            orchestrator.trigger('answer', 'auto', 'What is a closure?');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert
+            const thinking = pushed.find((event) => event.type === 'thinking');
+            expect(thinking && 'source' in thinking && thinking.source).toBe('auto');
+        });
+
+        it('should carry source: manual on the run-start thinking push for a manual trigger', () => {
+            // Arrange
+            seedSpan(buffer, 'We are discussing the reconciliation service.');
+
+            // Act
+            orchestrator.trigger('answer', 'manual');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert
+            const thinking = pushed.find((event) => event.type === 'thinking');
+            expect(thinking && 'source' in thinking && thinking.source).toBe('manual');
+        });
+    });
+
     describe('request-id guard / no cross-bleed (Pitfall 1 / D-11)', () => {
         it('should drop a straggler delta between a finished request and the next queued request start', () => {
             // Arrange — request 1 runs and finishes; the queue is momentarily idle (active === undefined).
