@@ -293,8 +293,18 @@ Plans:
   4. The existing overlay affordances still work on the redesigned panel: the full-session cards are keyboard-scrollable via the shared Ctrl+Alt+PgUp/PgDn routing when Q/A is the active (Ctrl+Alt+F) panel, and Ctrl+Alt+K clears the cards and people list.
   5. The overlay never takes keyboard/mouse focus and stays click-through; the redesign is view-only over the one-way transcript/utterance channel (no new renderer→main control surface beyond the existing status/scroll channels).
 
-**Plans**: TBD
+**Plans**: 2 plans
 **UI hint**: yes
+
+Plans:
+
+**Wave 1**
+
+- [ ] 09-01-PLAN.md — Rebuild the panel body: pure utterance-view derivation utility (per-type seq + per-speaker color) + committed cards labeled `Q1 - Person 1` / `S3 - Person 2`, questions visually distinct; remove reconcileFinalLog (QA-04, QA-05)
+
+**Wave 2** *(blocked on 09-01)*
+
+- [ ] 09-02-PLAN.md — People row (counted colored chips, `Speaker` excluded) + interim ghost card (replaced-not-accumulated) + empty-state placeholder (QA-06, QA-05)
 
 **Notes**: Redesign is IN PLACE — keep the 4-panel row and the panel's data-testid seams (`card-transcript-panel`, active-indicator, scroll routing via `onScrollTranscript` gated on `activePanel === 'transcript'`). The panel is a pure one-way view (IN-01): it consumes the Phase 8 structured utterance stream over the existing read-only bridge; do NOT add a renderer→main control channel. Sequence numbering (`Q1`, `S3`) is per-type within the session. Interim text handling: show the in-progress utterance distinctly (as today's interim span) until it finalizes into a card. Follow IDEXX frontend conventions — SCSS module / Tailwind, no inline `style` props; `data-testid` on new testable elements (`card-`, `row-`, `list-`).
 
@@ -313,4 +323,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Session Context + Settings Window | 4/4 | Complete   | 2026-06-19 |
 | 7. Screenshot Vision + Packaging & Hardening | 3/3 | Complete   | 2026-06-19 |
 | 8. Diarized Utterance Pipeline | 3/3 | Complete   | 2026-07-06 |
-| 9. Card-Based Q/A Panel Redesign | 0/? | Not started | - |
+| 9. Card-Based Q/A Panel Redesign | 0/2 | Not started | - |
