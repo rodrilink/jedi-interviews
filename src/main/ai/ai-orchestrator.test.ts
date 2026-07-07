@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IAiGateway, IAiPromptRequest, IAiStream } from './ai-gateway.interface';
-import { AiOrchestrator } from './ai-orchestrator';
+import { AiOrchestrator, BURST_DEBOUNCE_MS, MAX_PENDING_QUEUE } from './ai-orchestrator';
 import type { IAiPushEvent } from './ai-orchestrator';
 import { AiHistory } from './ai-history';
 import { TranscriptBuffer } from '../stt/transcript-buffer';
@@ -62,12 +62,13 @@ describe('ai-orchestrator', () => {
         vi.useRealTimers();
     });
 
-    describe('empty-span guard (D-11)', () => {
+    describe('empty-span guard (D-11/D-13)', () => {
         it('should NOT call gateway.stream when the recent span is empty', () => {
             // Arrange — buffer left empty.
 
             // Act
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
             // Assert
             expect(gateway.stream).not.toHaveBeenCalled();
@@ -90,68 +91,159 @@ describe('ai-orchestrator', () => {
 
             // Act
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
             // Assert
             expect(gateway.stream).toHaveBeenCalledTimes(1);
         });
     });
 
-    describe('single-in-flight cancel (D-06)', () => {
-        it('should abort the in-flight stream when the same mode is re-pressed', () => {
+    describe('double-press enqueues (D-02/SC1)', () => {
+        it('should NOT abort the in-flight stream when the same mode is re-pressed', () => {
             // Arrange
             seedSpan(buffer, 'Tell me about a hard bug you fixed.');
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
-            // Act
+            // Act — re-press well after the burst window so it enqueues rather than collapsing.
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
-            // Assert
-            expect(gateway.abort).toHaveBeenCalledTimes(1);
+            // Assert — nothing cancels an in-flight stream (D-01).
+            expect(gateway.abort).not.toHaveBeenCalled();
         });
 
-        it('should not start a second stream when the same mode is re-pressed (cancel only)', () => {
+        it('should stream both same-mode requests in sequence, the second only after the first is done', () => {
             // Arrange
             seedSpan(buffer, 'Tell me about a hard bug you fixed.');
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
-            // Act
+            // Act — a second same-mode press mid-stream enqueues (past the burst window).
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
-            // Assert
+            // Assert — still only ONE stream in flight while the first runs (non-overlap).
             expect(gateway.stream).toHaveBeenCalledTimes(1);
+
+            // Act — drive the first to a terminal; the queued second now starts.
+            gateway.emit('done', 'first answer');
+
+            // Assert — both streamed, sequentially.
+            expect(gateway.stream).toHaveBeenCalledTimes(2);
+            expect(gateway.abort).not.toHaveBeenCalled();
         });
     });
 
-    describe('cancel-current-start-new across modes (D-07)', () => {
-        it('should abort the current stream and start a new one when the other mode is pressed', () => {
+    describe('burst collapse (D-06/SC3)', () => {
+        it('should collapse a rapid same-mode burst into a single stream call', () => {
+            // Arrange
+            seedSpan(buffer, 'How would you design a rate limiter?');
+
+            // Act — several presses inside the burst window BEFORE advancing timers.
+            orchestrator.trigger('answer');
+            orchestrator.trigger('answer');
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — one stream call, the burst collapsed.
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+        });
+
+        it('should NOT collapse different modes fired in quick succession', () => {
+            // Arrange
+            seedSpan(buffer, 'We are discussing the reconciliation service.');
+
+            // Act — different modes in the same window are distinct dedup keys (D-06).
+            orchestrator.trigger('answer');
+            orchestrator.trigger('talking-points');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Assert — the first flushed to a running stream; drive it and the second runs too.
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+            gateway.emit('done', 'first');
+            expect(gateway.stream).toHaveBeenCalledTimes(2);
+            expect(gateway.abort).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('cross-mode enqueues without cancelling (D-01/D-03)', () => {
+        it('should NOT abort the current stream when the other mode is pressed mid-stream', () => {
             // Arrange
             seedSpan(buffer, 'We are discussing the reconciliation service.');
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
-            // Act
+            // Act — a different mode mid-stream enqueues (D-03), never aborts (D-01).
             orchestrator.trigger('talking-points');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
             // Assert
-            expect(gateway.abort).toHaveBeenCalledTimes(1);
+            expect(gateway.abort).not.toHaveBeenCalled();
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+        });
+
+        it('should run both modes in sequence when the in-flight stream finishes', () => {
+            // Arrange
+            seedSpan(buffer, 'We are discussing the reconciliation service.');
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            orchestrator.trigger('talking-points');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Act — finish the first; the queued talking-points runs next.
+            gateway.emit('done', 'answer text');
+
+            // Assert
             expect(gateway.stream).toHaveBeenCalledTimes(2);
+            expect(gateway.abort).not.toHaveBeenCalled();
         });
     });
 
-    describe('request-id guard (Pitfall 1)', () => {
-        it('should NOT append a stale aborted stream late delta to the new entry', () => {
-            // Arrange
+    describe('manual preempts queued autos (D-05/SC2)', () => {
+        it('should run a later-enqueued manual before earlier-enqueued autos, without aborting the in-flight stream', () => {
+            // Arrange — one manual runs; two autos then queue behind it.
+            seedSpan(buffer, 'Discussing the ledger reconciliation flow.');
+            orchestrator.trigger('answer', 'manual');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            orchestrator.trigger('answer', 'auto');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            orchestrator.trigger('answer', 'auto');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Act — a manual in a distinguishable mode enqueues at the head lane, then the in-flight finishes.
+            orchestrator.trigger('talking-points', 'manual');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+            gateway.emit('done', 'first answer');
+
+            // Assert — the manual (talking-points) runs NEXT, ahead of the queued autos, no abort.
+            expect(gateway.stream).toHaveBeenCalledTimes(2);
+            const secondRequest = gateway.stream.mock.calls[1]?.[0] as IAiPromptRequest;
+            expect(secondRequest.model).toBe('claude-opus-4-8');
+            expect(gateway.abort).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('request-id guard / no cross-bleed (Pitfall 1 / D-11)', () => {
+        it('should NOT attach request 1 late delta to request 2 after request 1 finished and request 2 started', () => {
+            // Arrange — request 1 runs; request 2 queued behind it.
             seedSpan(buffer, 'First question about caching.');
-            orchestrator.trigger('answer'); // request 1
-            orchestrator.trigger('answer'); // re-press aborts request 1
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            // Finish request 1 so request 2 is dequeued and started.
+            gateway.emit('done', 'request one text');
             pushed.length = 0;
 
-            // Act — request 1's late delta fires after it was aborted.
-            gateway.emit('text', 'stale token from the aborted stream');
+            // Act — a late delta from request 1 arrives while request 2 is the active request.
+            gateway.emit('text', 'stale token from request one');
             vi.advanceTimersByTime(200);
 
-            // Assert
+            // Assert — the late delta does not surface as a delta on request 2's entry.
             const deltas = pushed.filter((event) => event.type === 'delta');
-            expect(deltas).toHaveLength(0);
+            expect(deltas.every((event) => !('text' in event) || !event.text.includes('stale token from request one'))).toBe(true);
         });
     });
 
@@ -161,6 +253,7 @@ describe('ai-orchestrator', () => {
             const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
             seedSpan(buffer, 'How would you design a rate limiter?');
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
             // Act
             gateway.emit('text', 'Tok');
@@ -178,6 +271,7 @@ describe('ai-orchestrator', () => {
             const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
             seedSpan(buffer, 'Walk me through the talking points.');
             orchestrator.trigger('talking-points');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
             // Act
             gateway.emit('text', 'Bullet');
@@ -191,33 +285,20 @@ describe('ai-orchestrator', () => {
             logSpy.mockRestore();
         });
 
-        it('should NOT log latency for a stale aborted stream late first delta', () => {
-            // Arrange
-            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-            seedSpan(buffer, 'First question about caching.');
-            orchestrator.trigger('answer'); // request 1
-            orchestrator.trigger('answer'); // re-press aborts request 1, no new stream
-            logSpy.mockClear();
-
-            // Act — request 1's late first delta fires after it was aborted.
-            gateway.emit('text', 'stale token');
-
-            // Assert
-            const firstTokenLines = logSpy.mock.calls.filter((call) => typeof call[0] === 'string' && call[0].includes('[ai] first-token'));
-            expect(firstTokenLines).toHaveLength(0);
-
-            logSpy.mockRestore();
-        });
-
-        it('should log a fresh first-token line for the new stream after a cross-mode switch', () => {
-            // Arrange
+        it('should log a fresh first-token line for each queued request as it runs', () => {
+            // Arrange — two same-mode requests, the second queued behind the first.
             const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
             seedSpan(buffer, 'We are discussing the reconciliation service.');
-            orchestrator.trigger('answer'); // request 1
-            orchestrator.trigger('talking-points'); // aborts request 1, starts request 2
+            orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            orchestrator.trigger('talking-points');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            // First stream's first delta logs, then it finishes and the queued one starts.
+            gateway.emit('text', 'Answer');
+            gateway.emit('done', 'answer done');
             logSpy.mockClear();
 
-            // Act — the new stream's first delta arrives.
+            // Act — the newly-started queued stream's first delta arrives.
             gateway.emit('text', 'Bullet');
 
             // Assert
@@ -242,6 +323,7 @@ describe('ai-orchestrator', () => {
 
             // Act
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
             // Assert
             const request = gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest;
@@ -260,6 +342,7 @@ describe('ai-orchestrator', () => {
 
             // Act
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
             // Assert
             const request = gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest;
@@ -272,11 +355,14 @@ describe('ai-orchestrator', () => {
             seedSpan(buffer, 'Tell me about the caching layer.');
             activeContext = undefined;
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
             const firstRequest = gateway.stream.mock.calls[0]?.[0] as IAiPromptRequest;
 
             // Act — a mid-session Save changes the provider's return, then the next trigger pulls it.
             activeContext = { notes: 'We use a write-through Redis cache.' };
             orchestrator.trigger('talking-points');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            gateway.emit('done', 'first');
 
             // Assert — the first trigger saw no context; the second pulled the freshly-saved context.
             expect(firstRequest.userContent).not.toContain('write-through Redis cache');
@@ -286,11 +372,12 @@ describe('ai-orchestrator', () => {
     });
 
     describe('code-challenge vision mode (Phase 7 AI-03/D-07/D-11)', () => {
-        it('should trigger even when the transcript span is empty (D-07 bypasses the empty-span guard)', async () => {
+        it('should trigger even when the transcript span is empty (D-13 bypasses the empty-span guard)', async () => {
             // Arrange — buffer left empty; vision is actionable from the image alone.
 
             // Act
             orchestrator.trigger('code-challenge');
+            await vi.advanceTimersByTimeAsync(BURST_DEBOUNCE_MS + 1);
             await vi.runAllTimersAsync();
 
             // Assert — capture ran and a stream started (no empty short-circuit).
@@ -303,6 +390,7 @@ describe('ai-orchestrator', () => {
 
             // Act
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
 
             // Assert
             expect(gateway.stream).not.toHaveBeenCalled();
@@ -314,6 +402,7 @@ describe('ai-orchestrator', () => {
 
             // Act
             orchestrator.trigger('code-challenge');
+            await vi.advanceTimersByTimeAsync(BURST_DEBOUNCE_MS + 1);
             await vi.runAllTimersAsync();
 
             // Assert
@@ -322,29 +411,38 @@ describe('ai-orchestrator', () => {
             expect(Array.isArray(request.userContent)).toBe(true);
         });
 
-        it('should cancel an in-flight vision stream when code-challenge is re-pressed (D-06)', async () => {
+        it('should enqueue (NOT abort) an in-flight vision stream when code-challenge is re-pressed (D-02)', async () => {
             // Arrange
             orchestrator.trigger('code-challenge');
+            await vi.advanceTimersByTimeAsync(BURST_DEBOUNCE_MS + 1);
             await vi.runAllTimersAsync();
 
-            // Act
+            // Act — a re-press past the burst window enqueues a second vision request.
             orchestrator.trigger('code-challenge');
+            await vi.advanceTimersByTimeAsync(BURST_DEBOUNCE_MS + 1);
 
-            // Assert
-            expect(gateway.abort).toHaveBeenCalledTimes(1);
+            // Assert — nothing aborted; still one stream while the first runs.
+            expect(gateway.abort).not.toHaveBeenCalled();
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
         });
 
-        it('should cancel vision and start the new mode when a text mode is pressed mid-vision (3-mode single-in-flight, D-11)', async () => {
+        it('should enqueue (NOT abort) when a text mode is pressed mid-vision (D-03)', async () => {
             // Arrange
             seedSpan(buffer, 'The interviewer wants O(n).');
             orchestrator.trigger('code-challenge');
+            await vi.advanceTimersByTimeAsync(BURST_DEBOUNCE_MS + 1);
             await vi.runAllTimersAsync();
 
             // Act
             orchestrator.trigger('answer');
+            await vi.advanceTimersByTimeAsync(BURST_DEBOUNCE_MS + 1);
 
-            // Assert — exactly one active request: vision aborted, answer started.
-            expect(gateway.abort).toHaveBeenCalledTimes(1);
+            // Assert — vision keeps running; nothing aborted.
+            expect(gateway.abort).not.toHaveBeenCalled();
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+
+            // The queued answer runs after vision finishes.
+            gateway.emit('done', 'vision solution');
             expect(gateway.stream).toHaveBeenCalledTimes(2);
         });
 
@@ -354,6 +452,7 @@ describe('ai-orchestrator', () => {
 
             // Act
             orchestrator.trigger('code-challenge');
+            await vi.advanceTimersByTimeAsync(BURST_DEBOUNCE_MS + 1);
             await vi.runAllTimersAsync();
 
             // Assert — no stream started; an error entry was pushed.
@@ -368,6 +467,7 @@ describe('ai-orchestrator', () => {
             // Arrange
             seedSpan(buffer, 'Describe your testing approach.');
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
             pushed.length = 0;
 
             // Act
@@ -381,6 +481,7 @@ describe('ai-orchestrator', () => {
             // Arrange
             seedSpan(buffer, 'Describe your testing approach.');
             orchestrator.trigger('answer');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
             pushed.length = 0;
 
             // Act
@@ -391,6 +492,79 @@ describe('ai-orchestrator', () => {
             // Assert
             const deltas = pushed.filter((event) => event.type === 'delta');
             expect(deltas.length).toBeGreaterThan(0);
+        });
+    });
+
+    describe('bounded cap + drop-oldest-auto eviction (D-08/D-09/SC5)', () => {
+        it('should never let the auto-inclusive pending count exceed the cap under auto overflow', () => {
+            // Arrange — one manual runs and holds the in-flight slot so nothing drains.
+            seedSpan(buffer, 'Discussing the ledger reconciliation flow.');
+            orchestrator.trigger('talking-points', 'manual');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            expect(gateway.stream).toHaveBeenCalledTimes(1);
+
+            // Act — overflow the auto lane well past the cap. Distinct modes avoid burst collapse.
+            const overflow = MAX_PENDING_QUEUE + 4;
+            for (let index = 0; index < overflow; index += 1) {
+                const mode = index % 2 === 0 ? 'answer' : 'talking-points';
+                orchestrator.trigger(mode, 'auto');
+                vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            }
+
+            // Assert — drain every queued item; the number that ever streamed (beyond the running one)
+            // is capped at MAX_PENDING_QUEUE, proving the auto lane never exceeded the cap.
+            let guard = 0;
+            while (gateway.stream.mock.calls.length < MAX_PENDING_QUEUE + 1 && guard < overflow + 5) {
+                gateway.emit('done', 'done');
+                guard += 1;
+            }
+            gateway.emit('done', 'done');
+            expect(gateway.stream.mock.calls.length).toBeLessThanOrEqual(MAX_PENDING_QUEUE + 1);
+        });
+
+        it('should emit NO jedi:ai push for a silently-evicted auto item (D-09)', () => {
+            // Arrange — a running manual holds the slot; queue autos past the cap.
+            seedSpan(buffer, 'Discussing the ledger reconciliation flow.');
+            orchestrator.trigger('talking-points', 'manual');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            const pushedCountBeforeOverflow = pushed.length;
+
+            // Act — enqueue autos beyond the cap so the oldest autos are evicted.
+            const overflow = MAX_PENDING_QUEUE + 3;
+            for (let index = 0; index < overflow; index += 1) {
+                const mode = index % 2 === 0 ? 'answer' : 'talking-points';
+                orchestrator.trigger(mode, 'auto');
+                vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            }
+
+            // Assert — eviction pushed NOTHING: no cancelled/dropped/error event appeared for evicted autos.
+            const eventsSinceOverflow = pushed.slice(pushedCountBeforeOverflow);
+            const evictionEvents = eventsSinceOverflow.filter((event) => event.type === 'cancelled' || event.type === 'error');
+            expect(evictionEvents).toHaveLength(0);
+        });
+
+        it('should never evict a manual even when more manuals than the cap are enqueued (D-08)', () => {
+            // Arrange — a running item holds the slot.
+            seedSpan(buffer, 'Discussing the ledger reconciliation flow.');
+            orchestrator.trigger('answer', 'manual');
+            vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+
+            // Act — queue more MANUAL items than the cap; alternate modes to avoid burst collapse.
+            const manualCount = MAX_PENDING_QUEUE + 3;
+            for (let index = 0; index < manualCount; index += 1) {
+                const mode = index % 2 === 0 ? 'answer' : 'talking-points';
+                orchestrator.trigger(mode, 'manual');
+                vi.advanceTimersByTime(BURST_DEBOUNCE_MS + 1);
+            }
+
+            // Assert — drain everything; all manuals (the running one + all queued) reach gateway.stream.
+            let guard = 0;
+            while (gateway.stream.mock.calls.length < manualCount + 1 && guard < manualCount + 5) {
+                gateway.emit('done', 'done');
+                guard += 1;
+            }
+            gateway.emit('done', 'done');
+            expect(gateway.stream.mock.calls.length).toBe(manualCount + 1);
         });
     });
 });
