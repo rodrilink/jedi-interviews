@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveCardRows, personAccentColor, type ICardRow, type IUtteranceEvent } from './utterance-view.utility';
+import { deriveCardRows, derivePeople, personAccentColor, type ICardRow, type IPersonSummary, type IUtteranceEvent } from './utterance-view.utility';
 
 describe('deriveCardRows', () => {
     it('should return an empty array for no utterances', () => {
@@ -107,5 +107,82 @@ describe('personAccentColor', () => {
 
         // Assert
         expect(slot).toBe('neutral');
+    });
+});
+
+describe('derivePeople', () => {
+    it('should return an empty array for no utterances', () => {
+        // Arrange
+        const utterances: IUtteranceEvent[] = [];
+
+        // Act
+        const people: IPersonSummary[] = derivePeople(utterances);
+
+        // Assert
+        expect(people).toEqual([]);
+    });
+
+    it('should list distinct numbered speakers in first-appearance order with their utterance counts', () => {
+        // Arrange
+        const utterances: IUtteranceEvent[] = [
+            { text: 'a', speaker: 'Person 1', isDiarized: true, classification: 'statement' },
+            { text: 'b', speaker: 'Person 1', isDiarized: true, classification: 'question' },
+            { text: 'c', speaker: 'Person 2', isDiarized: true, classification: 'statement' },
+            { text: 'd', speaker: 'Person 1', isDiarized: true, classification: 'statement' },
+        ];
+
+        // Act
+        const people: IPersonSummary[] = derivePeople(utterances);
+
+        // Assert
+        expect(people).toEqual([
+            { speaker: 'Person 1', count: 3, color: personAccentColor('Person 1') },
+            { speaker: 'Person 2', count: 1, color: personAccentColor('Person 2') },
+        ]);
+    });
+
+    it('should exclude the undiarized Speaker bucket even when present in the input', () => {
+        // Arrange
+        const utterances: IUtteranceEvent[] = [
+            { text: 'a', speaker: 'Person 1', isDiarized: true, classification: 'statement' },
+            { text: 'b', speaker: 'Speaker', isDiarized: false, classification: 'question' },
+            { text: 'c', speaker: 'Speaker', isDiarized: false, classification: 'statement' },
+        ];
+
+        // Act
+        const people: IPersonSummary[] = derivePeople(utterances);
+
+        // Assert
+        expect(people).toEqual([{ speaker: 'Person 1', count: 1, color: personAccentColor('Person 1') }]);
+    });
+
+    it('should count both question and statement utterances toward the same person total', () => {
+        // Arrange
+        const utterances: IUtteranceEvent[] = [
+            { text: 'a', speaker: 'Person 1', isDiarized: true, classification: 'question' },
+            { text: 'b', speaker: 'Person 1', isDiarized: true, classification: 'statement' },
+        ];
+
+        // Act
+        const people: IPersonSummary[] = derivePeople(utterances);
+
+        // Assert
+        expect(people).toHaveLength(1);
+        expect(people[0].count).toBe(2);
+    });
+
+    it('should color each person with personAccentColor so the row is the card color legend', () => {
+        // Arrange
+        const utterances: IUtteranceEvent[] = [
+            { text: 'a', speaker: 'Person 1', isDiarized: true, classification: 'statement' },
+            { text: 'b', speaker: 'Person 2', isDiarized: true, classification: 'statement' },
+        ];
+
+        // Act
+        const people: IPersonSummary[] = derivePeople(utterances);
+
+        // Assert
+        expect(people[0].color).toBe(personAccentColor('Person 1'));
+        expect(people[1].color).toBe(personAccentColor('Person 2'));
     });
 });
