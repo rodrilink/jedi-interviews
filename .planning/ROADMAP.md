@@ -281,7 +281,13 @@ Full phase details archived to [`.planning/milestones/v1.1-ROADMAP.md`](mileston
 - **Late-delta bleed across queued requests:** the existing Pitfall-1 request-id guard must survive the refactor — a finished/aborted request's late gateway deltas must never attach to the next queued entry. Mitigation: preserve the monotonic `requestId` guard on every gateway handler; add a regression test.
 - **Regression of the existing single-in-flight cancel semantics:** Phase 5's "re-press same mode cancels" (D-06) and cross-mode behavior must be reconciled with "nothing cancels an in-flight stream." Mitigation: this phase explicitly re-specifies cancel semantics for v1.2 (manual re-press no longer aborts an in-flight auto-stream; it enqueues) and documents the decision so downstream planning does not reintroduce the old abort.
 
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+
+**Wave 1**
+
+- [ ] 10-01-PLAN.md — Refactor AiOrchestrator into a two-lane priority queue: enqueue-not-cancel semantics (D-01/02/03), single-in-flight run loop + mode-keyed burst debounce (AA-06), bounded cap + drop-oldest-auto eviction (AA-05); tests-first, dormant abort machinery preserved (D-12)
 
 ### Phase 11: Auto-Answer Trigger
 
@@ -347,6 +353,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. Screenshot Vision + Packaging & Hardening | 3/3 | Complete   | 2026-06-19 |
 | 8. Diarized Utterance Pipeline | 3/3 | Complete   | 2026-07-06 |
 | 9. Card-Based Q/A Panel Redesign | 2/2 | Complete   | 2026-07-07 |
-| 10. Priority Answer Queue | 0/? | Not started | - |
+| 10. Priority Answer Queue | 0/1 | Not started | - |
 | 11. Auto-Answer Trigger | 0/? | Not started | - |
 | 12. Scope Hotkey + Directed-at-Me | 0/? | Not started | - |
