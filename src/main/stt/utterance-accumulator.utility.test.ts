@@ -61,6 +61,32 @@ describe('utterance-accumulator.utility', () => {
             expect(second).toBeUndefined();
         });
 
+        it('should peek the space-joined buffered runs without draining them', () => {
+            // Arrange
+            const accumulator: UtteranceAccumulator = new UtteranceAccumulator();
+
+            // Act
+            accumulator.append([{ punctuated_word: 'Hello', speaker: 0 }], 'Hello');
+            accumulator.append([{ punctuated_word: 'there', speaker: 0 }], 'there');
+            const peeked: string = accumulator.peek();
+            const committed = accumulator.commit();
+
+            // Assert
+            expect(peeked).toBe('Hello there');
+            expect(committed?.text).toBe('Hello there');
+        });
+
+        it('should peek an empty string when no runs are buffered', () => {
+            // Arrange
+            const accumulator: UtteranceAccumulator = new UtteranceAccumulator();
+
+            // Act
+            const peeked: string = accumulator.peek();
+
+            // Assert
+            expect(peeked).toBe('');
+        });
+
         it('should return undefined when committing an empty accumulator', () => {
             // Arrange
             const accumulator: UtteranceAccumulator = new UtteranceAccumulator();

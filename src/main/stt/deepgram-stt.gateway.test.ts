@@ -183,7 +183,10 @@ describe('deepgram-stt.gateway', () => {
         emitResultsMessage('final words', true, { speechFinal: true });
 
         // Assert
-        expect(transcripts).toEqual([{ text: 'final words', isFinal: true }]);
+        expect(transcripts).toEqual([
+            { text: 'final words', isFinal: false },
+            { text: 'final words', isFinal: true },
+        ]);
         expect(utterances).toEqual([{ text: 'final words', speaker: 'Speaker', isDiarized: false, classification: 'statement' }]);
     });
 
@@ -211,6 +214,30 @@ describe('deepgram-stt.gateway', () => {
         // Assert
         expect(utterances).toHaveLength(1);
         expect(transcripts.filter((transcriptEvent) => transcriptEvent.isFinal)).toEqual([{ text: 'how are you doing?', isFinal: true }]);
+    });
+
+    it('should keep the interim line showing the whole turn-so-far across multiple is_final runs (grey-continuity regression)', async () => {
+        // Arrange
+        const { DeepgramSttGateway } = await import('./deepgram-stt.gateway');
+        const gateway = new DeepgramSttGateway(FAKE_API_KEY);
+        const interims: string[] = [];
+        const transcriptListener: ISttTranscriptListener = (transcriptEvent: ISttTranscriptEvent): void => {
+            if (!transcriptEvent.isFinal) {
+                interims.push(transcriptEvent.text);
+            }
+        };
+        gateway.on('transcript', transcriptListener);
+
+        // Act
+        await gateway.start();
+        fakeSocket.emit('open');
+        emitResultsMessage('hello', false);
+        emitResultsMessage('hello there', true, { words: [{ speaker: 0 }] });
+        emitResultsMessage('how', false);
+        emitResultsMessage('how are you', true, { speechFinal: true, words: [{ speaker: 0 }] });
+
+        // Assert
+        expect(interims).toEqual(['hello', 'hello there', 'hello there how', 'hello there how are you']);
     });
 
     it('should re-emit a final transcript on an UtteranceEnd-fallback commit', async () => {

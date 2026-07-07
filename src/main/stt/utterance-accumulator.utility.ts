@@ -96,6 +96,23 @@ export class UtteranceAccumulator {
     }
 
     /**
+     * Returns the space-joined text of the `is_final` runs buffered so far WITHOUT draining them.
+     *
+     * Deepgram resets its live `transcript` field after every `is_final` run within a turn (a long
+     * utterance yields several `is_final` responses before `speech_final`, per the cited endpointing
+     * docs), so the recognizer's next interim only carries the newest fragment. The gateway prefixes
+     * this peeked turn-so-far onto the live interim (and emits it after each `is_final` append) so the
+     * overlay's in-progress (grey) line shows the WHOLE turn as it builds, instead of shrinking back to
+     * Deepgram's post-reset fragment. The buffer is unchanged; the single committed utterance still
+     * drains only on {@link UtteranceAccumulator.commit} at `speech_final`/`UtteranceEnd` (D-01).
+     *
+     * @returns The space-joined finalized-so-far text of the current turn (empty string when none).
+     */
+    public peek(): string {
+        return this.textRuns.join(' ');
+    }
+
+    /**
      * Drains the buffered runs into one committed utterance, or returns `undefined` when nothing is
      * buffered. The empty-buffer no-op makes a trailing `UtteranceEnd` after a `speech_final` commit
      * harmless (Pitfall 4, double-commit guard).

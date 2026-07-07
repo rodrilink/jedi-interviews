@@ -278,18 +278,49 @@ export class DeepgramSttGateway extends EventEmitter implements ISttProvider {
         const text = alternative?.transcript ?? '';
 
         if (message.is_final !== true) {
-            if (text.length > 0) {
-                const transcriptEvent: ISttTranscriptEvent = { text, isFinal: false };
-                this.emit('transcript', transcriptEvent);
-            }
+            // D-02 live line: show the WHOLE in-progress turn as grey, not just Deepgram's latest
+            // post-reset fragment. Deepgram resets its `transcript` field after each `is_final` run
+            // (a long turn has several before `speech_final`), so its interim only carries the newest
+            // words; the finalized-so-far runs are buffered invisibly in the accumulator. Prefix the
+            // accumulated turn-so-far onto the live fragment so the interim reflects the full turn as
+            // it builds. Interim is still replaced in place (never accumulated) — buffer.setInterim
+            // overwrites — and the committed white text still lands once, at commit (D-01/D-02).
+            this.emitTurnInterim(text);
 
             return;
         }
 
         this.accumulator.append(alternative?.words ?? [], text);
+        // Re-emit the interim immediately after buffering this `is_final` run so the grey line keeps
+        // showing the finalized-so-far text (the run just moved into the accumulator and vanished from
+        // Deepgram's next interim). Pass no live fragment — the run is already in the accumulator.
+        this.emitTurnInterim('');
         if (message.speech_final === true) {
             this.commitPendingUtterance();
         }
+    }
+
+    /**
+     * Emits the D-02 live (interim) transcript for the current turn: the accumulator's buffered
+     * finalized-so-far runs joined with the recognizer's latest live fragment. This keeps the grey
+     * in-progress line showing the WHOLE turn as it builds, rather than shrinking to Deepgram's
+     * post-`is_final` reset fragment (which is why the old renderer's grey text appeared to disappear
+     * mid-turn). Emits nothing when the combined text is empty so an empty push never clears a
+     * still-building turn. The event is `isFinal: false`, so `index.ts` routes it to
+     * `buffer.setInterim` (replace-in-place, never accumulated) — the single committed white text
+     * still lands once, at `commitPendingUtterance` (D-01/D-02).
+     *
+     * @param liveFragment - The recognizer's latest interim fragment (empty on a post-`is_final` refresh).
+     */
+    private emitTurnInterim(liveFragment: string): void {
+        const turnSoFar = this.accumulator.peek();
+        const combined = [turnSoFar, liveFragment].filter((part) => part.length > 0).join(' ');
+        if (combined.length === 0) {
+            return;
+        }
+
+        const transcriptEvent: ISttTranscriptEvent = { text: combined, isFinal: false };
+        this.emit('transcript', transcriptEvent);
     }
 
     /**
