@@ -73,6 +73,19 @@ Archived to [`.planning/milestones/v1.1-REQUIREMENTS.md`](milestones/v1.1-REQUIR
 - [x] **QA-06**: The Q/A panel shows a compact list of the people identified in the session (`Person 1`, `Person 2`, …)
 - [x] **QA-07**: The utterance/speaker data flows through the existing STT provider seam (`ISttProvider`), so classification and attribution are backend-agnostic and do not couple consumers to Deepgram — code-verified, live-UAT deferred
 
+## Milestone v1.2 Requirements — Auto-Answer for Detected Questions
+
+Auto-generate an AI answer when the Q/A panel identifies a question — the same answer Ctrl+Alt+A produces today, streamed into the existing AI panel — with a hotkey to control scope and a priority queue so it never fights a manual answer. **Deliberately reverses the v1 "AI calls are user-triggered only" constraint for *answer generation*** (question *detection* stays local/no-AI, reusing QA-03). Supersedes the v2 item AI-V2-01 (auto-detection of questions), which stipulated "suggest, never answer" — v1.2 goes further and answers, under user-controlled scope.
+
+### Auto-Answer (AA)
+
+- [ ] **AA-01**: When an utterance is classified as a question (QA-03), the app automatically generates an AI answer for it — the same answer content the manual Ctrl+Alt+A path produces (grounded in the active Session Context + the relevant transcript span), with no keypress required
+- [ ] **AA-02**: The auto-generated answer streams token-by-token into the existing AI panel (the same surface and rendering as a manual answer), not a new panel
+- [ ] **AA-03**: A single global hotkey cycles auto-answer scope through three states — **All questions → Directed-at-me → Off** — defaulting to All questions; "Off" fully disables auto-answering for the session, and the current mode is visible on the overlay
+- [ ] **AA-04**: In "Directed-at-me" scope, a local no-AI heuristic decides whether a question is aimed at the user (2nd-person cues such as "you", the user's name, absence of another named addressee) and only those questions auto-answer; question detection introduces no per-utterance AI call (consistent with QA-03)
+- [ ] **AA-05**: Answer requests are served from a priority queue that replaces the current single-in-flight "drop if busy" behavior: a manual Ctrl+Alt+A request takes priority over queued auto-answers, and neither an auto-answer nor a manual request cancels an in-flight stream — new requests queue and run in order when the current answer finishes
+- [ ] **AA-06**: Rapid-fire questions are debounced and executed single-in-flight so a burst of detected questions never spawns parallel Claude calls; auto-answer cost stays bounded without requiring a keypress
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -92,7 +105,7 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ### Interaction
 
-- **AI-V2-01**: Auto-detection of questions directed at the user (suggest, never answer unprompted)
+- ~~**AI-V2-01**: Auto-detection of questions directed at the user (suggest, never answer unprompted)~~ — **superseded by v1.2 (AA-01…AA-06)**: v1.2 auto-detects AND auto-answers under user-controlled scope (All/Directed-at-me/Off), reversing the "never answer unprompted" stance
 - **TRN-V2-01**: Transcript-span picker (choose exactly which words the AI acts on, beyond the default recent window)
 - **CTL-V2-01**: User-customizable hotkey remapping UI
 
@@ -153,14 +166,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QA-04 | Phase 9 | Complete |
 | QA-05 | Phase 9 | Complete |
 | QA-06 | Phase 9 | Complete |
+| AA-01 | TBD (v1.2) | Pending |
+| AA-02 | TBD (v1.2) | Pending |
+| AA-03 | TBD (v1.2) | Pending |
+| AA-04 | TBD (v1.2) | Pending |
+| AA-05 | TBD (v1.2) | Pending |
+| AA-06 | TBD (v1.2) | Pending |
 
 **Coverage:**
 - v1 requirements: 30 total
 - Mapped to phases: 30 ✓
-- Milestone v1.1 requirements: 7 total (QA-01…QA-07)
+- Milestone v1.1 requirements: 7 total (QA-01…QA-07) — Complete
 - Mapped to phases: 7 ✓ (Phase 8: QA-01/02/03/07; Phase 9: QA-04/05/06)
-- Unmapped: 0
+- Milestone v1.2 requirements: 6 total (AA-01…AA-06) — awaiting roadmap phase mapping
+- Unmapped: 6 (AA-01…AA-06 — filled by the v1.2 roadmap)
 
 ---
 *Requirements defined: 2026-06-16*
-*Last updated: 2026-07-06 — mapped milestone v1.1 Structured Q/A requirements (QA-01…QA-07) to Phases 8–9: the diarized utterance pipeline (QA-01/02/03/07) and the card-based Q/A panel redesign (QA-04/05/06). CAP-02 pulled forward from v2.*
+*Last updated: 2026-07-07 — added milestone v1.2 Auto-Answer requirements (AA-01…AA-06): auto-generate an AI answer for detected questions into the existing AI panel, 3-state scope hotkey (All/Directed-at-me/Off), local directed-at-me heuristic, priority answer queue (manual preempts), debounce + single-in-flight. Reverses the v1 "AI calls user-triggered only" constraint for answer generation; supersedes v2 AI-V2-01.*
